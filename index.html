@@ -437,6 +437,9 @@
     <button class="nav-btn" id="nav-market" onclick="showView('market')">
       <span class="nav-icon">📈</span><span>שוק</span>
     </button>
+    <button class="nav-btn" id="nav-performance" onclick="showView('performance'); loadAnalytics()">
+      <span class="nav-icon">📡</span><span>ביצועים</span>
+    </button>
     <div class="nav-sep"></div>
     <button class="nav-btn" id="nav-chat" onclick="showView('chat')">
       <span class="nav-icon">💬</span><span>צ׳אט AI</span>
@@ -621,6 +624,32 @@
       </div>
     </div>
 
+    <!-- ── PERFORMANCE (Google Analytics + Ads) ── -->
+    <div id="view-performance" class="view">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="sec-title">📡 ביצועים — Google Analytics & Ads</div>
+          <div class="sec-sub">נתוני תנועה, המרות והכנסות חיים מ-GA4</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-blue" onclick="loadAnalytics(true)">🔄 רענן</button>
+          <button class="btn btn-green" onclick="analyzeAnalyticsWithAI()">🤖 נתח עם AI</button>
+          <button class="btn btn-yellow" onclick="showBackendModal()">⚙️ הגדרות</button>
+        </div>
+      </div>
+
+      <div id="perfOutput">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">📡</div>
+            <div class="card-empty-title">מודול ביצועים</div>
+            <div class="card-empty-desc">חבר את ה-backend (Google Cloud) כדי לראות נתונים חיים מ-Google Analytics</div>
+            <button class="btn btn-yellow" style="margin:14px auto 0" onclick="showBackendModal()">⚙️ חבר Backend</button>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
     <!-- ── CHAT ── -->
     <div id="view-chat" class="view">
       <div class="chat-wrap">
@@ -655,12 +684,26 @@
   </div>
 </div>
 
+<!-- ══════════════ BACKEND MODAL ══════════════ -->
+<div class="overlay hidden" id="backendModal">
+  <div class="modal">
+    <div style="font-size:32px;margin-bottom:10px">📡</div>
+    <h3>חיבור Backend (Google Cloud)</h3>
+    <p>הדבק את כתובת ה-Cloud Function שלך (Trigger URL). זה השרת שמושך נתונים מ-Google Analytics.</p>
+    <input type="text" class="modal-inp" id="backendInp" placeholder="https://...cloudfunctions.net/analytics"
+      onkeydown="if(event.key==='Enter')saveBackend()" />
+    <button class="modal-btn" onclick="saveBackend()">שמור וחבר</button>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════
 // STATE
 // ═══════════════════════════════════
 
 let apiKey = localStorage.getItem('dna_api_key') || '';
+let backendUrl = localStorage.getItem('dna_backend_url') || '';
+let lastAnalytics = null;
 let chatMsgs = [];
 let productsData = null;
 let competitors = JSON.parse(localStorage.getItem('dna_competitors') || '[]');
@@ -1374,6 +1417,130 @@ function fallbackCopy(text, cb) {
 }
 
 // ═══════════════════════════════════
+// PERFORMANCE — GOOGLE ANALYTICS
+// ═══════════════════════════════════
+
+function showBackendModal() {
+  document.getElementById('backendModal').classList.remove('hidden');
+  document.getElementById('backendInp').value = backendUrl;
+  setTimeout(() => document.getElementById('backendInp').focus(), 100);
+}
+
+function saveBackend() {
+  const v = document.getElementById('backendInp').value.trim();
+  if (!v) return;
+  backendUrl = v;
+  localStorage.setItem('dna_backend_url', v);
+  document.getElementById('backendModal').classList.add('hidden');
+  loadAnalytics(true);
+}
+
+async function loadAnalytics(force) {
+  if (!backendUrl) {
+    return; // empty state already shown
+  }
+  if (lastAnalytics && !force) { renderAnalytics(lastAnalytics); return; }
+
+  setStatus('טוען נתונים...', true);
+  setOutput('perfOutput', `<div class="card"><div class="card-body">${loadingHtml('מושך נתונים מ-Google Analytics...')}</div></div>`);
+
+  try {
+    const r = await fetch(backendUrl, { cache: 'no-store' });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    lastAnalytics = d;
+    renderAnalytics(d);
+    setStatus('נתונים עודכנו', false);
+  } catch(e) {
+    setOutput('perfOutput', outputCard('שגיאה', `<span style="color:#f87171">שגיאה בחיבור ל-backend: ${e.message}</span><br><br><button class="btn btn-yellow" onclick="showBackendModal()">⚙️ בדוק הגדרות</button>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+function renderAnalytics(d) {
+  const s = d.summary || {};
+  const fmt = n => (n || 0).toLocaleString('he-IL');
+
+  let html = '';
+
+  // KPI cards
+  if (!s.error) {
+    html += `<div class="kpi-grid" style="margin-bottom:14px">
+      <div class="kpi"><div class="kpi-label">משתמשים</div><div class="kpi-val">${fmt(s.users)}</div><div class="kpi-note">${d.range||''}</div></div>
+      <div class="kpi"><div class="kpi-label">סשנים</div><div class="kpi-val">${fmt(s.sessions)}</div><div class="kpi-note">${d.range||''}</div></div>
+      <div class="kpi"><div class="kpi-label">המרות</div><div class="kpi-val">${fmt(s.conversions)}</div><div class="kpi-note up">conversions</div></div>
+      <div class="kpi"><div class="kpi-label">הכנסות</div><div class="kpi-val" style="font-size:22px">₪${fmt(s.revenue)}</div><div class="kpi-note up">totalRevenue</div></div>
+    </div>`;
+  } else {
+    html += outputCard('שגיאת GA4', `<span style="color:#f87171">${s.error}</span>`);
+  }
+
+  // Channels
+  if (Array.isArray(d.channels) && d.channels.length) {
+    html += `<div class="card" style="margin-bottom:14px"><div class="card-head">🌐 מקורות תנועה</div><div class="card-body">`;
+    html += d.channels.map(c => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span>${esc(c.name)}</span>
+        <span style="color:#34d399;font-weight:700">${fmt(c.sessions)} סשנים · ${fmt(c.users)} משתמשים</span>
+      </div>`).join('');
+    html += `</div></div>`;
+  }
+
+  // Top pages
+  if (Array.isArray(d.topPages) && d.topPages.length) {
+    html += `<div class="card"><div class="card-head">📄 עמודים מובילים</div><div class="card-body">`;
+    html += d.topPages.map((p,i) => `
+      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+        <span style="color:var(--muted)">${i+1}. ${esc(p.path)}</span>
+        <span style="font-weight:700">${fmt(p.views)} צפיות</span>
+      </div>`).join('');
+    html += `</div></div>`;
+  }
+
+  setOutput('perfOutput', html || outputCard('אין נתונים', 'לא התקבלו נתונים מ-GA4'));
+}
+
+async function analyzeAnalyticsWithAI() {
+  if (!lastAnalytics) { await loadAnalytics(true); }
+  if (!lastAnalytics) { showBackendModal(); return; }
+  if (!apiKey) { showApiModal(); return; }
+
+  showView('performance');
+  setStatus('מנתח...', true);
+
+  const dataStr = JSON.stringify(lastAnalytics, null, 2);
+  const prompt = `נתח את נתוני ה-Google Analytics הבאים של דנא ציוד אינסטלציה (28 ימים אחרונים) ותן תובנות עסקיות:
+
+\`\`\`json
+${dataStr}
+\`\`\`
+
+## 📊 ניתוח ביצועים
+
+**מה הנתונים מספרים:** (תובנה עיקרית)
+**מקורות תנועה:** מאיפה מגיע התנועה הכי איכותית? איפה לשים תקציב?
+**עמודים מובילים:** אילו מוצרים/דפים הכי מושכים? מה זה אומר על ביקוש?
+**שיעור המרה:** האם ${lastAnalytics.summary?.conversions || 0} המרות מתוך ${lastAnalytics.summary?.sessions || 0} סשנים זה טוב? מה לשפר?
+
+## 🎯 3 פעולות מיידיות
+להגדלת המרות והכנסות על בסיס הנתונים`;
+
+  const out = document.getElementById('perfOutput');
+  const aiCard = document.createElement('div');
+  aiCard.innerHTML = outputCard('🤖 ניתוח AI', loadingHtml('מנתח את הנתונים...'));
+  out.prepend(aiCard);
+
+  try {
+    const r = await callAI(prompt, false);
+    aiCard.innerHTML = outputCard('🤖 ניתוח AI של הביצועים', renderAI(r));
+    setStatus('הניתוח הושלם', false);
+  } catch(e) {
+    aiCard.innerHTML = outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`);
+    setStatus('שגיאה', false);
+  }
+}
+
+// ═══════════════════════════════════
 // API KEY MODAL
 // ═══════════════════════════════════
 
@@ -1393,6 +1560,9 @@ function saveKey() {
 }
 
 document.getElementById('apiModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+});
+document.getElementById('backendModal').addEventListener('click', e => {
   if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
 });
 

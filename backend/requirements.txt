@@ -1,0 +1,2 @@
+functions-framework==3.*
+google-analytics-data==0.18.*
