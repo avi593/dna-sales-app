@@ -257,6 +257,18 @@
       font-size: 11px; color: #34d399; margin-top: 4px;
       display: flex; align-items: center; gap: 4px; word-break: break-all;
     }
+    .comp-date { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .saved-reports { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+    .saved-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--fg);
+    }
+    .saved-chip button {
+      background: none; border: none; cursor: pointer; font-size: 12px;
+      font-family: 'Heebo',sans-serif; color: #a78bfa; padding: 0;
+    }
+    .saved-chip .chip-x { color: #f87171; font-weight: 700; }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -568,6 +580,7 @@
         <button class="btn btn-orange" onclick="scanAllCompetitors()">⚡ מפת שוק מלאה</button>
         <button class="btn btn-green" onclick="recommendCompetitors()">💡 המלץ לי על מתחרים למעקב</button>
       </div>
+      <div id="savedReports" class="saved-reports"></div>
       <div id="compGrid" class="comp-grid"></div>
       <div id="compOutput">
         <div class="card"><div class="card-body">
@@ -758,6 +771,7 @@ async function init() {
   if (!apiKey) showApiModal();
   await loadProducts();
   renderCompGrid();
+  renderSavedReports();
   updateKPIs();
 }
 
@@ -1051,9 +1065,11 @@ function renderCompGrid() {
         <div class="comp-name">${esc(c.name || c.url)}</div>
         <div class="comp-url">${esc(c.url || '')}</div>
         ${c.focusUrl ? `<div class="comp-focus">🎯 ${esc(c.focusUrl)}</div>` : ''}
+        ${c.analyzedAt ? `<div class="comp-date">📊 נותח ${fmtDate(c.analyzedAt)}</div>` : ''}
       </div>
       <div class="comp-actions">
-        <button class="comp-btn" onclick="analyzeCompetitor(${i})">🔍 נתח</button>
+        ${c.analysis ? `<button class="comp-btn" onclick="viewAnalysis(${i})">👁️ צפה בניתוח</button>` : ''}
+        <button class="comp-btn" onclick="analyzeCompetitor(${i})">${c.analysis ? '🔄 נתח מחדש' : '🔍 נתח'}</button>
         <button class="comp-btn" onclick="setFocusUrl(${i})">🎯 דף מעקב</button>
         <button class="comp-btn comp-btn-del" onclick="delCompetitor(${i})">✕</button>
       </div>
@@ -1130,12 +1146,33 @@ ${c.focusUrl ? `\n## ⭐ ניתוח דף המעקב המודגש\nניתוח מ�
 
   try {
     const r = await callAI(prompt, true);
+    c.analysis = r;
+    c.analyzedAt = new Date().toISOString();
+    localStorage.setItem('dna_competitors', JSON.stringify(competitors));
+    renderCompGrid();
     setOutput('compOutput', outputCard(`🔍 ניתוח: ${c.name}`, renderAI(r)));
     setStatus('הושלם', false);
   } catch(e) {
     setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
     setStatus('שגיאה', false);
   }
+}
+
+function fmtDate(iso) {
+  try {
+    return new Date(iso).toLocaleString('he-IL', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+  } catch { return ''; }
+}
+
+function viewAnalysis(i) {
+  const c = competitors[i];
+  if (!c || !c.analysis) return;
+  showView('competitors');
+  setOutput('compOutput', outputCard(
+    `🔍 ניתוח שמור: ${c.name}`,
+    `<div class="comp-date" style="margin-bottom:10px">📊 נותח ${fmtDate(c.analyzedAt)}</div>` + renderAI(c.analysis)
+  ));
+  setStatus('מציג ניתוח שמור', false);
 }
 
 async function scanAllCompetitors() {
@@ -1163,6 +1200,8 @@ ${known ? 'מתחרים ידועים: ' + known : ''}
 
   try {
     const r = await callAI(prompt, true);
+    localStorage.setItem('dna_market_map', JSON.stringify({ text: r, at: new Date().toISOString() }));
+    renderSavedReports();
     setOutput('compOutput', outputCard('🗺️ מפת שוק', renderAI(r)));
     setStatus('הושלם', false);
   } catch(e) {
@@ -1212,12 +1251,52 @@ ${trackedBlock}
 
   try {
     const r = await callAI(prompt, true);
+    localStorage.setItem('dna_comp_recs', JSON.stringify({ text: r, at: new Date().toISOString() }));
+    renderSavedReports();
     setOutput('compOutput', outputCard('💡 מתחרים מומלצים למעקב', renderAI(r)));
     setStatus('הושלם', false);
   } catch(e) {
     setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
     setStatus('שגיאה', false);
   }
+}
+
+function renderSavedReports() {
+  const el = document.getElementById('savedReports');
+  if (!el) return;
+  const reports = [
+    { key: 'dna_market_map', icon: '🗺️', label: 'מפת שוק', title: '🗺️ מפת שוק' },
+    { key: 'dna_comp_recs', icon: '💡', label: 'מתחרים מומלצים', title: '💡 מתחרים מומלצים למעקב' }
+  ];
+  let html = '';
+  for (const rep of reports) {
+    const raw = localStorage.getItem(rep.key);
+    if (!raw) continue;
+    let saved; try { saved = JSON.parse(raw); } catch { continue; }
+    html += `<span class="saved-chip">
+      <button onclick="viewSavedReport('${rep.key}')">${rep.icon} ${rep.label} · ${fmtDate(saved.at)}</button>
+      <button class="chip-x" onclick="clearSavedReport('${rep.key}')" title="מחק">✕</button>
+    </span>`;
+  }
+  el.innerHTML = html;
+}
+
+function viewSavedReport(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+  let saved; try { saved = JSON.parse(raw); } catch { return; }
+  const title = key === 'dna_market_map' ? '🗺️ מפת שוק (שמור)' : '💡 מתחרים מומלצים (שמור)';
+  showView('competitors');
+  setOutput('compOutput', outputCard(
+    title,
+    `<div class="comp-date" style="margin-bottom:10px">📊 נוצר ${fmtDate(saved.at)}</div>` + renderAI(saved.text)
+  ));
+  setStatus('מציג דוח שמור', false);
+}
+
+function clearSavedReport(key) {
+  localStorage.removeItem(key);
+  renderSavedReports();
 }
 
 // ═══════════════════════════════════
