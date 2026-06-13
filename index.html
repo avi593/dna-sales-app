@@ -269,6 +269,33 @@
       font-family: 'Heebo',sans-serif; color: #a78bfa; padding: 0;
     }
     .saved-chip .chip-x { color: #f87171; font-weight: 700; }
+    .comp-badge {
+      font-size: 10px; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+      border: 1px solid; vertical-align: middle; margin-inline-start: 4px;
+    }
+    /* ══ TRACKED PAGES MODAL ══ */
+    .modal-wide { width: 620px; }
+    .pages-head { display: flex; align-items: center; justify-content: space-between; }
+    .pages-close {
+      background: none; border: none; color: var(--muted); font-size: 18px;
+      cursor: pointer; padding: 4px 8px;
+    }
+    .pages-close:hover { color: var(--text); }
+    .pages-sub { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+    .pages-add { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .pages-add .inp { flex: 1; min-width: 120px; }
+    .pages-add #pageType { flex: 0 0 110px; min-width: 90px; }
+    .pages-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; }
+    .page-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 12px;
+    }
+    .page-info { min-width: 0; }
+    .page-type { font-size: 11px; font-weight: 700; color: #a78bfa; margin-bottom: 2px; }
+    .page-link { font-size: 12px; color: var(--muted); text-decoration: none; word-break: break-all; }
+    .page-link:hover { color: var(--blue); }
+    .page-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 20px; }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -572,9 +599,10 @@
         <div class="sec-sub">מחירים, מסרים, אסטרטגיות — ואיפה לנצח אותם</div>
       </div>
       <div class="input-row">
-        <input class="inp" id="compInp" placeholder="לינק של מתחרה (לדוגמה: ksp-pro.co.il)" />
-        <input class="inp" id="compFocusInp" placeholder="דף ספציפי למעקב מודגש (אופציונלי)" />
-        <button class="btn btn-blue" onclick="addCompetitor()">הוסף וניתח</button>
+        <input class="inp" id="compName" placeholder="שם מתחרה *" />
+        <input class="inp" id="compSite" placeholder="אתר (לדוגמה: ksp-pro.co.il)" />
+        <input class="inp" id="compCat" placeholder="קטגוריה (אופציונלי)" />
+        <button class="btn btn-blue" onclick="addCompetitor()">➕ הוסף מתחרה</button>
       </div>
       <div class="input-row">
         <button class="btn btn-orange" onclick="scanAllCompetitors()">⚡ מפת שוק מלאה</button>
@@ -723,6 +751,29 @@
   </div>
 </div>
 
+<!-- ══════════════ TRACKED PAGES MODAL ══════════════ -->
+<div class="overlay hidden" id="pagesModal">
+  <div class="modal modal-wide">
+    <div class="pages-head">
+      <h3 id="pagesTitle">דפי מעקב</h3>
+      <button class="pages-close" onclick="closePagesModal()">✕</button>
+    </div>
+    <p class="pages-sub">הוסף כתובות URL ספציפיות שתרצה להדגיש במעקב (עמוד מוצר, קטגוריה, מבצעים).</p>
+    <div class="pages-add">
+      <input type="text" class="inp" id="pageUrl" placeholder="כתובת הדף (URL מלא)" />
+      <select class="inp" id="pageType">
+        <option value="product">מוצר</option>
+        <option value="category">קטגוריה</option>
+        <option value="promo">מבצעים</option>
+        <option value="other" selected>אחר</option>
+      </select>
+      <input type="text" class="inp" id="pageLabel" placeholder="תווית (אופציונלי)" />
+      <button class="btn btn-blue" onclick="addPage()">➕ הוסף דף</button>
+    </div>
+    <div id="pagesList" class="pages-list"></div>
+  </div>
+</div>
+
 <script>
 // ═══════════════════════════════════
 // STATE
@@ -734,7 +785,10 @@ let lastAnalytics = null;
 let chatMsgs = [];
 let productsData = null;
 let lastProductMatch = null;
-let competitors = JSON.parse(localStorage.getItem('dna_competitors') || '[]');
+// כתובת ברירת המחדל של ה-API לניהול מתחרים (Cloud Run · Firestore). ניתן לעקוף ב-localStorage 'dna_comp_api'.
+const COMP_API_DEFAULT = 'https://dna-competitors-477673568731.europe-west1.run.app';
+let competitors = [];                                  // נטען מה-API
+let compAnalyses = JSON.parse(localStorage.getItem('dna_comp_analyses') || '{}');  // מטמון ניתוחי AI לפי מזהה מתחרה
 
 const WA_STORE = {};
 let waIdx = 0;
@@ -770,9 +824,9 @@ message content here
 async function init() {
   if (!apiKey) showApiModal();
   await loadProducts();
-  renderCompGrid();
   renderSavedReports();
   updateKPIs();
+  loadCompetitors();   // אסינכרוני — נטען מה-API ברקע
 }
 
 async function loadProducts() {
@@ -927,7 +981,7 @@ async function runDailyScan() {
 
   const today = new Date().toLocaleDateString('he-IL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
   const prodCtx = productsData ? `נתוני קטלוג: ${productsData.total_products || 0} מוצרים, קטגוריות: ${productsData.categories?.slice(0,8).map(c=>c.name).join('، ') || 'לא ידוע'}. עדכון: ${productsData.last_updated}.` : '';
-  const compCtx = competitors.length ? `מתחרים ידועים: ${competitors.map(c=>c.name||c.url).join(', ')}.` : '';
+  const compCtx = competitors.length ? `מתחרים ידועים: ${competitors.map(c=>c.name).join(', ')}.` : '';
 
   const prompt = `בצע מחזור מודיעין יומי מלא — ${today}.
 ${prodCtx}
@@ -1056,85 +1110,177 @@ ${prodCtx ? 'מוצרים קיימים בקטלוג: ' + prodCtx : ''}
 // COMPETITOR INTELLIGENCE
 // ═══════════════════════════════════
 
-function renderCompGrid() {
-  const g = document.getElementById('compGrid');
-  if (!competitors.length) { g.innerHTML = ''; return; }
-  g.innerHTML = competitors.map((c,i) => `
-    <div class="comp-card">
-      <div>
-        <div class="comp-name">${esc(c.name || c.url)}</div>
-        <div class="comp-url">${esc(c.url || '')}</div>
-        ${c.focusUrl ? `<div class="comp-focus">🎯 ${esc(c.focusUrl)}</div>` : ''}
-        ${c.analyzedAt ? `<div class="comp-date">📊 נותח ${fmtDate(c.analyzedAt)}</div>` : ''}
-      </div>
-      <div class="comp-actions">
-        ${c.analysis ? `<button class="comp-btn" onclick="viewAnalysis(${i})">👁️ צפה בניתוח</button>` : ''}
-        <button class="comp-btn" onclick="analyzeCompetitor(${i})">${c.analysis ? '🔄 נתח מחדש' : '🔍 נתח'}</button>
-        <button class="comp-btn" onclick="setFocusUrl(${i})">🎯 דף מעקב</button>
-        <button class="comp-btn comp-btn-del" onclick="delCompetitor(${i})">✕</button>
-      </div>
-    </div>`).join('');
-  document.getElementById('kpiComp').textContent = competitors.length;
+function compApiBase() { return (localStorage.getItem('dna_comp_api') || COMP_API_DEFAULT).replace(/\/$/, ''); }
+
+async function compApi(path, method = 'GET', body = null) {
+  const opts = { method, headers: {} };
+  const key = localStorage.getItem('dna_comp_key');
+  if (key) opts.headers['X-API-Key'] = key;
+  if (body) { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body); }
+  const r = await fetch(compApiBase() + path, opts);
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || ('שגיאת שרת ' + r.status));
+  return d;
 }
 
-function addCompetitor() {
-  const v = document.getElementById('compInp').value.trim();
-  if (!v) return;
-  const focus = document.getElementById('compFocusInp').value.trim();
-  const comp = {
-    name: v.replace(/https?:\/\/(www\.)?/,'').split('/')[0].split('.')[0],
-    url: v,
-    focusUrl: focus || ''
-  };
-  const existing = competitors.find(c => c.url === v || c.name === comp.name);
-  if (existing) {
-    if (focus) existing.focusUrl = focus;
-  } else {
-    competitors.push(comp);
+async function loadCompetitors() {
+  try {
+    const d = await compApi('/competitors');
+    competitors = d.competitors || [];
+  } catch (e) {
+    console.error('loadCompetitors', e);
+    setOutput('compOutput', outputCard('שגיאת חיבור',
+      `<span style="color:#f87171">לא הצלחתי להתחבר לשרת המתחרים: ${e.message}</span>`));
   }
-  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
-  document.getElementById('compInp').value = '';
-  document.getElementById('compFocusInp').value = '';
-  renderCompGrid();
-  analyzeCompetitor(competitors.findIndex(c => c.url === v || c.name === comp.name));
-}
-
-function setFocusUrl(i) {
-  const c = competitors[i];
-  if (!c) return;
-  const v = prompt(`דף ספציפי למעקב מודגש אצל ${c.name}:\n(לדוגמה: עמוד קטגוריה או מוצר מסוים)`, c.focusUrl || '');
-  if (v === null) return;
-  c.focusUrl = v.trim();
-  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
-  renderCompGrid();
-}
-
-function delCompetitor(i) {
-  competitors.splice(i, 1);
-  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
   renderCompGrid();
   updateKPIs();
 }
 
-async function analyzeCompetitor(i) {
-  const c = competitors[i];
-  if (!c || !apiKey) { if (!apiKey) showApiModal(); return; }
+function statusBadge(s) {
+  const map = { active: ['#34d399', 'פעיל'], paused: ['#fbbf24', 'מושהה'] };
+  const [color, label] = map[s] || map.active;
+  return `<span class="comp-badge" style="color:${color};border-color:${color}55">${label}</span>`;
+}
+
+function renderCompGrid() {
+  const g = document.getElementById('compGrid');
+  const kpi = document.getElementById('kpiComp');
+  if (!competitors.length) { g.innerHTML = ''; if (kpi) kpi.textContent = 0; return; }
+  g.innerHTML = competitors.map(c => {
+    const a = compAnalyses[c.id];
+    return `
+    <div class="comp-card">
+      <div>
+        <div class="comp-name">${esc(c.name)} ${statusBadge(c.status)}</div>
+        ${c.website ? `<div class="comp-url">${esc(c.website)}</div>` : ''}
+        ${c.category ? `<div class="comp-focus">🏷️ ${esc(c.category)}</div>` : ''}
+        ${a ? `<div class="comp-date">📊 נותח ${fmtDate(a.at)}</div>` : ''}
+      </div>
+      <div class="comp-actions">
+        <button class="comp-btn" onclick="managePages('${c.id}')">📄 דפי מעקב</button>
+        ${a ? `<button class="comp-btn" onclick="viewAnalysis('${c.id}')">👁️ ניתוח</button>` : ''}
+        <button class="comp-btn" onclick="analyzeCompetitor('${c.id}')">${a ? '🔄 נתח' : '🔍 נתח'}</button>
+        <button class="comp-btn comp-btn-del" onclick="delCompetitor('${c.id}')">✕</button>
+      </div>
+    </div>`;
+  }).join('');
+  if (kpi) kpi.textContent = competitors.length;
+}
+
+async function addCompetitor() {
+  const name = document.getElementById('compName').value.trim();
+  if (!name) { alert('יש להזין שם מתחרה'); return; }
+  const website = document.getElementById('compSite').value.trim();
+  const category = document.getElementById('compCat').value.trim();
+  setStatus('מוסיף מתחרה...', true);
+  try {
+    await compApi('/competitors', 'POST', { name, website, category });
+    document.getElementById('compName').value = '';
+    document.getElementById('compSite').value = '';
+    document.getElementById('compCat').value = '';
+    await loadCompetitors();
+    setStatus('נוסף', false);
+  } catch (e) { alert('שגיאה בהוספה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function delCompetitor(id) {
+  const c = competitors.find(x => x.id === id);
+  if (!confirm(`למחוק את "${c?.name || ''}" וכל דפי המעקב שלו?`)) return;
+  setStatus('מוחק...', true);
+  try {
+    await compApi('/competitors/' + id, 'DELETE');
+    delete compAnalyses[id];
+    localStorage.setItem('dna_comp_analyses', JSON.stringify(compAnalyses));
+    await loadCompetitors();
+    setStatus('נמחק', false);
+  } catch (e) { alert('שגיאה במחיקה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+// ── דפי מעקב (Tracked Pages) ──
+let currentCompId = null;
+const PAGE_TYPES = { product: 'מוצר', category: 'קטגוריה', promo: 'מבצעים', other: 'אחר' };
+
+async function managePages(id) {
+  currentCompId = id;
+  const c = competitors.find(x => x.id === id);
+  document.getElementById('pagesTitle').textContent = 'דפי מעקב — ' + (c?.name || '');
+  document.getElementById('pagesList').innerHTML = loadingHtml('טוען דפים...');
+  document.getElementById('pagesModal').classList.remove('hidden');
+  await loadPages(id);
+}
+
+async function loadPages(id) {
+  try {
+    const d = await compApi('/pages?competitorId=' + encodeURIComponent(id));
+    renderPages(d.pages || []);
+  } catch (e) {
+    document.getElementById('pagesList').innerHTML = `<span style="color:#f87171">${e.message}</span>`;
+  }
+}
+
+function renderPages(pages) {
+  const el = document.getElementById('pagesList');
+  if (!pages.length) {
+    el.innerHTML = '<div class="page-empty">אין דפי מעקב עדיין. הוסף URL ספציפי שתרצה להדגיש במעקב.</div>';
+    return;
+  }
+  el.innerHTML = pages.map(p => `
+    <div class="page-row">
+      <div class="page-info">
+        <div class="page-type">${PAGE_TYPES[p.pageType] || 'אחר'}${p.label ? ' · ' + esc(p.label) : ''}</div>
+        <a class="page-link" href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.url)}</a>
+      </div>
+      <button class="comp-btn comp-btn-del" onclick="delPage('${p.id}')">✕</button>
+    </div>`).join('');
+}
+
+async function addPage() {
+  const url = document.getElementById('pageUrl').value.trim();
+  if (!url) { alert('יש להזין כתובת דף'); return; }
+  const pageType = document.getElementById('pageType').value;
+  const label = document.getElementById('pageLabel').value.trim();
+  try {
+    await compApi('/pages', 'POST', { competitorId: currentCompId, url, pageType, label });
+    document.getElementById('pageUrl').value = '';
+    document.getElementById('pageLabel').value = '';
+    await loadPages(currentCompId);
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function delPage(pid) {
+  try { await compApi('/pages/' + pid, 'DELETE'); await loadPages(currentCompId); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+function closePagesModal() {
+  document.getElementById('pagesModal').classList.add('hidden');
+  currentCompId = null;
+}
+
+// ── ניתוח AI ──
+async function analyzeCompetitor(id) {
+  const c = competitors.find(x => x.id === id);
+  if (!c) return;
+  if (!apiKey) { showApiModal(); return; }
   setStatus('מנתח מתחרה...', true);
   setOutput('compOutput', outputCard(`🔍 מנתח: ${c.name}`, loadingHtml(`סורק ${c.name}...`)));
 
-  const focusBlock = c.focusUrl ? `
+  // משלב את דפי המעקב המוגדרים (אם יש)
+  let pagesBlock = '';
+  try {
+    const d = await compApi('/pages?competitorId=' + encodeURIComponent(id));
+    const urls = (d.pages || []).map(p => `- ${PAGE_TYPES[p.pageType] || 'דף'}: ${p.url}`);
+    if (urls.length) pagesBlock = `\n\n⭐ **דפי מעקב מודגשים** — נתח אותם לעומק (מוצרים, מחירים, מבצעים) והקדש להם סעיף נפרד:\n${urls.join('\n')}`;
+  } catch {}
 
-⭐ **דף מעקב מודגש:** ${c.focusUrl}
-שים דגש מיוחד על הדף הזה — נתח אותו לעומק (מוצרים, מחירים, מסרים, מבצעים שמופיעים בו) והקדש לו סעיף נפרד.` : '';
-
-  const prompt = `ניתוח מתחרה מעמיק: ${c.name} ${c.url ? '(' + c.url + ')' : ''} — שוק ציוד אינסטלציה בישראל.${focusBlock}
+  const prompt = `ניתוח מתחרה מעמיק: ${c.name}${c.website ? ' (' + c.website + ')' : ''} — שוק ציוד אינסטלציה בישראל.${pagesBlock}
 
 ## 🔍 פרופיל מתחרה: ${c.name}
 **מיצוב בשוק:** איפה הם נמצאים? מה הסיפור שלהם?
 **מוצרים מובילים:** מה הם מוכרים הכי הרבה?
 **אסטרטגיית מחיר:** זולים? יקרים? מה הפיצ'ר?
 **מסרים שיווקיים:** מה הם אומרים ללקוחות?
-${c.focusUrl ? `\n## ⭐ ניתוח דף המעקב המודגש\nניתוח ממוקד של ${c.focusUrl} — מה יש בו, מחירים, ואיך דנא יכולה להתמודד מולו ספציפית.\n` : ''}
+${pagesBlock ? '\n## ⭐ ניתוח דפי המעקב\nניתוח ממוקד של הדפים שסומנו — מה יש בהם, מחירים, ואיך דנא יכולה להתמודד מולם.\n' : ''}
 ## ⚔️ ניתוח תחרותי מול דנא
 **חוזקות שלהם:** מה הם עושים טוב?
 **חולשות שלהם:** איפה אנחנו יכולים לנצח?
@@ -1146,9 +1292,8 @@ ${c.focusUrl ? `\n## ⭐ ניתוח דף המעקב המודגש\nניתוח מ�
 
   try {
     const r = await callAI(prompt, true);
-    c.analysis = r;
-    c.analyzedAt = new Date().toISOString();
-    localStorage.setItem('dna_competitors', JSON.stringify(competitors));
+    compAnalyses[id] = { text: r, at: new Date().toISOString() };
+    localStorage.setItem('dna_comp_analyses', JSON.stringify(compAnalyses));
     renderCompGrid();
     setOutput('compOutput', outputCard(`🔍 ניתוח: ${c.name}`, renderAI(r)));
     setStatus('הושלם', false);
@@ -1164,13 +1309,14 @@ function fmtDate(iso) {
   } catch { return ''; }
 }
 
-function viewAnalysis(i) {
-  const c = competitors[i];
-  if (!c || !c.analysis) return;
+function viewAnalysis(id) {
+  const c = competitors.find(x => x.id === id);
+  const a = compAnalyses[id];
+  if (!c || !a) return;
   showView('competitors');
   setOutput('compOutput', outputCard(
     `🔍 ניתוח שמור: ${c.name}`,
-    `<div class="comp-date" style="margin-bottom:10px">📊 נותח ${fmtDate(c.analyzedAt)}</div>` + renderAI(c.analysis)
+    `<div class="comp-date" style="margin-bottom:10px">📊 נותח ${fmtDate(a.at)}</div>` + renderAI(a.text)
   ));
   setStatus('מציג ניתוח שמור', false);
 }
@@ -1180,7 +1326,7 @@ async function scanAllCompetitors() {
   setStatus('מנתח שוק...', true);
   setOutput('compOutput', outputCard('🗺️ מפת שוק', loadingHtml('מנתח את שוק ציוד האינסטלציה בישראל...')));
 
-  const known = competitors.map(c => c.name || c.url).join(', ');
+  const known = competitors.map(c => c.name).join(', ');
 
   const prompt = `בצע מיפוי שוק מלא של ענף ציוד האינסטלציה המקצועי בישראל.
 ${known ? 'מתחרים ידועים: ' + known : ''}
@@ -1225,7 +1371,7 @@ async function recommendCompetitors() {
     catalog = 'קטלוג המוצרים לא נטען — התבסס על כך שדנא היא חנות ציוד אינסטלציה ותשתיות מים מקצועי B2B בישראל.';
   }
 
-  const tracked = competitors.map(c => c.name || c.url);
+  const tracked = competitors.map(c => c.name);
   const trackedBlock = tracked.length
     ? `כבר עוקבים אחרי המתחרים הבאים — אל תמליץ עליהם שוב: ${tracked.join(', ')}.`
     : 'כרגע לא עוקבים אחרי אף מתחרה.';
