@@ -712,6 +712,7 @@ let backendUrl = localStorage.getItem('dna_backend_url') || '';
 let lastAnalytics = null;
 let chatMsgs = [];
 let productsData = null;
+let lastProductMatch = null;
 let competitors = JSON.parse(localStorage.getItem('dna_competitors') || '[]');
 
 const WA_STORE = {};
@@ -1140,14 +1141,46 @@ ${known ? 'מתחרים ידועים: ' + known : ''}
 // CONTENT ENGINE
 // ═══════════════════════════════════
 
+function findProducts(query) {
+  if (!productsData?.products?.length) return [];
+  const q = query.toLowerCase().trim();
+  const words = q.split(/\s+/).filter(w => w.length > 1);
+  return productsData.products
+    .map(p => {
+      const name = (p.name || '').toLowerCase();
+      let score = 0;
+      if (name.includes(q)) score += 10;
+      for (const w of words) if (name.includes(w)) score += 1;
+      return { p, score };
+    })
+    .filter(x => x.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .map(x => x.p);
+}
+
 async function generateContentPack() {
   const prod = document.getElementById('contInp').value.trim();
   if (!prod) return;
   if (!apiKey) { showApiModal(); return; }
   setStatus('יוצר תוכן...', true);
-  setOutput('contOutput', outputCard('✍️ יוצר חבילה', loadingHtml(`יוצר חבילת תוכן מלאה עבור "${prod}"...`)));
+  setOutput('contOutput', outputCard('✍️ יוצר חבילה', loadingHtml(`מאתר את "${prod}" באתר ויוצר חבילת תוכן מדויקת...`)));
+
+  const matches = findProducts(prod);
+  lastProductMatch = matches[0] || null;
+  const grounding = matches.length
+    ? `\nמוצרים תואמים מהקטלוג האמיתי של dna-tools.co.il — בסס את התוכן על דפי המוצר האלה:\n` +
+      matches.map(m => `• ${m.name}${m.price ? ` | מחיר: ${m.price}` : ''}${m.url ? ` | דף המוצר: ${m.url}` : ''}`).join('\n')
+    : `\n(המוצר לא נמצא בקטלוג שנסרק — חפש אותו ישירות באתר.)`;
 
   const prompt = `חבילת תוכן שיווקי מלאה עבור: "${prod}" (דנא ציוד אינסטלציה — B2B, קבלנים ואינסטלטורים בישראל)
+
+🎯 חובת דיוק — קרא לפני שאתה כותב:
+- חפש את דף המוצר האמיתי באתר: site:dna-tools.co.il "${prod}"
+- בסס את כל המידע (מפרט טכני, תכונות, יתרונות) אך ורק על מה שמופיע בדף המוצר האמיתי.
+- אל תמציא מפרט, מק"ט, מחיר או תכונות שלא מופיעים באתר. אם פרט מסוים לא קיים — דלג עליו או ציין "לא צוין באתר".
+- אם לא מצאת את המוצר המדויק, אמור זאת במפורש בתחילת התשובה והתבסס על הקטגוריה בלבד.
+${grounding}
 
 ## 📱 הודעת WhatsApp (מוכנה לשליחה):
 [WHATSAPP_MESSAGE_START]
