@@ -1,0 +1,33 @@
+name: Daily Website Scan
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # כל יום ב-06:00 שעון ישראל (04:00 UTC)
+  workflow_dispatch:       # אפשרות הרצה ידנית
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Run scraper
+        run: python scraper.py
+
+      - name: Commit and push results
+        run: |
+          git config user.name "DNA Scanner Bot"
+          git config user.email "bot@dna-tools.co.il"
+          git add products.json
+          git diff --cached --quiet || git commit -m "Daily scan - $(date '+%Y-%m-%d')"
+          git push
