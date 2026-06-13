@@ -918,48 +918,58 @@ async function scanWebsite() {
   area.scrollTop = area.scrollHeight;
 
   try {
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.dna-tools.co.il/')}`;
-    const res = await fetch(proxyUrl);
-    const data = await res.json();
-    const html = data.contents || '';
+    const proxies = [
+      `https://corsproxy.io/?url=${encodeURIComponent('https://www.dna-tools.co.il/')}`,
+      `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.dna-tools.co.il/')}`,
+    ];
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
+    let html = '';
+    for (const proxy of proxies) {
+      try {
+        const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+        html = data.contents || data.body || '';
+        if (html.length > 100) break;
+      } catch { continue; }
+    }
 
-    const products = [];
-    doc.querySelectorAll('.product, li.product, .woocommerce-loop-product__link').forEach(el => {
-      const name = el.querySelector('h2, .woocommerce-loop-product__title')?.textContent?.trim();
-      const price = el.querySelector('.price, .woocommerce-Price-amount')?.textContent?.trim();
-      if (name) products.push({ name, price: price || 'לא צוין' });
-    });
+    let products = [], cats = [];
 
-    const cats = [];
-    doc.querySelectorAll('.product-category a, .widget_product_categories a').forEach(a => {
-      const t = a.textContent.trim();
-      if (t && t.length > 1) cats.push(t);
-    });
-
-    const title = doc.querySelector('title')?.textContent || '';
-    const metaDesc = doc.querySelector('meta[name="description"]')?.getAttribute('content') || '';
+    if (html.length > 100) {
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      doc.querySelectorAll('.product, li.product').forEach(el => {
+        const name = el.querySelector('h2, .woocommerce-loop-product__title')?.textContent?.trim();
+        const price = el.querySelector('.price .woocommerce-Price-amount')?.textContent?.trim();
+        if (name) products.push(`${name}${price ? ' — ' + price : ''}`);
+      });
+      doc.querySelectorAll('.product-category a, .widget_product_categories a, nav a').forEach(a => {
+        const t = a.textContent.trim();
+        if (t && t.length > 2 && t.length < 40) cats.push(t);
+      });
+    }
 
     document.getElementById('scanMsg')?.remove();
 
-    const summary = `סרקתי את האתר dna-tools.co.il ומצאתי:
-- כותרת האתר: ${title}
-- תיאור: ${metaDesc}
-- מוצרים שנמצאו: ${products.length > 0 ? products.slice(0,10).map(p => `${p.name} (${p.price})`).join(', ') : 'לא נמצאו (האתר מוגן)'}
-- קטגוריות: ${cats.length > 0 ? cats.slice(0,10).join(', ') : 'לא נמצאו'}
+    const prompt = html.length > 100
+      ? `סרקתי את אתר המכירות dna-tools.co.il ומצאתי את הנתונים הבאים:
+מוצרים: ${products.slice(0,15).join(' | ') || 'לא נמצאו — האתר מוגן'}
+קטגוריות: ${[...new Set(cats)].slice(0,10).join(', ') || 'לא נמצאו'}
 
-על בסיס המידע הזה, תן לי:
-1. ניתוח מה מוכרים ומה כדאי לקדם השבוע
-2. הזדמנויות שיווק שרואים מהאתר
-3. המלצה לפוסט WhatsApp לאחד המוצרים`;
+נתח את הנתונים ותן:
+1. אילו מוצרים/קטגוריות כדאי לקדם השבוע ולמה
+2. הזדמנויות שיווק שרואים
+3. הודעת WhatsApp מוכנה לאחד המוצרים`
+      : `גש לאתר https://www.dna-tools.co.il/ ונתח אותו:
+1. אילו מוצרים וקטגוריות יש שם (ציוד אינסטלציה, צנרת, גילוי נזילות, מצלמות תרמיות וכו')
+2. אילו מוצרים כדאי לקדם השבוע ולמה
+3. הודעת WhatsApp מוכנה לאחד המוצרים המובילים`;
 
-    await sendText(summary);
+    await sendText(prompt);
 
   } catch(err) {
     document.getElementById('scanMsg')?.remove();
-    addMessage('ai', `⚠️ לא הצלחתי לסרוק את האתר: ${err.message}\n\nנסה שוב או שאל אותי שאלה ישירה על המוצרים.`);
+    addMessage('ai', `⚠️ שגיאה בסריקה. מנסה בכל זאת לנתח את האתר...`);
+    await sendText(`נתח את האתר https://www.dna-tools.co.il/ — ציוד אינסטלציה מקצועי בישראל. תן המלצות לקידום השבוע והודעת WhatsApp מוכנה.`);
   }
 }
 
