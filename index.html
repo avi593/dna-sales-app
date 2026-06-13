@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>דנא ציוד אינסטלציה — מנוע מכירות AI</title>
+  <title>דנא ציוד אינסטלציה — מודיעין עסקי AI</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
 
     :root {
-      --blue:    #2563eb;
-      --blue2:   #1d4ed8;
-      --purple:  #7c3aed;
-      --pink:    #db2777;
-      --green:   #059669;
-      --orange:  #ea580c;
-      --teal:    #0891b2;
-      --wa:      #25d366;
-      --bg:      #0f172a;
-      --bg2:     #1e293b;
-      --bg3:     #334155;
-      --border:  #475569;
-      --text:    #f1f5f9;
-      --muted:   #94a3b8;
-      --radius:  16px;
+      --blue:   #2563eb;
+      --purple: #7c3aed;
+      --pink:   #db2777;
+      --green:  #059669;
+      --orange: #ea580c;
+      --teal:   #0891b2;
+      --yellow: #d97706;
+      --wa:     #25d366;
+      --bg:     #0f172a;
+      --bg2:    #1e293b;
+      --bg3:    #334155;
+      --border: #475569;
+      --text:   #f1f5f9;
+      --muted:  #94a3b8;
+      --r:      14px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -31,936 +31,1376 @@
       font-family: 'Heebo', 'Segoe UI', Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
-      min-height: 100vh;
+      height: 100vh;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
     }
 
-    /* ── Header ── */
+    /* ══ HEADER ══ */
     header {
       background: linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #4c1d95 100%);
-      padding: 0 24px;
-      height: 68px;
+      padding: 0 20px;
+      height: 58px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid rgba(255,255,255,0.1);
-      position: sticky; top: 0; z-index: 100;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      box-shadow: 0 4px 24px rgba(0,0,0,0.5);
+      flex-shrink: 0;
+      z-index: 100;
     }
 
-    .logo {
-      display: flex; align-items: center; gap: 12px;
-    }
-
-    .logo-icon {
-      width: 42px; height: 42px;
-      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-      border-radius: 12px;
+    .h-brand { display: flex; align-items: center; gap: 10px; }
+    .h-logo {
+      width: 38px; height: 38px;
+      background: linear-gradient(135deg,#3b82f6,#8b5cf6);
+      border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 22px;
-      box-shadow: 0 0 20px rgba(139,92,246,0.5);
+      font-size: 20px; font-weight: 900;
     }
+    .h-title { font-size: 16px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .h-sub   { font-size: 11px; color: rgba(255,255,255,0.55); }
 
-    .logo-text { line-height: 1.2; }
-    .logo-text .brand { font-size: 17px; font-weight: 800; color: #fff; }
-    .logo-text .sub { font-size: 11px; color: #a5b4fc; }
+    .h-actions { display: flex; align-items: center; gap: 8px; }
 
-    .header-right { display: flex; align-items: center; gap: 10px; }
-
-    .ai-badge {
-      background: linear-gradient(135deg, #7c3aed, #db2777);
-      padding: 5px 14px; border-radius: 20px;
-      font-size: 12px; font-weight: 700; color: white;
-      box-shadow: 0 0 16px rgba(219,39,119,0.4);
+    .status-pill {
+      display: flex; align-items: center; gap: 6px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 20px; padding: 4px 12px;
+      font-size: 12px; color: rgba(255,255,255,0.8);
+      transition: all .3s;
     }
-
-    .status-dot {
+    .s-dot {
       width: 8px; height: 8px; border-radius: 50%;
       background: #34d399;
-      box-shadow: 0 0 8px #34d399;
       animation: pulse 2s infinite;
     }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
-    @keyframes pulse {
-      0%,100% { opacity:1; transform:scale(1); }
-      50% { opacity:0.6; transform:scale(1.3); }
+    .btn-h {
+      background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.3);
+      color: #fff; border-radius: 8px;
+      padding: 6px 13px; font-size: 12px;
+      font-family: 'Heebo',sans-serif; cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-h:hover { background: rgba(255,255,255,0.25); }
+
+    /* ══ LAYOUT ══ */
+    .layout {
+      display: flex; flex: 1; overflow: hidden;
+      height: calc(100vh - 58px);
     }
 
-    /* ── Layout ── */
-    .app {
-      display: flex; flex: 1;
-      height: calc(100vh - 68px);
-      overflow: hidden;
-    }
-
-    /* ── Sidebar ── */
+    /* ══ SIDEBAR ══ */
     .sidebar {
-      width: 270px;
+      width: 210px;
       background: var(--bg2);
-      border-left: 1px solid rgba(255,255,255,0.06);
+      border-left: 1px solid var(--border);
       display: flex; flex-direction: column;
-      overflow-y: auto; flex-shrink: 0;
-    }
-
-    .sidebar-section {
-      padding: 14px;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .sidebar-title {
-      font-size: 10px; font-weight: 700;
-      color: var(--muted);
-      text-transform: uppercase; letter-spacing: 1.2px;
-      margin-bottom: 10px;
-    }
-
-    .quick-btn {
-      width: 100%; padding: 10px 12px;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 10px;
-      background: rgba(255,255,255,0.04);
-      cursor: pointer;
-      text-align: right; font-size: 13px;
-      color: var(--text); margin-bottom: 6px;
-      transition: all 0.2s;
-      display: flex; align-items: center; gap: 8px;
-      font-family: inherit;
-    }
-
-    .quick-btn:hover {
-      background: rgba(99,102,241,0.2);
-      border-color: rgba(99,102,241,0.5);
-      color: #a5b4fc;
-      transform: translateX(-2px);
-    }
-
-    .btn-icon { font-size: 16px; }
-
-    /* Colored quick buttons */
-    .qb-blue:hover  { background: rgba(37,99,235,0.2)!important; border-color: rgba(37,99,235,0.5)!important; color: #93c5fd!important; }
-    .qb-green:hover { background: rgba(5,150,105,0.2)!important; border-color: rgba(5,150,105,0.5)!important; color: #6ee7b7!important; }
-    .qb-pink:hover  { background: rgba(219,39,119,0.2)!important; border-color: rgba(219,39,119,0.5)!important; color: #f9a8d4!important; }
-    .qb-orange:hover{ background: rgba(234,88,12,0.2)!important; border-color: rgba(234,88,12,0.5)!important; color: #fed7aa!important; }
-    .qb-teal:hover  { background: rgba(8,145,178,0.2)!important; border-color: rgba(8,145,178,0.5)!important; color: #a5f3fc!important; }
-
-    .competitor-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px; border-radius: 8px;
-      cursor: pointer; font-size: 13px;
-      transition: all 0.15s; color: var(--muted);
-    }
-
-    .competitor-item:hover {
-      background: rgba(255,255,255,0.06);
-      color: var(--text);
-    }
-
-    .comp-dot {
-      width: 8px; height: 8px; border-radius: 50%;
+      padding: 12px 8px; gap: 3px;
       flex-shrink: 0;
     }
 
-    /* ── Main ── */
-    .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-
-    .chat-area {
-      flex: 1; overflow-y: auto; padding: 24px;
-      display: flex; flex-direction: column; gap: 18px;
-    }
-
-    /* Welcome */
-    .welcome {
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      flex: 1; text-align: center; padding: 32px 20px;
-    }
-
-    .welcome-hero {
-      width: 90px; height: 90px;
-      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #db2777 100%);
-      border-radius: 28px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 46px;
-      margin-bottom: 24px;
-      box-shadow: 0 8px 40px rgba(139,92,246,0.5);
-      animation: float 3s ease-in-out infinite;
-    }
-
-    @keyframes float {
-      0%,100% { transform: translateY(0) rotate(0deg); }
-      50% { transform: translateY(-10px) rotate(3deg); }
-    }
-
-    .welcome h2 {
-      font-size: 28px; font-weight: 900;
-      background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
-      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-      margin-bottom: 10px;
-    }
-
-    .welcome p {
-      color: var(--muted); font-size: 15px;
-      max-width: 440px; line-height: 1.7; margin-bottom: 36px;
-    }
-
-    .welcome-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 14px; width: 100%; max-width: 560px;
-    }
-
-    .welcome-card {
-      background: var(--bg2);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: var(--radius);
-      padding: 20px; cursor: pointer;
-      transition: all 0.25s; text-align: right;
-      position: relative; overflow: hidden;
-    }
-
-    .welcome-card::before {
-      content: '';
-      position: absolute; inset: 0;
-      opacity: 0; transition: opacity 0.25s;
-    }
-
-    .welcome-card:nth-child(1)::before { background: linear-gradient(135deg, rgba(37,99,235,0.15), transparent); }
-    .welcome-card:nth-child(2)::before { background: linear-gradient(135deg, rgba(37,211,102,0.15), transparent); }
-    .welcome-card:nth-child(3)::before { background: linear-gradient(135deg, rgba(124,58,237,0.15), transparent); }
-    .welcome-card:nth-child(4)::before { background: linear-gradient(135deg, rgba(234,88,12,0.15), transparent); }
-
-    .welcome-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 32px rgba(0,0,0,0.3);
-      border-color: rgba(255,255,255,0.2);
-    }
-
-    .welcome-card:hover::before { opacity: 1; }
-
-    .card-icon-wrap {
-      width: 44px; height: 44px; border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; margin-bottom: 12px;
-    }
-
-    .welcome-card:nth-child(1) .card-icon-wrap { background: rgba(37,99,235,0.25); }
-    .welcome-card:nth-child(2) .card-icon-wrap { background: rgba(37,211,102,0.25); }
-    .welcome-card:nth-child(3) .card-icon-wrap { background: rgba(124,58,237,0.25); }
-    .welcome-card:nth-child(4) .card-icon-wrap { background: rgba(234,88,12,0.25); }
-
-    .card-title { font-size: 14px; font-weight: 700; margin-bottom: 5px; }
-    .card-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
-
-    /* Messages */
-    .message {
-      display: flex; gap: 12px; align-items: flex-start;
-      animation: msgIn 0.3s ease;
-    }
-
-    @keyframes msgIn {
-      from { opacity:0; transform:translateY(12px); }
-      to   { opacity:1; transform:translateY(0); }
-    }
-
-    .message.user { flex-direction: row-reverse; }
-
-    .msg-avatar {
-      width: 38px; height: 38px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; flex-shrink: 0;
-    }
-
-    .message.user .msg-avatar {
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      font-size: 14px; font-weight: 800; color: white;
-    }
-
-    .message.ai .msg-avatar {
-      background: linear-gradient(135deg, #7c3aed, #db2777);
-      box-shadow: 0 0 16px rgba(219,39,119,0.3);
-    }
-
-    .msg-bubble {
-      max-width: 72%; padding: 14px 18px;
-      border-radius: 18px; font-size: 14px; line-height: 1.7;
-    }
-
-    .message.user .msg-bubble {
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: white; border-bottom-left-radius: 4px;
-      box-shadow: 0 4px 16px rgba(37,99,235,0.3);
-    }
-
-    .message.ai .msg-bubble {
-      background: var(--bg2);
-      border: 1px solid rgba(255,255,255,0.08);
-      color: var(--text); border-bottom-right-radius: 4px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-    }
-
-    /* WhatsApp card */
-    .wa-card {
-      background: var(--bg2);
-      border: 2px solid var(--wa);
-      border-radius: var(--radius); overflow: hidden;
-      margin-top: 6px;
-      box-shadow: 0 8px 32px rgba(37,211,102,0.15);
-    }
-
-    .wa-card-header {
-      background: linear-gradient(135deg, #166534, #15803d);
-      color: white; padding: 12px 16px;
-      font-size: 13px; font-weight: 700;
-      display: flex; align-items: center; gap: 8px;
-    }
-
-    .wa-card-body {
-      padding: 18px; font-size: 14px; line-height: 1.8;
-      white-space: pre-wrap; direction: rtl;
-      color: #e2e8f0;
-    }
-
-    .wa-card-footer {
-      padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06);
-      display: flex; gap: 8px;
-    }
-
-    .copy-btn {
-      padding: 8px 18px; border-radius: 8px; border: none;
-      cursor: pointer; font-size: 13px; font-weight: 700;
-      transition: all 0.15s; font-family: inherit;
-    }
-
-    .copy-btn.primary {
-      background: linear-gradient(135deg, #166534, #15803d);
-      color: white;
-      box-shadow: 0 4px 12px rgba(37,211,102,0.2);
-    }
-
-    .copy-btn.secondary {
-      background: rgba(255,255,255,0.08);
-      color: var(--text); border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .copy-btn:hover { opacity: 0.85; transform: translateY(-1px); }
-    .copy-btn.copied { background: linear-gradient(135deg, #065f46, #059669)!important; }
-
-    /* Typing */
-    .typing {
-      display: flex; align-items: center; gap: 5px;
-      padding: 14px 18px;
-      background: var(--bg2);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 18px; border-bottom-right-radius: 4px;
-      width: fit-content;
-    }
-
-    .typing span {
-      width: 7px; height: 7px; border-radius: 50%;
-      animation: bounce 1.2s infinite;
-    }
-
-    .typing span:nth-child(1) { background: #60a5fa; }
-    .typing span:nth-child(2) { background: #a78bfa; animation-delay: 0.2s; }
-    .typing span:nth-child(3) { background: #f472b6; animation-delay: 0.4s; }
-
-    @keyframes bounce {
-      0%,60%,100% { transform: translateY(0); }
-      30% { transform: translateY(-8px); }
-    }
-
-    /* Input */
-    .input-area {
-      padding: 16px 24px;
-      background: var(--bg2);
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-
-    .input-row {
-      display: flex; gap: 10px; align-items: flex-end;
-      background: var(--bg3);
-      border: 1.5px solid rgba(255,255,255,0.1);
-      border-radius: 18px; padding: 10px 14px;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-
-    .input-row:focus-within {
-      border-color: rgba(99,102,241,0.6);
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.1);
-    }
-
-    #chatInput {
-      flex: 1; border: none; background: transparent;
-      font-size: 14px; font-family: inherit;
-      resize: none; outline: none;
-      color: var(--text); max-height: 120px;
-      direction: rtl; line-height: 1.5;
-    }
-
-    #chatInput::placeholder { color: var(--muted); }
-
-    .send-btn {
-      width: 42px; height: 42px; border-radius: 12px; border: none;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: white; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 18px; transition: all 0.2s; flex-shrink: 0;
-      box-shadow: 0 4px 12px rgba(37,99,235,0.4);
-    }
-
-    .send-btn:hover { transform: scale(1.08); box-shadow: 0 6px 20px rgba(124,58,237,0.5); }
-    .send-btn:disabled { background: var(--bg3); box-shadow: none; cursor: not-allowed; transform: none; }
-
-    .input-hint { font-size: 11px; color: var(--muted); text-align: center; margin-top: 8px; }
-
-    /* Category chips */
-    .cat-chips { display: flex; flex-direction: column; gap: 6px; }
-
-    .cat-chip {
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 12px; border-radius: 10px;
-      cursor: pointer; font-size: 13px;
+    .nav-btn {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 13px; border-radius: 10px;
       border: 1px solid transparent;
-      transition: all 0.2s; color: var(--muted);
-      background: transparent; width: 100%; text-align: right;
-      font-family: inherit;
+      background: transparent; color: var(--muted);
+      font-family: 'Heebo',sans-serif; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all .15s; width: 100%; text-align: right;
     }
-
-    .cat-chip:hover { color: var(--text); background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.1); }
-
-    .chip-dot {
-      width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0;
+    .nav-btn:hover { background: var(--bg3); color: var(--text); }
+    .nav-btn.active {
+      background: linear-gradient(135deg,rgba(37,99,235,.2),rgba(124,58,237,.2));
+      border-color: rgba(99,102,241,.4); color: #fff;
     }
+    .nav-icon { font-size: 18px; }
+    .nav-sep  { height: 1px; background: var(--border); margin: 6px 0; }
 
-    /* Modal */
-    .modal-overlay {
-      position: fixed; inset: 0;
-      background: rgba(0,0,0,0.7);
-      backdrop-filter: blur(8px);
-      z-index: 1000;
+    .scan-btn {
+      margin-top: auto;
+      background: linear-gradient(135deg,#059669,#0891b2);
+      border: none; border-radius: 10px; color: #fff;
+      padding: 11px; font-family: 'Heebo',sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all .2s; display: flex; align-items: center;
+      justify-content: center; gap: 6px;
+    }
+    .scan-btn:hover { opacity: .9; transform: translateY(-1px); }
+    .scan-btn:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+    /* ══ MAIN ══ */
+    .main { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+    .view {
+      display: none; flex: 1; overflow-y: auto;
+      padding: 18px; flex-direction: column; gap: 14px;
+    }
+    .view.active { display: flex; }
+
+    /* chat view has no padding */
+    #view-chat { padding: 0; }
+
+    /* ══ SECTION TITLE ══ */
+    .sec-title {
+      font-size: 19px; font-weight: 800;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .sec-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* ══ KPI GRID ══ */
+    .kpi-grid {
+      display: grid; grid-template-columns: repeat(4,1fr); gap: 10px;
+    }
+    .kpi {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px 16px;
+    }
+    .kpi-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+    .kpi-val   { font-size: 26px; font-weight: 800; line-height: 1.1; margin: 3px 0; }
+    .kpi-note  { font-size: 11px; color: var(--muted); }
+    .kpi-note.up   { color: #34d399; }
+    .kpi-note.warn { color: #fbbf24; }
+
+    /* ══ ACTION GRID ══ */
+    .action-grid {
+      display: grid; grid-template-columns: repeat(3,1fr); gap: 10px;
+    }
+    .act-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 15px; border-radius: var(--r);
+      border: 1px solid var(--border); background: var(--bg2);
+      color: var(--text); font-family: 'Heebo',sans-serif;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+      transition: all .2s; text-align: right;
+    }
+    .act-btn:hover { border-color: rgba(99,102,241,.5); background: var(--bg3); transform: translateY(-1px); }
+    .act-icon { font-size: 24px; }
+    .act-desc { font-size: 11px; color: var(--muted); font-weight: 400; margin-top: 1px; }
+
+    /* ══ CARD ══ */
+    .card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); overflow: hidden;
+    }
+    .card-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 13px 17px; border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,.02);
+      font-size: 13px; font-weight: 700;
+      display: flex; align-items: center; gap: 7px;
+    }
+    .card-body { padding: 15px 17px; font-size: 13px; line-height: 1.75; color: #cbd5e1; }
+    .card-empty {
+      text-align: center; padding: 36px 20px; color: var(--muted);
+    }
+    .card-empty-icon { font-size: 46px; margin-bottom: 10px; }
+    .card-empty-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+    .card-empty-desc  { font-size: 12px; }
+
+    /* ══ INPUT ROW ══ */
+    .input-row { display: flex; gap: 8px; align-items: center; }
+    .inp {
+      flex: 1; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 10px 14px; color: var(--text);
+      font-family: 'Heebo',sans-serif; font-size: 14px; outline: none;
+      transition: border-color .2s;
+    }
+    .inp:focus { border-color: var(--blue); }
+    .inp::placeholder { color: var(--muted); }
+
+    .btn { /* generic button */
+      border: none; border-radius: 10px; color: #fff;
+      padding: 10px 17px; font-family: 'Heebo',sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+      transition: all .2s; white-space: nowrap; display: flex; align-items: center; gap: 5px;
+    }
+    .btn:hover { opacity: .9; transform: translateY(-1px); }
+    .btn-blue   { background: linear-gradient(135deg,#2563eb,#7c3aed); }
+    .btn-green  { background: linear-gradient(135deg,#059669,#0891b2); }
+    .btn-orange { background: linear-gradient(135deg,#ea580c,#db2777); }
+    .btn-yellow { background: linear-gradient(135deg,#d97706,#ea580c); }
+
+    /* ══ LOADING ══ */
+    .loading-row {
+      display: flex; align-items: center; gap: 10px;
+      color: var(--muted); font-size: 13px; padding: 20px;
+    }
+    .dots { display: flex; gap: 4px; }
+    .dots span {
+      width: 7px; height: 7px; background: var(--blue);
+      border-radius: 50%; animation: bounce 1.2s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .2s; }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+    /* ══ COMPETITOR GRID ══ */
+    .comp-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .comp-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .comp-name { font-size: 14px; font-weight: 700; }
+    .comp-url  { font-size: 11px; color: var(--muted); }
+    .comp-actions { display: flex; gap: 6px; }
+    .comp-btn {
+      flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      font-family: 'Heebo',sans-serif; cursor: pointer; transition: all .2s;
+      border: 1px solid rgba(99,102,241,.3);
+      background: rgba(99,102,241,.1); color: #a78bfa;
+    }
+    .comp-btn:hover { background: rgba(99,102,241,.2); }
+    .comp-btn-del {
+      padding: 7px 10px;
+      border: 1px solid rgba(248,113,113,.3);
+      background: rgba(248,113,113,.08); color: #f87171;
+    }
+    .comp-btn-del:hover { background: rgba(248,113,113,.18); }
+
+    /* ══ MARKET VIEW ══ */
+    .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+
+    /* ══ WHATSAPP CARD ══ */
+    .wa-card {
+      background: linear-gradient(135deg,rgba(37,211,102,.08),rgba(37,211,102,.04));
+      border: 1px solid rgba(37,211,102,.3);
+      border-radius: 12px; padding: 13px; margin: 8px 0;
+    }
+    .wa-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .wa-label { display: flex; align-items: center; gap: 5px; color: var(--wa); font-size: 11px; font-weight: 700; }
+    .copy-btn {
+      background: rgba(37,211,102,.15); border: 1px solid rgba(37,211,102,.3);
+      color: var(--wa); border-radius: 6px; padding: 3px 10px;
+      font-size: 11px; font-family: 'Heebo',sans-serif; font-weight: 600;
+      cursor: pointer; transition: all .2s;
+    }
+    .copy-btn:hover   { background: rgba(37,211,102,.25); }
+    .copy-btn.copied  { background: rgba(37,211,102,.35); }
+    .wa-text { font-size: 13px; line-height: 1.7; white-space: pre-wrap; color: #d1fae5; }
+
+    /* ══ AI CONTENT ══ */
+    .ai-content h3 {
+      font-size: 14px; font-weight: 700; color: #93c5fd;
+      margin: 14px 0 6px; padding-bottom: 4px;
+      border-bottom: 1px solid rgba(147,197,253,.15);
+    }
+    .ai-content h4 { font-size: 13px; font-weight: 700; color: #a78bfa; margin: 10px 0 4px; }
+    .ai-content p  { margin-bottom: 6px; }
+    .ai-content ul { padding-right: 18px; margin-bottom: 8px; }
+    .ai-content li { margin-bottom: 3px; }
+    .ai-content strong { color: #f1f5f9; }
+
+    /* ══ CHAT VIEW ══ */
+    .chat-wrap { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .chat-area {
+      flex: 1; overflow-y: auto;
+      padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .msg { display: flex; gap: 9px; max-width: 88%; }
+    .msg.user { align-self: flex-start; flex-direction: row-reverse; }
+    .msg.ai   { align-self: flex-end; }
+    .msg-av {
+      width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+    }
+    .msg.ai   .msg-av { background: linear-gradient(135deg,#2563eb,#7c3aed); }
+    .msg.user .msg-av { background: var(--bg3); }
+    .msg-bub {
+      padding: 11px 14px; font-size: 13px; line-height: 1.65;
+    }
+    .msg.ai   .msg-bub { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px 14px 14px 4px; }
+    .msg.user .msg-bub {
+      background: linear-gradient(135deg,rgba(37,99,235,.28),rgba(124,58,237,.28));
+      border: 1px solid rgba(99,102,241,.3); border-radius: 14px 14px 4px 14px;
+    }
+    .typing-bub {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 14px 14px 14px 4px; padding: 12px 14px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--muted);
+    }
+    .chat-input-wrap {
+      padding: 12px 15px; border-top: 1px solid var(--border);
+      background: var(--bg2); display: flex; gap: 8px; align-items: flex-end;
+    }
+    .chat-ta {
+      flex: 1; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 12px; padding: 10px 14px; color: var(--text);
+      font-family: 'Heebo',sans-serif; font-size: 14px; outline: none;
+      resize: none; min-height: 44px; max-height: 120px;
+      transition: border-color .2s;
+    }
+    .chat-ta:focus { border-color: var(--blue); }
+    .chat-ta::placeholder { color: var(--muted); }
+    .send-btn {
+      width: 44px; height: 44px; flex-shrink: 0;
+      background: linear-gradient(135deg,#2563eb,#7c3aed);
+      border: none; border-radius: 12px; color: #fff;
+      font-size: 18px; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
+      transition: all .2s;
     }
+    .send-btn:hover { opacity: .9; transform: scale(1.05); }
+    .send-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
+    /* ══ MODAL ══ */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.7);
+      z-index: 999; display: flex; align-items: center; justify-content: center;
+      backdrop-filter: blur(5px);
+    }
     .modal {
-      background: var(--bg2);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 24px; padding: 36px;
-      width: 460px; max-width: 90vw;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.5);
-      animation: modalIn 0.3s ease;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px; width: 400px;
+      max-width: calc(100vw - 40px);
+      box-shadow: 0 30px 80px rgba(0,0,0,.6);
     }
-
-    @keyframes modalIn {
-      from { opacity:0; transform:scale(0.88); }
-      to   { opacity:1; transform:scale(1); }
+    .modal h3 { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+    .modal p  { font-size: 12px; color: var(--muted); line-height: 1.6; margin-bottom: 16px; }
+    .modal-inp {
+      width: 100%; background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; color: var(--text);
+      font-family: 'Heebo',sans-serif; font-size: 14px; outline: none;
+      margin-bottom: 12px; direction: ltr;
     }
-
-    .modal-icon {
-      width: 64px; height: 64px;
-      background: linear-gradient(135deg, #7c3aed, #db2777);
-      border-radius: 20px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 32px; margin-bottom: 20px;
-      box-shadow: 0 8px 24px rgba(219,39,119,0.3);
-    }
-
-    .modal h3 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
-    .modal p  { color: var(--muted); font-size: 14px; line-height: 1.6; margin-bottom: 20px; }
-
-    .warning-box {
-      background: rgba(251,191,36,0.1);
-      border: 1px solid rgba(251,191,36,0.3);
-      border-radius: 10px; padding: 10px 14px;
-      font-size: 12px; color: #fcd34d; margin-bottom: 18px;
-    }
-
-    .modal input {
-      width: 100%; padding: 13px 16px;
-      background: var(--bg3);
-      border: 1.5px solid rgba(255,255,255,0.1);
-      border-radius: 12px; font-size: 14px;
-      direction: ltr; outline: none;
-      color: var(--text); margin-bottom: 16px;
-      transition: border-color 0.2s;
-      font-family: monospace;
-    }
-
-    .modal input:focus { border-color: rgba(99,102,241,0.6); }
-
+    .modal-inp:focus { border-color: var(--blue); }
     .modal-btn {
-      width: 100%; padding: 14px;
-      background: linear-gradient(135deg, #2563eb, #7c3aed);
-      color: white; border: none; border-radius: 12px;
-      font-size: 15px; font-weight: 800; cursor: pointer;
-      transition: all 0.2s; font-family: inherit;
-      box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+      width: 100%; padding: 12px;
+      background: linear-gradient(135deg,var(--blue),var(--purple));
+      border: none; border-radius: 10px; color: #fff;
+      font-family: 'Heebo',sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer;
     }
 
-    .modal-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 28px rgba(124,58,237,0.5); }
-
-    /* Divider labels */
-    .chat-date {
-      text-align: center; font-size: 11px; color: var(--muted);
-      padding: 4px 12px; background: rgba(255,255,255,0.04);
-      border-radius: 20px; width: fit-content; margin: 0 auto;
-    }
-
-    /* Scrollbar */
+    /* ══ SCROLLBAR ══ */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ══ HIDDEN ══ */
+    .hidden { display: none !important; }
+
+    /* ══ RESPONSIVE ══ */
+    @media (max-width:860px) {
+      .sidebar { width: 58px; }
+      .nav-btn span:not(.nav-icon) { display: none; }
+      .kpi-grid  { grid-template-columns: repeat(2,1fr); }
+      .action-grid { grid-template-columns: repeat(2,1fr); }
+      .comp-grid { grid-template-columns: 1fr; }
+      .mkt-grid  { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
 
-<!-- API Key Modal -->
-<div class="modal-overlay" id="apiModal">
-  <div class="modal">
-    <div class="modal-icon">🔑</div>
-    <h3>הכנס מפתח API</h3>
-    <p>המפתח נשמר רק בדפדפן שלך ולא נשלח לשום מקום חוץ מ-Google AI Studio.</p>
-    <div class="warning-box">⚠️ אל תשתף את המפתח עם אחרים — הוא אישי לחשבון שלך</div>
-    <input type="password" id="apiKeyInput" placeholder="AIza... או AQ..." />
-    <button class="modal-btn" onclick="saveApiKey()">התחל לעבוד ←</button>
-  </div>
-</div>
-
-<!-- Header -->
+<!-- ══════════════ HEADER ══════════════ -->
 <header>
-  <div class="logo">
-    <div class="logo-icon">🔧</div>
-    <div class="logo-text">
-      <div class="brand">דנא ציוד אינסטלציה</div>
-      <div class="sub">AI Sales Engine v1.0</div>
+  <div class="h-brand">
+    <div class="h-logo">🔧</div>
+    <div>
+      <div class="h-title">דנא ציוד אינסטלציה</div>
+      <div class="h-sub">מודיעין עסקי AI</div>
     </div>
   </div>
-  <div class="header-right">
-    <div class="status-dot"></div>
-    <div class="ai-badge">✦ AI פעיל</div>
+  <div class="h-actions">
+    <div class="status-pill" id="statusPill">
+      <div class="s-dot" id="sDot"></div>
+      <span id="sText">מוכן</span>
+    </div>
+    <button class="btn-h" onclick="showApiModal()">🔑 מפתח API</button>
   </div>
 </header>
 
-<div class="app">
+<!-- ══════════════ LAYOUT ══════════════ -->
+<div class="layout">
 
-  <!-- Sidebar -->
-  <div class="sidebar">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard')">
+      <span class="nav-icon">📊</span><span>דשבורד</span>
+    </button>
+    <button class="nav-btn" id="nav-products" onclick="showView('products')">
+      <span class="nav-icon">📦</span><span>מוצרים</span>
+    </button>
+    <button class="nav-btn" id="nav-competitors" onclick="showView('competitors')">
+      <span class="nav-icon">🔍</span><span>מתחרים</span>
+    </button>
+    <button class="nav-btn" id="nav-content" onclick="showView('content')">
+      <span class="nav-icon">✍️</span><span>תוכן</span>
+    </button>
+    <button class="nav-btn" id="nav-market" onclick="showView('market')">
+      <span class="nav-icon">📈</span><span>שוק</span>
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-btn" id="nav-chat" onclick="showView('chat')">
+      <span class="nav-icon">💬</span><span>צ׳אט AI</span>
+    </button>
+    <button class="scan-btn" id="scanBtn" onclick="runDailyScan()">🚀 סריקה יומית</button>
+  </nav>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">⚡ פעולות מהירות</div>
-      <button class="quick-btn" onclick="scanWebsite()" style="background:linear-gradient(135deg,rgba(16,185,129,0.2),rgba(5,150,105,0.2));border-color:rgba(16,185,129,0.4);color:#34d399;font-weight:700">
-        <span class="btn-icon">🔍</span> סרוק את האתר שלי עכשיו
-      </button>
-      <button class="quick-btn qb-blue"  onclick="quickAction('suggest')">
-        <span class="btn-icon">💡</span> הצע מוצר לקידום
-      </button>
-      <button class="quick-btn qb-green" onclick="quickAction('whatsapp')">
-        <span class="btn-icon">📱</span> צור הודעת WhatsApp
-      </button>
-      <button class="quick-btn qb-pink"  onclick="quickAction('competitor')">
-        <span class="btn-icon">🔍</span> נתח מתחרה
-      </button>
-      <button class="quick-btn qb-orange" onclick="quickAction('bundle')">
-        <span class="btn-icon">📦</span> בנה חבילת מוצרים
-      </button>
-      <button class="quick-btn qb-teal"  onclick="quickAction('angles')">
-        <span class="btn-icon">🎯</span> זוויות שיווק חדשות
-      </button>
-    </div>
+  <!-- MAIN -->
+  <main class="main">
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">🏢 מתחרים</div>
-      <div class="competitor-item" onclick="analyzeCompetitor('פלסל ישראל')">
-        <div class="comp-dot" style="background:#ef4444;box-shadow:0 0 6px #ef4444"></div> פלסל ישראל
+    <!-- ── DASHBOARD ── -->
+    <div id="view-dashboard" class="view active">
+      <div>
+        <div class="sec-title">📊 דשבורד מודיעין</div>
+        <div class="sec-sub">מצב יומי של העסק — מוצרים, שוק ומתחרים</div>
       </div>
-      <div class="competitor-item" onclick="analyzeCompetitor('מאיר עזרא')">
-        <div class="comp-dot" style="background:#f97316;box-shadow:0 0 6px #f97316"></div> מאיר עזרא
-      </div>
-      <div class="competitor-item" onclick="analyzeCompetitor('גדות')">
-        <div class="comp-dot" style="background:#eab308;box-shadow:0 0 6px #eab308"></div> גדות
-      </div>
-      <div class="competitor-item" onclick="analyzeCompetitor('סנפלוס')">
-        <div class="comp-dot" style="background:#a855f7;box-shadow:0 0 6px #a855f7"></div> סנפלוס
-      </div>
-      <div class="competitor-item" onclick="addCompetitor()">
-        <div class="comp-dot" style="background:#3b82f6;box-shadow:0 0 6px #3b82f6"></div>
-        <span style="color:#60a5fa">+ הוסף מתחרה</span>
-      </div>
-    </div>
 
-    <div class="sidebar-section">
-      <div class="sidebar-title">🗂️ קטגוריות</div>
-      <div class="cat-chips">
-        <button class="cat-chip" onclick="categoryFocus('ברזים וצנרת')">
-          <div class="chip-dot" style="background:#3b82f6"></div> ברזים וצנרת
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">מוצרים בקטלוג</div>
+          <div class="kpi-val" id="kpiProd">—</div>
+          <div class="kpi-note up" id="kpiProdNote">טוען...</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">קטגוריות</div>
+          <div class="kpi-val" id="kpiCats">—</div>
+          <div class="kpi-note" id="kpiCatsNote">קטגוריות</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">עדכון אחרון</div>
+          <div class="kpi-val" style="font-size:17px" id="kpiDate">—</div>
+          <div class="kpi-note" id="kpiDateNote">לא ידוע</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">מתחרים במעקב</div>
+          <div class="kpi-val" id="kpiComp">0</div>
+          <div class="kpi-note">פעיל</div>
+        </div>
+      </div>
+
+      <div class="action-grid">
+        <button class="act-btn" onclick="runDailyScan()">
+          <span class="act-icon">🚀</span>
+          <div><div>סריקה יומית מלאה</div><div class="act-desc">ניתוח אתר + שוק + מתחרים</div></div>
         </button>
-        <button class="cat-chip" onclick="categoryFocus('גילוי נזילות')">
-          <div class="chip-dot" style="background:#06b6d4"></div> גילוי נזילות
+        <button class="act-btn" onclick="showView('products'); analyzeTopProducts()">
+          <span class="act-icon">🔥</span>
+          <div><div>מוצרי TOP לקידום</div><div class="act-desc">AI בוחר את המוצרים הטובים ביותר</div></div>
         </button>
-        <button class="cat-chip" onclick="categoryFocus('כלי עבודה מקצועיים')">
-          <div class="chip-dot" style="background:#f97316"></div> כלי עבודה מקצועיים
+        <button class="act-btn" onclick="showView('competitors'); scanAllCompetitors()">
+          <span class="act-icon">👁️</span>
+          <div><div>סרוק מתחרים</div><div class="act-desc">מחירים, מסרים, הזדמנויות</div></div>
         </button>
-        <button class="cat-chip" onclick="categoryFocus('מצלמות תרמיות')">
-          <div class="chip-dot" style="background:#a855f7"></div> מצלמות תרמיות
+        <button class="act-btn" onclick="showView('content'); generateWeeklyContent()">
+          <span class="act-icon">📱</span>
+          <div><div>תוכן לשבוע</div><div class="act-desc">WhatsApp + SEO + רעיונות</div></div>
         </button>
-        <button class="cat-chip" onclick="categoryFocus('שסתומים ואביזרים')">
-          <div class="chip-dot" style="background:#10b981"></div> שסתומים ואביזרים
+        <button class="act-btn" onclick="showView('market'); runMarketOpp()">
+          <span class="act-icon">💰</span>
+          <div><div>הזדמנויות שוק</div><div class="act-desc">פערי קטלוג ובנדלים</div></div>
         </button>
-        <button class="cat-chip" onclick="categoryFocus('מערכות ביוב')">
-          <div class="chip-dot" style="background:#ef4444"></div> מערכות ביוב
+        <button class="act-btn" onclick="showView('chat')">
+          <span class="act-icon">💬</span>
+          <div><div>צ׳אט עם AI</div><div class="act-desc">שאל כל שאלה עסקית</div></div>
         </button>
       </div>
-    </div>
 
-    <div class="sidebar-section" style="margin-top:auto; border-bottom:none">
-      <button class="quick-btn" onclick="clearChat()" style="color:#f87171; border-color:rgba(248,113,113,0.2)">
-        <span class="btn-icon">🗑️</span> נקה שיחה
-      </button>
-      <button class="quick-btn" onclick="showApiModal()">
-        <span class="btn-icon">⚙️</span> הגדרות API
-      </button>
-    </div>
-
-  </div>
-
-  <!-- Main Chat -->
-  <div class="main">
-    <div class="chat-area" id="chatArea">
-      <div class="welcome" id="welcomeScreen">
-        <div class="welcome-hero">🚀</div>
-        <h2>מוכן למכור יותר היום?</h2>
-        <p>מנוע ה-AI שלך למכירות B2B. נסעור מוחות על מוצרים, ננתח מתחרים, וניצור הודעות WhatsApp שסוגרות עסקאות.</p>
-        <div class="welcome-grid">
-          <div class="welcome-card" onclick="quickAction('suggest')">
-            <div class="card-icon-wrap">💡</div>
-            <div class="card-title">הצע מוצר לקידום</div>
-            <div class="card-desc">AI בוחר את המוצר הטוב ביותר לשבוע</div>
-          </div>
-          <div class="welcome-card" onclick="quickAction('whatsapp')">
-            <div class="card-icon-wrap">📱</div>
-            <div class="card-title">צור הודעת WhatsApp</div>
-            <div class="card-desc">הודעה מוכנה לשליחה לקבוצות קבלנים</div>
-          </div>
-          <div class="welcome-card" onclick="quickAction('competitor')">
-            <div class="card-icon-wrap">🔍</div>
-            <div class="card-title">נתח מתחרה</div>
-            <div class="card-desc">ראה מה הם עושים ואיך לנצח אותם</div>
-          </div>
-          <div class="welcome-card" onclick="quickAction('bundle')">
-            <div class="card-icon-wrap">📦</div>
-            <div class="card-title">בנה חבילת מוצרים</div>
-            <div class="card-desc">קומבינציות שמגדילות הזמנה ממוצעת</div>
+      <div class="card">
+        <div class="card-head">
+          <span>📋 דוח יומי</span>
+          <span style="font-size:11px;color:var(--muted);font-weight:400" id="dashReportDate">—</span>
+        </div>
+        <div class="card-body" id="dashReport">
+          <div class="card-empty">
+            <div class="card-empty-icon">🚀</div>
+            <div class="card-empty-title">מוכן לסריקה יומית</div>
+            <div class="card-empty-desc">לחץ "סריקה יומית מלאה" או על הכפתור בתחתית הסרגל</div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="input-area">
-      <div class="input-row">
-        <button class="send-btn" id="sendBtn" onclick="sendMessage()">➤</button>
-        <textarea
-          id="chatInput"
-          placeholder="שאל כל דבר... 'מה לקדם השבוע?' | 'צור הודעה לברז מונה' | 'נתח את פלסל'"
-          rows="1"
-          onkeydown="handleKey(event)"
-          oninput="autoResize(this)"
-        ></textarea>
+    <!-- ── PRODUCTS ── -->
+    <div id="view-products" class="view">
+      <div>
+        <div class="sec-title">📦 מודיעין מוצרים</div>
+        <div class="sec-sub">ניתוח עמוק — פוטנציאל, קהל יעד, אסטרטגיה, תוכן</div>
       </div>
-      <div class="input-hint">Enter לשליחה &nbsp;•&nbsp; Shift+Enter לשורה חדשה</div>
+      <div class="input-row">
+        <input class="inp" id="prodInp" placeholder="שם מוצר לניתוח (לדוגמה: מצלמה תרמית, שסתום, ברז אמן)" />
+        <button class="btn btn-blue" onclick="analyzeProduct()">נתח מוצר</button>
+        <button class="btn btn-green" onclick="analyzeTopProducts()">🔥 TOP מוצרים</button>
+      </div>
+      <div id="prodOutput">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">📦</div>
+            <div class="card-empty-title">ניתוח מוצרים</div>
+            <div class="card-empty-desc">הכנס שם מוצר לניתוח עמוק, או לחץ "TOP מוצרים" להמלצות</div>
+          </div>
+        </div></div>
+      </div>
     </div>
-  </div>
 
+    <!-- ── COMPETITORS ── -->
+    <div id="view-competitors" class="view">
+      <div>
+        <div class="sec-title">🔍 מודיעין מתחרים</div>
+        <div class="sec-sub">מחירים, מסרים, אסטרטגיות — ואיפה לנצח אותם</div>
+      </div>
+      <div class="input-row">
+        <input class="inp" id="compInp" placeholder="שם מתחרה או URL (לדוגמה: ksp-pro.co.il)" />
+        <button class="btn btn-blue" onclick="addCompetitor()">הוסף וניתח</button>
+        <button class="btn btn-orange" onclick="scanAllCompetitors()">⚡ מפת שוק מלאה</button>
+      </div>
+      <div id="compGrid" class="comp-grid"></div>
+      <div id="compOutput">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">🔍</div>
+            <div class="card-empty-title">מודיעין מתחרים</div>
+            <div class="card-empty-desc">הוסף מתחרה לרשימה, או לחץ "מפת שוק מלאה" לניתוח אוטומטי</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── CONTENT ── -->
+    <div id="view-content" class="view">
+      <div>
+        <div class="sec-title">✍️ מנוע תוכן</div>
+        <div class="sec-sub">WhatsApp, SEO, רעיונות לסרטונים ותמונות, אסטרטגיית מכירה</div>
+      </div>
+      <div class="input-row">
+        <input class="inp" id="contInp" placeholder="מוצר ליצירת חבילת תוכן מלאה" />
+        <button class="btn btn-blue" onclick="generateContentPack()">🎯 חבילת תוכן</button>
+        <button class="btn btn-green" onclick="generateWeeklyContent()">📅 תוכן שבועי</button>
+      </div>
+      <div id="contOutput">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">✍️</div>
+            <div class="card-empty-title">מנוע יצירת תוכן</div>
+            <div class="card-empty-desc">הכנס מוצר לקבלת חבילה מלאה: WhatsApp + SEO + סרטון + תמונות + אסטרטגיה</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── MARKET ── -->
+    <div id="view-market" class="view">
+      <div>
+        <div class="sec-title">📈 הזדמנויות שוק</div>
+        <div class="sec-sub">פערי קטלוג, מגמות, בנדלים, עונתיות</div>
+      </div>
+      <div class="mkt-grid">
+        <button class="act-btn" onclick="runMarketOpp()">
+          <span class="act-icon">💰</span>
+          <div><div>הזדמנויות שוק</div><div class="act-desc">מוצרים חסרים ופערי מחיר</div></div>
+        </button>
+        <button class="act-btn" onclick="runBundleAnalysis()">
+          <span class="act-icon">📦</span>
+          <div><div>הצעות בנדל</div><div class="act-desc">חבילות מוצרים עם פוטנציאל</div></div>
+        </button>
+        <button class="act-btn" onclick="runSeasonalAnalysis()">
+          <span class="act-icon">📅</span>
+          <div><div>ניתוח עונתיות</div><div class="act-desc">מה לקדם בכל עונה</div></div>
+        </button>
+        <button class="act-btn" onclick="runCategoryGap()">
+          <span class="act-icon">🔦</span>
+          <div><div>פערי קטגוריות</div><div class="act-desc">מה יש למתחרים שאין לנו</div></div>
+        </button>
+      </div>
+      <div id="mktOutput">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">📈</div>
+            <div class="card-empty-title">מנוע הזדמנויות שוק</div>
+            <div class="card-empty-desc">בחר ניתוח מהכפתורים למעלה</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── CHAT ── -->
+    <div id="view-chat" class="view">
+      <div class="chat-wrap">
+        <div class="chat-area" id="chatArea">
+          <div class="card-empty" style="padding:40px 20px">
+            <div class="card-empty-icon">🤖</div>
+            <div class="card-empty-title">יועץ מכירות AI</div>
+            <div class="card-empty-desc">שאל כל שאלה עסקית, מכירתית, שיווקית או אסטרטגית</div>
+          </div>
+        </div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-ta" id="chatTa" rows="1" placeholder="שאל שאלה עסקית..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendChat()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendChat()">➤</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════ MODAL ══════════════ -->
+<div class="overlay hidden" id="apiModal">
+  <div class="modal">
+    <div style="font-size:32px;margin-bottom:10px">🔑</div>
+    <h3>Google AI Studio API Key</h3>
+    <p>הכנס את מפתח ה-API שלך מ-Google AI Studio כדי להפעיל את מנוע המודיעין AI.</p>
+    <input type="password" class="modal-inp" id="apiInp" placeholder="AIza..."
+      onkeydown="if(event.key==='Enter')saveKey()" />
+    <button class="modal-btn" onclick="saveKey()">שמור והפעל</button>
+  </div>
 </div>
 
 <script>
-const SYSTEM_PROMPT = `אתה מנוע מכירות AI מומחה לחברת "דנא ציוד אינסטלציה" — חנות מקצועית בישראל לציוד אינסטלציה, צנרת, מים, ביוב, גילוי נזילות, מצלמות תרמיות, ברזים, אביזרים ממתכת וכלי עבודה מקצועיים.
-
-הלקוחות: קבלנים פרטיים, חברות בנייה, ואינסטלטורים עצמאיים.
-האתר: https://www.dna-tools.co.il/
-
-כללים דוגמטיים:
-- תמיד כתוב בעברית בלבד
-- חשוב כמנהל מכירות בכיר + אסטרטג B2B
-- ממוקד בהגדלת מכירות ב-WhatsApp
-- הודעות WhatsApp — מקצועיות, אגרסיביות אך לא ספאמיות, עם CTA חזק
-- כשיוצרים הודעת WhatsApp, סמן: [WHATSAPP_MESSAGE_START] ... [WHATSAPP_MESSAGE_END]
-- הצע תמיד 3 זוויות: מהירות/יעילות | רווח/הכנסה | איכות/אמינות
-- לניתוח מתחרים — תהיה אסטרטגי: מה הם עושים, מה הם לא, מה הפערים
-- תמיד ספציפי, לעולם לא גנרי`;
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
 
 let apiKey = localStorage.getItem('dna_api_key') || '';
-let messages = [];
-let isLoading = false;
+let chatMsgs = [];
+let productsData = null;
+let competitors = JSON.parse(localStorage.getItem('dna_competitors') || '[]');
 
-window.onload = () => {
-  document.getElementById('apiModal').style.display = apiKey ? 'none' : 'flex';
-};
+const WA_STORE = {};
+let waIdx = 0;
 
-function saveApiKey() {
-  const key = document.getElementById('apiKeyInput').value.trim();
-  if (!key) { alert('נא להכניס מפתח API'); return; }
-  apiKey = key;
-  localStorage.setItem('dna_api_key', key);
-  document.getElementById('apiModal').style.display = 'none';
+const EP = k => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${k}`;
+
+const SYS = `You are an advanced AI system for דנא ציוד אינסטלציה (DNA Tools), a professional B2B plumbing and infrastructure equipment store in Israel.
+
+Website: https://www.dna-tools.co.il/
+Industry: Plumbing, water infrastructure, sewage systems, leak detection, thermal imaging, industrial tools, valves, pipes, fittings, professional construction equipment.
+Target: B2B professionals — Plumbers, Contractors, Engineers, Infrastructure companies, Municipal teams, Leak detection specialists.
+
+Your roles: Market Intelligence Analyst · Competitor Research Engine · Product Data Analyst · Content Strategist · Visual Content Planner · E-commerce Optimization Expert.
+
+Think like: A CEO focused on revenue growth · A senior B2B sales director · A competitive intelligence analyst · A product marketing strategist.
+
+CRITICAL RULES:
+- ALWAYS respond in Hebrew
+- NEVER produce generic content
+- Focus on: Revenue impact, Conversion probability, Market advantage
+- Priority: Business growth > content · Revenue > descriptions · Actionable insights > theory
+- Design recommendations for scalability — this will evolve into a full SaaS intelligence platform
+
+For WhatsApp messages always wrap:
+[WHATSAPP_MESSAGE_START]
+message content here
+[WHATSAPP_MESSAGE_END]`;
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+
+async function init() {
+  if (!apiKey) showApiModal();
+  await loadProducts();
+  renderCompGrid();
+  updateKPIs();
 }
 
-function showApiModal() {
-  document.getElementById('apiKeyInput').value = apiKey;
-  document.getElementById('apiModal').style.display = 'flex';
+async function loadProducts() {
+  try {
+    const r = await fetch('./products.json?' + Date.now(), { cache: 'no-store' });
+    if (r.ok) productsData = await r.json();
+  } catch {}
 }
 
-function autoResize(el) {
-  el.style.height = 'auto';
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
-}
-
-function handleKey(e) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
-}
-
-function hideWelcome() {
-  const w = document.getElementById('welcomeScreen');
-  if (w) w.remove();
-}
-
-function addMessage(role, content) {
-  hideWelcome();
-  const area = document.getElementById('chatArea');
-  const wrapper = document.createElement('div');
-  wrapper.className = `message ${role}`;
-
-  const avatar = document.createElement('div');
-  avatar.className = 'msg-avatar';
-  avatar.textContent = role === 'user' ? 'א' : '🤖';
-
-  if (role === 'ai' && content.includes('[WHATSAPP_MESSAGE_START]')) {
-    const match = content.match(/\[WHATSAPP_MESSAGE_START\]([\s\S]*?)\[WHATSAPP_MESSAGE_END\]/);
-    const before = content.replace(/\[WHATSAPP_MESSAGE_START\][\s\S]*?\[WHATSAPP_MESSAGE_END\]/, '').trim();
-    const container = document.createElement('div');
-    container.style.maxWidth = '76%';
-
-    if (before) {
-      const bubble = document.createElement('div');
-      bubble.className = 'msg-bubble';
-      bubble.innerHTML = formatText(before);
-      container.appendChild(bubble);
+function updateKPIs() {
+  if (productsData) {
+    document.getElementById('kpiProd').textContent = productsData.total_products || productsData.products?.length || '—';
+    document.getElementById('kpiProdNote').textContent = 'עודכן ✓';
+    document.getElementById('kpiCats').textContent = productsData.categories?.length || '—';
+    if (productsData.last_updated) {
+      const parts = productsData.last_updated.split(' ');
+      document.getElementById('kpiDate').textContent = parts[0];
+      document.getElementById('kpiDateNote').textContent = parts[1] || '';
     }
-
-    if (match) {
-      container.appendChild(createWACard(match[1].trim()));
-    }
-
-    wrapper.appendChild(avatar);
-    wrapper.appendChild(container);
-  } else {
-    const bubble = document.createElement('div');
-    bubble.className = 'msg-bubble';
-    bubble.innerHTML = role === 'ai' ? formatText(content) : escapeHtml(content);
-    wrapper.appendChild(avatar);
-    wrapper.appendChild(bubble);
   }
-
-  area.appendChild(wrapper);
-  area.scrollTop = area.scrollHeight;
+  document.getElementById('kpiComp').textContent = competitors.length;
 }
 
-function escapeHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// ═══════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name)?.classList.add('active');
+  document.getElementById('nav-' + name)?.classList.add('active');
 }
 
-function formatText(text) {
-  return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-    .replace(/`(.*?)`/g, '<code style="background:rgba(255,255,255,0.1);padding:1px 5px;border-radius:4px;font-size:12px">$1</code>')
-    .replace(/\n/g, '<br>');
-}
+// ═══════════════════════════════════
+// API CALL
+// ═══════════════════════════════════
 
-function createWACard(text) {
-  const card = document.createElement('div');
-  card.className = 'wa-card';
-  const safeText = text.replace(/`/g, '\\`').replace(/\$/g, '\\$');
-  card.innerHTML = `
-    <div class="wa-card-header">
-      <span>📱</span> הודעת WhatsApp — מוכנה לשליחה
-    </div>
-    <div class="wa-card-body">${escapeHtml(text)}</div>
-    <div class="wa-card-footer">
-      <button class="copy-btn primary" id="copyBtn_${Date.now()}" onclick="copyWA(this, \`${safeText}\`)">
-        📋 העתק הודעה
-      </button>
-      <button class="copy-btn secondary" onclick="sendText('נסח מחדש את הודעת ה-WhatsApp בסגנון שונה ואגרסיבי יותר')">
-        🔄 נסח מחדש
-      </button>
-    </div>`;
-  return card;
-}
+async function callAI(prompt, useSearch = true, history = []) {
+  if (!apiKey) { showApiModal(); throw new Error('אין מפתח API'); }
 
-function copyWA(btn, text) {
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✅ הועתק!';
-    btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '📋 העתק הודעה'; btn.classList.remove('copied'); }, 2500);
+  const contents = [...history, { role: 'user', parts: [{ text: prompt }] }];
+  const body = {
+    system_instruction: { parts: [{ text: SYS }] },
+    contents,
+    generationConfig: { temperature: 0.85, maxOutputTokens: 4096 }
+  };
+  if (useSearch) body.tools = [{ google_search: {} }];
+
+  const r = await fetch(EP(apiKey), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
   });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message);
+  const parts = d.candidates?.[0]?.content?.parts || [];
+  return parts.filter(p => p.text).map(p => p.text).join('\n') || '(אין תשובה)';
 }
 
-function showTyping() {
-  const area = document.getElementById('chatArea');
-  const div = document.createElement('div');
-  div.className = 'message ai'; div.id = 'typingIndicator';
-  const av = document.createElement('div');
-  av.className = 'msg-avatar'; av.textContent = '🤖';
-  const t = document.createElement('div');
-  t.className = 'typing';
-  t.innerHTML = '<span></span><span></span><span></span>';
-  div.appendChild(av); div.appendChild(t);
-  area.appendChild(div); area.scrollTop = area.scrollHeight;
+// ═══════════════════════════════════
+// STATUS
+// ═══════════════════════════════════
+
+function setStatus(text, busy) {
+  document.getElementById('sText').textContent = text;
+  document.getElementById('sDot').style.background = busy ? '#fbbf24' : '#34d399';
+  document.getElementById('sDot').style.animationDuration = busy ? '0.5s' : '2s';
 }
 
-function removeTyping() {
-  const t = document.getElementById('typingIndicator');
-  if (t) t.remove();
+// ═══════════════════════════════════
+// LOADING HELPER
+// ═══════════════════════════════════
+
+function loadingHtml(msg) {
+  return `<div class="loading-row"><div class="dots"><span></span><span></span><span></span></div><span>${msg}</span></div>`;
 }
 
-async function sendText(text) {
-  if (!text.trim() || isLoading) return;
+function outputCard(title, html) {
+  return `<div class="card"><div class="card-head">${title}</div><div class="card-body">${html}</div></div>`;
+}
+
+function setOutput(id, html) {
+  document.getElementById(id).innerHTML = html;
+}
+
+// ═══════════════════════════════════
+// DAILY INTELLIGENCE SCAN
+// ═══════════════════════════════════
+
+async function runDailyScan() {
   if (!apiKey) { showApiModal(); return; }
+  showView('dashboard');
+  setStatus('סורק...', true);
 
-  isLoading = true;
-  document.getElementById('sendBtn').disabled = true;
+  const btn = document.getElementById('scanBtn');
+  btn.disabled = true; btn.textContent = '⏳ סורק...';
 
-  addMessage('user', text);
-  messages.push({ role: 'user', parts: [{ text }] });
-  showTyping();
+  document.getElementById('dashReport').innerHTML = loadingHtml('מבצע סריקה יומית מלאה — אתר, מוצרים, שוק ומתחרים...');
+
+  const today = new Date().toLocaleDateString('he-IL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const prodCtx = productsData ? `נתוני קטלוג: ${productsData.total_products || 0} מוצרים, קטגוריות: ${productsData.categories?.slice(0,8).map(c=>c.name).join('، ') || 'לא ידוע'}. עדכון: ${productsData.last_updated}.` : '';
+  const compCtx = competitors.length ? `מתחרים ידועים: ${competitors.map(c=>c.name||c.url).join(', ')}.` : '';
+
+  const prompt = `בצע מחזור מודיעין יומי מלא — ${today}.
+${prodCtx}
+${compCtx}
+
+## 1. 📋 שינויים באתר
+סרוק את https://www.dna-tools.co.il/ — מה חדש? שינויי מחיר? התראות?
+
+## 2. 🔥 5 מוצרים לקידום עכשיו
+לכל מוצר: שם · סיווג (🔥💰⚙️📦) · למה עכשיו · קהל יעד · הודעת WhatsApp קצרה
+
+## 3. 👁️ תנועות שוק ומתחרים
+מה קורה בשוק ציוד האינסטלציה בישראל? הזדמנויות תמחור ומיצוב?
+
+## 4. 💰 הזדמנות עסקית הגדולה השבוע
+מה, למה, איך לנצל אותה?
+
+## 5. ✅ 3 פעולות לנקוט היום`;
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: messages,
-          generationConfig: { temperature: 0.85, maxOutputTokens: 2048 }
-        })
-      }
-    );
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'לא הצלחתי לקבל תשובה';
-    messages.push({ role: 'model', parts: [{ text: reply }] });
-
-    removeTyping();
-    addMessage('ai', reply);
-
-  } catch (err) {
-    removeTyping();
-    addMessage('ai', `⚠️ שגיאה: ${err.message}\n\nבדוק שה-API Key נכון ופעיל.`);
+    const reply = await callAI(prompt, true);
+    document.getElementById('dashReportDate').textContent = today;
+    document.getElementById('dashReport').innerHTML = renderAI(reply);
+    setStatus('עודכן ' + new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}), false);
+  } catch(e) {
+    document.getElementById('dashReport').innerHTML = `<div style="color:#f87171;padding:12px">שגיאה: ${e.message}</div>`;
+    setStatus('שגיאה', false);
+  } finally {
+    btn.disabled = false; btn.textContent = '🚀 סריקה יומית';
   }
-
-  isLoading = false;
-  document.getElementById('sendBtn').disabled = false;
 }
 
-function sendMessage() {
-  const input = document.getElementById('chatInput');
-  const text = input.value.trim();
-  if (!text) return;
-  input.value = ''; input.style.height = 'auto';
-  sendText(text);
+// ═══════════════════════════════════
+// PRODUCT INTELLIGENCE
+// ═══════════════════════════════════
+
+async function analyzeProduct() {
+  const name = document.getElementById('prodInp').value.trim();
+  if (!name) return;
+  if (!apiKey) { showApiModal(); return; }
+
+  setStatus('מנתח מוצר...', true);
+  setOutput('prodOutput', outputCard('📦 מנתח מוצר', loadingHtml(`מנתח "${name}"...`)));
+
+  const prompt = `ניתוח מוצר מלא עבור: "${name}" (דנא ציוד אינסטלציה, B2B, ישראל)
+
+## 🎯 ניתוח: ${name}
+
+**סיווג:** 🔥 פוטנציאל מכירה גבוה / 💰 מרווח גבוה / ⚙️ נישה טכנית / 📦 מועמד לבנדל
+
+**שימוש בשטח:** מה האינסטלטור/קבלן עושה עם זה בפועל?
+**קהל יעד מדויק:** מי קונה? מתי? למה?
+**כאב שנפתר:** מה הבעיה שהמוצר פותר?
+**יתרון תחרותי:** למה לקנות דווקא אצלינו?
+**פוטנציאל רווח:** הערכת שוליים וביקוש בשוק הישראלי
+**מכירה צולבת:** מה למכור יחד עם זה?
+**אפסל:** מה הגרסה המשודרגת?
+
+## 📱 הודעת WhatsApp:
+[WHATSAPP_MESSAGE_START]
+הודעה שמוכרת — עם הוק, יתרון ברור, CTA
+[WHATSAPP_MESSAGE_END]
+
+## 🎬 3 רעיונות לסרטון:
+1. **הדגמה בשטח:** ...
+2. **לפני/אחרי:** ...
+3. **בעיה → פתרון:** ...
+
+## 📸 3 רעיונות לתמונות:
+- ...
+
+## 🔍 SEO:
+**כותרת דף:** (עד 60 תווים)
+**Meta description:** (עד 155 תווים)
+**מילות מפתח:** 5 מילים
+
+## 💼 אסטרטגיית מכירה:
+**מתי לדחוף:** (עונה / ביקוש)
+**בנדל מוצע:** ${name} + ...
+**מחיר פסיכולוגי:** ...`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('prodOutput', outputCard(`📦 ניתוח: ${name}`, renderAI(r)));
+    setStatus('הניתוח הושלם', false);
+  } catch(e) {
+    setOutput('prodOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
 }
 
-function quickAction(type) {
-  const prompts = {
-    suggest:    'בהתבסס על עונת הקיץ, הביקוש בשוק הישראלי, ומגמות בענף האינסטלציה — הצע 3 מוצרים מאתר דנא שכדאי לקדם השבוע. לכל מוצר: למה דווקא עכשיו, מה הרווחיות, ומי הלקוח האידיאלי.',
-    whatsapp:   'צור הודעת WhatsApp מקצועית ואגרסיבית לאחד המוצרים הנמכרים ביותר בתחום האינסטלציה. כלול: גוף ההודעה, CTA חזק, טיפול בהתנגדויות, ו-3 זוויות שיווק.',
-    competitor: 'נתח את המתחרים העיקריים בשוק ציוד האינסטלציה בישראל. מה הם עושים בוואטסאפ? מה הפערים שאפשר לנצל? תן אסטרטגיה מעשית לנצח אותם.',
-    bundle:     'הצע 3 חבילות מוצרים חכמות לקבלנים ואינסטלטורים שיגדילו את ההזמנה הממוצעת. לכל חבילה: שם שיווקי, מה כלול, מחיר מיוחד, ו-CTA.',
-    angles:     'תן 5 זוויות שיווק יצירתיות ואגרסיביות למכירת ציוד אינסטלציה מקצועי בוואטסאפ — שלא ראיתי עדיין בשוק הישראלי.',
-  };
-  sendText(prompts[type]);
+async function analyzeTopProducts() {
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מנתח מוצרים...', true);
+  setOutput('prodOutput', outputCard('🔥 מנתח מוצרי TOP', loadingHtml('בוחר את המוצרים הטובים ביותר לקידום...')));
+
+  const prodCtx = productsData?.products?.slice(0,20).map(p=>p.name).join(', ') || '';
+
+  const prompt = `נתח את 7 המוצרים הכי שווים לקידום עכשיו עבור דנא ציוד אינסטלציה (dna-tools.co.il, B2B, ישראל).
+
+${prodCtx ? 'מוצרים קיימים בקטלוג: ' + prodCtx : ''}
+
+לכל מוצר:
+- **שם + סיווג** (🔥💰⚙️📦)
+- **למה עכשיו** — עיתוי, ביקוש, עונה
+- **קהל יעד** — מדויק, לא גנרי
+- **הזדמנות עסקית** — כמה שורות ממוקדות
+
+ובסוף: **המוצר הכי שווה לקידום השבוע** — הסבר קצר ומוצר WhatsApp מוכן
+
+[WHATSAPP_MESSAGE_START]
+הודעה למוצר המוביל
+[WHATSAPP_MESSAGE_END]`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('prodOutput', outputCard('🔥 TOP מוצרים לקידום', renderAI(r)));
+    setStatus('הושלם', false);
+  } catch(e) {
+    setOutput('prodOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
 }
 
-function analyzeCompetitor(name) {
-  sendText(`נתח לעומק את המתחרה "${name}" בשוק ציוד האינסטלציה בישראל: מחירים, מוצרים, סגנון שיווק בוואטסאפ, נקודות חולשה, ואיך דנא יכולה לנצח אותם.`);
+// ═══════════════════════════════════
+// COMPETITOR INTELLIGENCE
+// ═══════════════════════════════════
+
+function renderCompGrid() {
+  const g = document.getElementById('compGrid');
+  if (!competitors.length) { g.innerHTML = ''; return; }
+  g.innerHTML = competitors.map((c,i) => `
+    <div class="comp-card">
+      <div>
+        <div class="comp-name">${esc(c.name || c.url)}</div>
+        <div class="comp-url">${esc(c.url || '')}</div>
+      </div>
+      <div class="comp-actions">
+        <button class="comp-btn" onclick="analyzeCompetitor(${i})">🔍 נתח</button>
+        <button class="comp-btn comp-btn-del" onclick="delCompetitor(${i})">✕</button>
+      </div>
+    </div>`).join('');
+  document.getElementById('kpiComp').textContent = competitors.length;
 }
 
 function addCompetitor() {
-  const n = prompt('שם המתחרה:');
-  if (n) analyzeCompetitor(n);
+  const v = document.getElementById('compInp').value.trim();
+  if (!v) return;
+  const comp = { name: v.replace(/https?:\/\/(www\.)?/,'').split('/')[0].split('.')[0], url: v };
+  if (!competitors.find(c => c.url === v || c.name === comp.name)) {
+    competitors.push(comp);
+    localStorage.setItem('dna_competitors', JSON.stringify(competitors));
+  }
+  document.getElementById('compInp').value = '';
+  renderCompGrid();
+  analyzeCompetitor(competitors.length - 1);
 }
 
-function categoryFocus(cat) {
-  sendText(`אני רוצה לקדם מוצרים בקטגוריה "${cat}". תן: המוצרים הכי שווים לקידום, זווית שיווק ייחודית לקבלנים, והודעת WhatsApp מוכנה.`);
+function delCompetitor(i) {
+  competitors.splice(i, 1);
+  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
+  renderCompGrid();
+  updateKPIs();
 }
 
-async function scanWebsite() {
-  if (!apiKey) { showApiModal(); return; }
+async function analyzeCompetitor(i) {
+  const c = competitors[i];
+  if (!c || !apiKey) { if (!apiKey) showApiModal(); return; }
+  setStatus('מנתח מתחרה...', true);
+  setOutput('compOutput', outputCard(`🔍 מנתח: ${c.name}`, loadingHtml(`סורק ${c.name}...`)));
 
-  hideWelcome();
-  showTyping();
+  const prompt = `ניתוח מתחרה מעמיק: ${c.name} ${c.url ? '(' + c.url + ')' : ''} — שוק ציוד אינסטלציה בישראל.
+
+## 🔍 פרופיל מתחרה: ${c.name}
+**מיצוב בשוק:** איפה הם נמצאים? מה הסיפור שלהם?
+**מוצרים מובילים:** מה הם מוכרים הכי הרבה?
+**אסטרטגיית מחיר:** זולים? יקרים? מה הפיצ'ר?
+**מסרים שיווקיים:** מה הם אומרים ללקוחות?
+
+## ⚔️ ניתוח תחרותי מול דנא
+**חוזקות שלהם:** מה הם עושים טוב?
+**חולשות שלהם:** איפה אנחנו יכולים לנצח?
+**פערי מחיר:** היכן יש הזדמנות?
+**פערי מוצר:** מה יש לנו שאין להם?
+
+## 🎯 3 פעולות קונקרטיות
+שאני צריך לנקוט מול מתחרה זה`;
 
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-          contents: [{
-            role: 'user',
-            parts: [{ text: `בצע סריקה מלאה של אתר המכירות https://www.dna-tools.co.il/ באמצעות חיפוש Google.
-
-אני רוצה לדעת:
-1. אילו קטגוריות מוצרים יש באתר
-2. דוגמאות למוצרים ומחירים
-3. אילו מוצרים כדאי לקדם השבוע ולמה
-4. הזדמנויות שיווק
-5. הודעת WhatsApp מוכנה לאחד המוצרים המובילים` }]
-          }],
-          tools: [{ google_search: {} }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
-        })
-      }
-    );
-
-    const data = await res.json();
-    if (data.error) throw new Error(data.error.message);
-    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'לא הצלחתי לסרוק';
-
-    messages.push({ role: 'user', parts: [{ text: 'סרוק את האתר שלי' }] });
-    messages.push({ role: 'model', parts: [{ text: reply }] });
-
-    removeTyping();
-    addMessage('ai', reply);
-
-  } catch(err) {
-    removeTyping();
-    await sendText(`נתח את האתר https://www.dna-tools.co.il/ — חנות ציוד אינסטלציה מקצועית בישראל. תן: קטגוריות מוצרים, המלצות לקידום השבוע, והודעת WhatsApp מוכנה.`);
+    const r = await callAI(prompt, true);
+    setOutput('compOutput', outputCard(`🔍 ניתוח: ${c.name}`, renderAI(r)));
+    setStatus('הושלם', false);
+  } catch(e) {
+    setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
   }
 }
 
-function clearChat() {
-  if (!confirm('למחוק את כל השיחה?')) return;
-  messages = [];
-  const area = document.getElementById('chatArea');
-  area.innerHTML = `
-    <div class="welcome" id="welcomeScreen">
-      <div class="welcome-hero">🚀</div>
-      <h2>מוכן למכור יותר היום?</h2>
-      <p>מנוע ה-AI שלך למכירות B2B. נסעור מוחות על מוצרים, ננתח מתחרים, וניצור הודעות WhatsApp שסוגרות עסקאות.</p>
-      <div class="welcome-grid">
-        <div class="welcome-card" onclick="quickAction('suggest')"><div class="card-icon-wrap">💡</div><div class="card-title">הצע מוצר לקידום</div><div class="card-desc">AI בוחר את המוצר הטוב ביותר לשבוע</div></div>
-        <div class="welcome-card" onclick="quickAction('whatsapp')"><div class="card-icon-wrap">📱</div><div class="card-title">צור הודעת WhatsApp</div><div class="card-desc">הודעה מוכנה לשליחה לקבוצות קבלנים</div></div>
-        <div class="welcome-card" onclick="quickAction('competitor')"><div class="card-icon-wrap">🔍</div><div class="card-title">נתח מתחרה</div><div class="card-desc">ראה מה הם עושים ואיך לנצח אותם</div></div>
-        <div class="welcome-card" onclick="quickAction('bundle')"><div class="card-icon-wrap">📦</div><div class="card-title">בנה חבילת מוצרים</div><div class="card-desc">קומבינציות שמגדילות הזמנה ממוצעת</div></div>
-      </div>
-    </div>`;
+async function scanAllCompetitors() {
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מנתח שוק...', true);
+  setOutput('compOutput', outputCard('🗺️ מפת שוק', loadingHtml('מנתח את שוק ציוד האינסטלציה בישראל...')));
+
+  const known = competitors.map(c => c.name || c.url).join(', ');
+
+  const prompt = `בצע מיפוי שוק מלא של ענף ציוד האינסטלציה המקצועי בישראל.
+${known ? 'מתחרים ידועים: ' + known : ''}
+
+## 🗺️ מפת שוק — ציוד אינסטלציה מקצועי ישראל
+
+**4-6 מתחרים עיקריים:**
+לכל מתחרה: שם · URL · מיצוב · חוזקות · חולשות
+
+## 📊 דינמיקת שוק
+- מי מוביל ולמה?
+- איפה יש פערי מחיר?
+- קטגוריות לא מנוצלות בשוק?
+
+## 🎯 אסטרטגיית מיצוב לדנא
+כיצד להציב את דנא כדי לנצח — עם 3 מהלכים קונקרטיים`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('compOutput', outputCard('🗺️ מפת שוק', renderAI(r)));
+    setStatus('הושלם', false);
+  } catch(e) {
+    setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
 }
+
+// ═══════════════════════════════════
+// CONTENT ENGINE
+// ═══════════════════════════════════
+
+async function generateContentPack() {
+  const prod = document.getElementById('contInp').value.trim();
+  if (!prod) return;
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('יוצר תוכן...', true);
+  setOutput('contOutput', outputCard('✍️ יוצר חבילה', loadingHtml(`יוצר חבילת תוכן מלאה עבור "${prod}"...`)));
+
+  const prompt = `חבילת תוכן שיווקי מלאה עבור: "${prod}" (דנא ציוד אינסטלציה — B2B, קבלנים ואינסטלטורים בישראל)
+
+## 📱 הודעת WhatsApp (מוכנה לשליחה):
+[WHATSAPP_MESSAGE_START]
+הוק חזק + יתרון ברור + קריאה לפעולה
+[WHATSAPP_MESSAGE_END]
+
+## 📝 תיאור מוצר לאתר (מותאם המרה):
+**כותרת מושכת:**
+**פסקת מכירה:**
+**3 יתרונות עיקריים:**
+
+## 🔍 SEO מלא:
+**כותרת דף:** (עד 60 תווים)
+**Meta description:** (עד 155 תווים)
+**5 מילות מפתח:**
+
+## 🎬 3 רעיונות לסרטון:
+1. **הדגמת שימוש בשטח:** [מה לצלם, כמה זמן, מה המסר]
+2. **לפני ואחרי:** [תרחיש]
+3. **בעיה שנפתרת:** [עלילה קצרה]
+
+## 📸 3 רעיונות לתמונות מוצר:
+1. ...
+2. ...
+3. ...
+
+## 💼 אסטרטגיית מכירה B2B:
+**מי קונה ומתי:** ...
+**עונתיות:** ...
+**בנדל מוצע:** ${prod} + ...
+**מחיר ואפסל:** ...`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('contOutput', outputCard(`✍️ חבילת תוכן: ${prod}`, renderAI(r)));
+    setStatus('התוכן מוכן', false);
+  } catch(e) {
+    setOutput('contOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+async function generateWeeklyContent() {
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מכין תוכן שבועי...', true);
+  setOutput('contOutput', outputCard('📅 מכין תוכן שבועי', loadingHtml('בוחר מוצרים ומכין תוכן לשבוע...')));
+
+  const prompt = `צור תוכן שיווקי לשבוע הקרוב עבור דנא ציוד אינסטלציה.
+
+בחר 3 מוצרים מdna-tools.co.il שכדאי לקדם השבוע ועבור כל אחד:
+
+## 📅 מוצר [מספר]: [שם]
+**למה עכשיו:** (עיתוי, ביקוש, עונה)
+**קהל יעד:** ...
+
+[WHATSAPP_MESSAGE_START]
+הודעה מוכנה לשליחה — ספציפית, מוכרת, קצרה
+[WHATSAPP_MESSAGE_END]
+
+**רעיון תוכן נוסף:** (סרטון / תמונה / פוסט)
+
+---
+
+ובסוף: **אסטרטגיית שבוע** — מה לדחוף ביום ראשון, מה באמצע השבוע, מה בסוף`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('contOutput', outputCard('📅 תוכן לשבוע', renderAI(r)));
+    setStatus('מוכן', false);
+  } catch(e) {
+    setOutput('contOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+// ═══════════════════════════════════
+// MARKET OPPORTUNITIES
+// ═══════════════════════════════════
+
+async function runMarketOpp() {
+  await runMarket('🗺️ ניתוח הזדמנויות שוק', `ניתוח הזדמנויות שוק ופערי קטלוג עבור דנא ציוד אינסטלציה.
+
+## 💰 דוח הזדמנויות שוק
+
+**מוצרים חסרים בקטלוג לעומת השוק:**
+- מה יש למתחרים שאין לנו? ביקוש? גודל שוק?
+
+**קטגוריות עם פוטנציאל גבוה שלא מנוצלות:**
+- הגדרה, גודל, קהל יעד
+
+**מוצרים קיימים עם חשיפה נמוכה ופוטנציאל גבוה:**
+- מה כדאי לדחוף יותר?
+
+## 📈 3 פעולות להגדלת הכנסות ב-30 הימים הקרובים:`);
+}
+
+async function runBundleAnalysis() {
+  await runMarket('📦 הצעות בנדל', `הצע 5 בנדלים (חבילות מוצרים) לדנא ציוד אינסטלציה שיגדילו ערך רכישה ממוצע.
+
+## 📦 הצעות בנדל
+
+לכל בנדל:
+**שם הבנדל:** [שם שיווקי]
+**מוצרים בחבילה:** ...
+**קהל יעד:** ...
+**למה זה עובד:** ...
+**מחיר מוצע:** ...
+
+[WHATSAPP_MESSAGE_START]
+הצעה לבנדל
+[WHATSAPP_MESSAGE_END]`);
+}
+
+async function runSeasonalAnalysis() {
+  const mon = new Date().toLocaleString('he-IL',{month:'long'});
+  await runMarket(`📅 עונתיות — ${mon}`, `ניתוח עונתיות וביקוש לדנא ציוד אינסטלציה לחודש ${mon}.
+
+## 📅 מדריך עונתיות — ${mon}
+
+**מה בביקוש גבוה עכשיו:**
+- מוצרים עונתיים + גורמי ביקוש (מזג אוויר / עבודות / חגים / פרויקטים)
+
+**3 מוצרים לקדם עכשיו + הסבר:**
+לכל אחד: שם · למה עכשיו · הודעת WhatsApp
+
+[WHATSAPP_MESSAGE_START]
+הודעה לאחד המוצרים העונתיים
+[WHATSAPP_MESSAGE_END]
+
+**מה להכין לחודש הבא:**`);
+}
+
+async function runCategoryGap() {
+  await runMarket('🔦 פערי קטגוריות', `ניתוח פערי קטגוריות בין דנא לשוק הישראלי.
+
+## 🔦 ניתוח פערי קטגוריות
+
+**קטגוריות קיימות בדנא:** (מhttps://www.dna-tools.co.il/)
+
+**קטגוריות חסרות לעומת מתחרים:**
+- קטגוריה + גודל שוק + מי מוכר + הזדמנות
+
+**עדיפות הוספה:**
+1. הכי דחוף — למה
+2. שני — למה
+3. שלישי — למה`);
+}
+
+async function runMarket(title, prompt) {
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מנתח שוק...', true);
+  setOutput('mktOutput', outputCard(title, loadingHtml('מבצע ניתוח שוק...')));
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('mktOutput', outputCard(title, renderAI(r)));
+    setStatus('הושלם', false);
+  } catch(e) {
+    setOutput('mktOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+// ═══════════════════════════════════
+// CHAT
+// ═══════════════════════════════════
+
+async function sendChat() {
+  const ta = document.getElementById('chatTa');
+  const text = ta.value.trim();
+  if (!text || !apiKey) { if (!apiKey) showApiModal(); return; }
+
+  ta.value = ''; ta.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  appendMsg('user', text);
+  chatMsgs.push({ role: 'user', parts: [{ text }] });
+
+  const tid = appendTyping();
+
+  try {
+    const r = await fetch(EP(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYS }] },
+        contents: chatMsgs,
+        generationConfig: { temperature: 0.85, maxOutputTokens: 4096 }
+      })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error.message);
+    const parts = d.candidates?.[0]?.content?.parts || [];
+    const reply = parts.filter(p=>p.text).map(p=>p.text).join('\n') || '(אין תשובה)';
+    chatMsgs.push({ role: 'model', parts: [{ text: reply }] });
+    removeEl(tid);
+    appendMsg('ai', reply);
+  } catch(e) {
+    chatMsgs.pop();
+    removeEl(tid);
+    appendMsg('ai', `⚠️ שגיאה: ${e.message}`);
+  } finally {
+    document.getElementById('sendBtn').disabled = false;
+  }
+}
+
+function appendMsg(role, text) {
+  const area = document.getElementById('chatArea');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  d.innerHTML = `<div class="msg-av">${role==='ai'?'🤖':'👤'}</div><div class="msg-bub">${renderAI(text)}</div>`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+}
+
+function appendTyping() {
+  const area = document.getElementById('chatArea');
+  const id = 'ty' + Date.now();
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = id;
+  d.innerHTML = `<div class="msg-av">🤖</div><div class="typing-bub"><div class="dots"><span></span><span></span><span></span></div>חושב...</div>`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+  return id;
+}
+
+function removeEl(id) { document.getElementById(id)?.remove(); }
+
+// ═══════════════════════════════════
+// RENDER AI CONTENT
+// ═══════════════════════════════════
+
+function renderAI(text) {
+  if (!text) return '';
+
+  // Extract WhatsApp messages
+  const waMsgs = [];
+  const cleaned = text.replace(/\[WHATSAPP_MESSAGE_START\]([\s\S]*?)\[WHATSAPP_MESSAGE_END\]/g, (_, msg) => {
+    const i = waMsgs.length;
+    waMsgs.push(msg.trim());
+    return `\n__WA${i}__\n`;
+  });
+
+  // Line-by-line markdown conversion
+  const lines = cleaned.split('\n');
+  let html = '<div class="ai-content">';
+  let inList = false;
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    const t = line.trim();
+
+    // WhatsApp card
+    const waMatch = t.match(/^__WA(\d+)__$/);
+    if (waMatch) {
+      if (inList) { html += '</ul>'; inList = false; }
+      const idx = parseInt(waMatch[1]);
+      const msg = waMsgs[idx];
+      const key = 'k' + waIdx++;
+      WA_STORE[key] = msg;
+      html += `<div class="wa-card">
+        <div class="wa-head">
+          <div class="wa-label">📱 הודעת WhatsApp</div>
+          <button class="copy-btn" onclick="copyWA(this,'${key}')">העתק</button>
+        </div>
+        <div class="wa-text">${esc(msg)}</div>
+      </div>`;
+      continue;
+    }
+
+    if (t.startsWith('## ')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h3>${inlineMd(t.slice(3))}</h3>`;
+    } else if (t.startsWith('### ')) {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<h4>${inlineMd(t.slice(4))}</h4>`;
+    } else if (/^[-*] /.test(t)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inlineMd(t.slice(2))}</li>`;
+    } else if (/^\d+\. /.test(t)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${inlineMd(t.replace(/^\d+\. /,''))}</li>`;
+    } else if (!t) {
+      if (inList) { html += '</ul>'; inList = false; }
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${inlineMd(t)}</p>`;
+    }
+  }
+
+  if (inList) html += '</ul>';
+  html += '</div>';
+  return html;
+}
+
+function inlineMd(t) {
+  return t
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+}
+
+function esc(t) {
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function copyWA(btn, key) {
+  const text = WA_STORE[key] || '';
+  const doIt = () => {
+    btn.textContent = '✓ הועתק!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'העתק'; btn.classList.remove('copied'); }, 2000);
+  };
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(doIt).catch(() => fallbackCopy(text, doIt));
+  } else {
+    fallbackCopy(text, doIt);
+  }
+}
+
+function fallbackCopy(text, cb) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); cb(); } catch {}
+  document.body.removeChild(ta);
+}
+
+// ═══════════════════════════════════
+// API KEY MODAL
+// ═══════════════════════════════════
+
+function showApiModal() {
+  document.getElementById('apiModal').classList.remove('hidden');
+  document.getElementById('apiInp').value = apiKey;
+  setTimeout(() => document.getElementById('apiInp').focus(), 100);
+}
+
+function saveKey() {
+  const k = document.getElementById('apiInp').value.trim();
+  if (!k) return;
+  apiKey = k;
+  localStorage.setItem('dna_api_key', k);
+  document.getElementById('apiModal').classList.add('hidden');
+  setStatus('מפתח נשמר ✓', false);
+}
+
+document.getElementById('apiModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+});
+
+// ═══════════════════════════════════
+// START
+// ═══════════════════════════════════
+
+init();
 </script>
 </body>
 </html>
