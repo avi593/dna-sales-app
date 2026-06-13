@@ -5,6 +5,9 @@ on:
     - cron: '0 4 * * *'  # כל יום ב-06:00 שעון ישראל (04:00 UTC)
   workflow_dispatch:       # אפשרות הרצה ידנית
 
+permissions:
+  contents: write
+
 jobs:
   scan:
     runs-on: ubuntu-latest
