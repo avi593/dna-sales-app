@@ -901,75 +901,46 @@ async function scanWebsite() {
   if (!apiKey) { showApiModal(); return; }
 
   hideWelcome();
-  const area = document.getElementById('chatArea');
-
-  const scanMsg = document.createElement('div');
-  scanMsg.className = 'message ai';
-  scanMsg.id = 'scanMsg';
-  scanMsg.innerHTML = `
-    <div class="msg-avatar">🤖</div>
-    <div class="msg-bubble">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div class="typing"><span></span><span></span><span></span></div>
-        <span>סורק את dna-tools.co.il...</span>
-      </div>
-    </div>`;
-  area.appendChild(scanMsg);
-  area.scrollTop = area.scrollHeight;
+  showTyping();
 
   try {
-    const proxies = [
-      `https://corsproxy.io/?url=${encodeURIComponent('https://www.dna-tools.co.il/')}`,
-      `https://api.allorigins.win/get?url=${encodeURIComponent('https://www.dna-tools.co.il/')}`,
-    ];
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+          contents: [{
+            role: 'user',
+            parts: [{ text: `בצע סריקה מלאה של אתר המכירות https://www.dna-tools.co.il/ באמצעות חיפוש Google.
 
-    let html = '';
-    for (const proxy of proxies) {
-      try {
-        const res = await fetch(proxy, { signal: AbortSignal.timeout(8000) });
-        const data = await res.json();
-        html = data.contents || data.body || '';
-        if (html.length > 100) break;
-      } catch { continue; }
-    }
+אני רוצה לדעת:
+1. אילו קטגוריות מוצרים יש באתר
+2. דוגמאות למוצרים ומחירים
+3. אילו מוצרים כדאי לקדם השבוע ולמה
+4. הזדמנויות שיווק
+5. הודעת WhatsApp מוכנה לאחד המוצרים המובילים` }]
+          }],
+          tools: [{ google_search: {} }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 }
+        })
+      }
+    );
 
-    let products = [], cats = [];
+    const data = await res.json();
+    if (data.error) throw new Error(data.error.message);
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || 'לא הצלחתי לסרוק';
 
-    if (html.length > 100) {
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      doc.querySelectorAll('.product, li.product').forEach(el => {
-        const name = el.querySelector('h2, .woocommerce-loop-product__title')?.textContent?.trim();
-        const price = el.querySelector('.price .woocommerce-Price-amount')?.textContent?.trim();
-        if (name) products.push(`${name}${price ? ' — ' + price : ''}`);
-      });
-      doc.querySelectorAll('.product-category a, .widget_product_categories a, nav a').forEach(a => {
-        const t = a.textContent.trim();
-        if (t && t.length > 2 && t.length < 40) cats.push(t);
-      });
-    }
+    messages.push({ role: 'user', parts: [{ text: 'סרוק את האתר שלי' }] });
+    messages.push({ role: 'model', parts: [{ text: reply }] });
 
-    document.getElementById('scanMsg')?.remove();
-
-    const prompt = html.length > 100
-      ? `סרקתי את אתר המכירות dna-tools.co.il ומצאתי את הנתונים הבאים:
-מוצרים: ${products.slice(0,15).join(' | ') || 'לא נמצאו — האתר מוגן'}
-קטגוריות: ${[...new Set(cats)].slice(0,10).join(', ') || 'לא נמצאו'}
-
-נתח את הנתונים ותן:
-1. אילו מוצרים/קטגוריות כדאי לקדם השבוע ולמה
-2. הזדמנויות שיווק שרואים
-3. הודעת WhatsApp מוכנה לאחד המוצרים`
-      : `גש לאתר https://www.dna-tools.co.il/ ונתח אותו:
-1. אילו מוצרים וקטגוריות יש שם (ציוד אינסטלציה, צנרת, גילוי נזילות, מצלמות תרמיות וכו')
-2. אילו מוצרים כדאי לקדם השבוע ולמה
-3. הודעת WhatsApp מוכנה לאחד המוצרים המובילים`;
-
-    await sendText(prompt);
+    removeTyping();
+    addMessage('ai', reply);
 
   } catch(err) {
-    document.getElementById('scanMsg')?.remove();
-    addMessage('ai', `⚠️ שגיאה בסריקה. מנסה בכל זאת לנתח את האתר...`);
-    await sendText(`נתח את האתר https://www.dna-tools.co.il/ — ציוד אינסטלציה מקצועי בישראל. תן המלצות לקידום השבוע והודעת WhatsApp מוכנה.`);
+    removeTyping();
+    await sendText(`נתח את האתר https://www.dna-tools.co.il/ — חנות ציוד אינסטלציה מקצועית בישראל. תן: קטגוריות מוצרים, המלצות לקידום השבוע, והודעת WhatsApp מוכנה.`);
   }
 }
 
