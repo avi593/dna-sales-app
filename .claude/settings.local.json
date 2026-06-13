@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "PowerShell(Get-Command python, python3, node, npx -ErrorAction SilentlyContinue)"
+    ]
+  }
+}
