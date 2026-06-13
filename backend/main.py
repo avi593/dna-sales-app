@@ -21,7 +21,7 @@ from google.analytics.data_v1beta.types import (
     RunReportRequest,
 )
 
-PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID", "")
+PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID", "345396743")
 ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
 CORS = {
