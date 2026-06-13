@@ -252,8 +252,12 @@
       display: flex; flex-direction: column; gap: 10px;
     }
     .comp-name { font-size: 14px; font-weight: 700; }
-    .comp-url  { font-size: 11px; color: var(--muted); }
-    .comp-actions { display: flex; gap: 6px; }
+    .comp-url  { font-size: 11px; color: var(--muted); word-break: break-all; }
+    .comp-focus {
+      font-size: 11px; color: #34d399; margin-top: 4px;
+      display: flex; align-items: center; gap: 4px; word-break: break-all;
+    }
+    .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
       font-family: 'Heebo',sans-serif; cursor: pointer; transition: all .2s;
@@ -556,9 +560,13 @@
         <div class="sec-sub">מחירים, מסרים, אסטרטגיות — ואיפה לנצח אותם</div>
       </div>
       <div class="input-row">
-        <input class="inp" id="compInp" placeholder="שם מתחרה או URL (לדוגמה: ksp-pro.co.il)" />
+        <input class="inp" id="compInp" placeholder="לינק של מתחרה (לדוגמה: ksp-pro.co.il)" />
+        <input class="inp" id="compFocusInp" placeholder="דף ספציפי למעקב מודגש (אופציונלי)" />
         <button class="btn btn-blue" onclick="addCompetitor()">הוסף וניתח</button>
+      </div>
+      <div class="input-row">
         <button class="btn btn-orange" onclick="scanAllCompetitors()">⚡ מפת שוק מלאה</button>
+        <button class="btn btn-green" onclick="recommendCompetitors()">💡 המלץ לי על מתחרים למעקב</button>
       </div>
       <div id="compGrid" class="comp-grid"></div>
       <div id="compOutput">
@@ -1042,9 +1050,11 @@ function renderCompGrid() {
       <div>
         <div class="comp-name">${esc(c.name || c.url)}</div>
         <div class="comp-url">${esc(c.url || '')}</div>
+        ${c.focusUrl ? `<div class="comp-focus">🎯 ${esc(c.focusUrl)}</div>` : ''}
       </div>
       <div class="comp-actions">
         <button class="comp-btn" onclick="analyzeCompetitor(${i})">🔍 נתח</button>
+        <button class="comp-btn" onclick="setFocusUrl(${i})">🎯 דף מעקב</button>
         <button class="comp-btn comp-btn-del" onclick="delCompetitor(${i})">✕</button>
       </div>
     </div>`).join('');
@@ -1054,14 +1064,33 @@ function renderCompGrid() {
 function addCompetitor() {
   const v = document.getElementById('compInp').value.trim();
   if (!v) return;
-  const comp = { name: v.replace(/https?:\/\/(www\.)?/,'').split('/')[0].split('.')[0], url: v };
-  if (!competitors.find(c => c.url === v || c.name === comp.name)) {
+  const focus = document.getElementById('compFocusInp').value.trim();
+  const comp = {
+    name: v.replace(/https?:\/\/(www\.)?/,'').split('/')[0].split('.')[0],
+    url: v,
+    focusUrl: focus || ''
+  };
+  const existing = competitors.find(c => c.url === v || c.name === comp.name);
+  if (existing) {
+    if (focus) existing.focusUrl = focus;
+  } else {
     competitors.push(comp);
-    localStorage.setItem('dna_competitors', JSON.stringify(competitors));
   }
+  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
   document.getElementById('compInp').value = '';
+  document.getElementById('compFocusInp').value = '';
   renderCompGrid();
-  analyzeCompetitor(competitors.length - 1);
+  analyzeCompetitor(competitors.findIndex(c => c.url === v || c.name === comp.name));
+}
+
+function setFocusUrl(i) {
+  const c = competitors[i];
+  if (!c) return;
+  const v = prompt(`דף ספציפי למעקב מודגש אצל ${c.name}:\n(לדוגמה: עמוד קטגוריה או מוצר מסוים)`, c.focusUrl || '');
+  if (v === null) return;
+  c.focusUrl = v.trim();
+  localStorage.setItem('dna_competitors', JSON.stringify(competitors));
+  renderCompGrid();
 }
 
 function delCompetitor(i) {
@@ -1077,14 +1106,19 @@ async function analyzeCompetitor(i) {
   setStatus('מנתח מתחרה...', true);
   setOutput('compOutput', outputCard(`🔍 מנתח: ${c.name}`, loadingHtml(`סורק ${c.name}...`)));
 
-  const prompt = `ניתוח מתחרה מעמיק: ${c.name} ${c.url ? '(' + c.url + ')' : ''} — שוק ציוד אינסטלציה בישראל.
+  const focusBlock = c.focusUrl ? `
+
+⭐ **דף מעקב מודגש:** ${c.focusUrl}
+שים דגש מיוחד על הדף הזה — נתח אותו לעומק (מוצרים, מחירים, מסרים, מבצעים שמופיעים בו) והקדש לו סעיף נפרד.` : '';
+
+  const prompt = `ניתוח מתחרה מעמיק: ${c.name} ${c.url ? '(' + c.url + ')' : ''} — שוק ציוד אינסטלציה בישראל.${focusBlock}
 
 ## 🔍 פרופיל מתחרה: ${c.name}
 **מיצוב בשוק:** איפה הם נמצאים? מה הסיפור שלהם?
 **מוצרים מובילים:** מה הם מוכרים הכי הרבה?
 **אסטרטגיית מחיר:** זולים? יקרים? מה הפיצ'ר?
 **מסרים שיווקיים:** מה הם אומרים ללקוחות?
-
+${c.focusUrl ? `\n## ⭐ ניתוח דף המעקב המודגש\nניתוח ממוקד של ${c.focusUrl} — מה יש בו, מחירים, ואיך דנא יכולה להתמודד מולו ספציפית.\n` : ''}
 ## ⚔️ ניתוח תחרותי מול דנא
 **חוזקות שלהם:** מה הם עושים טוב?
 **חולשות שלהם:** איפה אנחנו יכולים לנצח?
@@ -1130,6 +1164,55 @@ ${known ? 'מתחרים ידועים: ' + known : ''}
   try {
     const r = await callAI(prompt, true);
     setOutput('compOutput', outputCard('🗺️ מפת שוק', renderAI(r)));
+    setStatus('הושלם', false);
+  } catch(e) {
+    setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+async function recommendCompetitors() {
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מחפש מתחרים מומלצים...', true);
+  setOutput('compOutput', outputCard('💡 מתחרים מומלצים למעקב', loadingHtml('סורק את המוצרים שלך ומאתר מתחרים רלוונטיים...')));
+
+  // בונה תקציר קטלוג מוצרי דנא
+  const prods = productsData?.products || [];
+  let catalog = '';
+  if (prods.length) {
+    const names = prods.slice(0, 60).map(p => p.name).filter(Boolean);
+    catalog = `הקטלוג של דנא כולל ${prods.length} מוצרים. דוגמאות:\n${names.map(n => '• ' + n).join('\n')}`;
+  } else {
+    catalog = 'קטלוג המוצרים לא נטען — התבסס על כך שדנא היא חנות ציוד אינסטלציה ותשתיות מים מקצועי B2B בישראל.';
+  }
+
+  const tracked = competitors.map(c => c.name || c.url);
+  const trackedBlock = tracked.length
+    ? `כבר עוקבים אחרי המתחרים הבאים — אל תמליץ עליהם שוב: ${tracked.join(', ')}.`
+    : 'כרגע לא עוקבים אחרי אף מתחרה.';
+
+  const prompt = `אתה אנליסט שוק B2B לענף ציוד אינסטלציה ותשתיות מים בישראל.
+
+הנה מה שדנא מוכרת:
+${catalog}
+
+${trackedBlock}
+
+המשימה: המלץ על **3 המתחרים המובילים בישראל** שדנא **עדיין לא עוקבת אחריהם** וכדאי שתתחיל לעקוב, על בסיס חפיפת המוצרים. חפש מתחרים אמיתיים וקיימים בלבד (השתמש בחיפוש).
+
+לכל מתחרה החזר בדיוק את המבנה הבא:
+
+## {מספר}. {שם המתחרה}
+**אתר:** {URL מלא}
+**למה רלוונטי:** באילו קטגוריות/מוצרים הם חופפים לדנא
+**רמת איום:** גבוהה / בינונית / נמוכה + נימוק קצר
+**דף מומלץ למעקב מודגש:** {URL ספציפי של קטגוריה/דף חשוב אצלם}
+
+חשוב: 3 מתחרים בלבד, אמיתיים, שלא ברשימת המעקב הקיימת.`;
+
+  try {
+    const r = await callAI(prompt, true);
+    setOutput('compOutput', outputCard('💡 מתחרים מומלצים למעקב', renderAI(r)));
     setStatus('הושלם', false);
   } catch(e) {
     setOutput('compOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
