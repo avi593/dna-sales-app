@@ -729,7 +729,12 @@
       </div>
       <div class="add-model-box">
         <input class="inp" id="myCatUrl" placeholder="הקישור לקטגוריה שלי *" />
-        <textarea class="inp" id="compCatUrls" rows="3" placeholder="קישורי קטגוריה של מתחרים — קישור אחד בכל שורה *"></textarea>
+        <div class="muted-sm">קטגוריות של מתחרים (הדבק קישור ולחץ +):</div>
+        <div id="compCatList" class="known-list"></div>
+        <div class="disc-manual">
+          <input class="inp" id="compCatInp" placeholder="הדבק קישור קטגוריה של מתחרה" onkeydown="if(event.key==='Enter')addCompCat()" />
+          <button class="add-plus" title="הוסף קטגוריה" onclick="addCompCat()">+</button>
+        </div>
         <div class="add-model-actions">
           <button class="btn btn-blue" onclick="trackCategories()">🔍 סרוק קטגוריות והשווה</button>
           <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
@@ -1583,6 +1588,7 @@ function fmtPrice(p) {
 }
 
 async function loadModels() {
+  renderCompCatList();
   const el = document.getElementById('modelsList');
   el.innerHTML = loadingHtml('טוען דגמים...');
   try {
@@ -1723,16 +1729,42 @@ function renderModels() {
     </table>`;
 }
 
+let compCatList = JSON.parse(localStorage.getItem('dna_comp_categories') || '[]');
+
+function renderCompCatList() {
+  const el = document.getElementById('compCatList');
+  if (!el) return;
+  el.innerHTML = compCatList.map((u, i) =>
+    `<span class="known-chip">${esc(u)} <button onclick="delCompCat(${i})" title="הסר">✕</button></span>`).join('');
+}
+
+function addCompCat() {
+  const inp = document.getElementById('compCatInp');
+  const v = (inp.value || '').trim();
+  if (!v) return;
+  if (!/^https?:\/\//i.test(v)) { alert('הדבק קישור מלא שמתחיל ב-http'); return; }
+  if (!compCatList.includes(v)) {
+    compCatList.push(v);
+    localStorage.setItem('dna_comp_categories', JSON.stringify(compCatList));
+  }
+  inp.value = '';
+  renderCompCatList();
+}
+
+function delCompCat(i) {
+  compCatList.splice(i, 1);
+  localStorage.setItem('dna_comp_categories', JSON.stringify(compCatList));
+  renderCompCatList();
+}
+
 async function trackCategories() {
   const myCategoryUrl = document.getElementById('myCatUrl').value.trim();
-  const competitorCategoryUrls = document.getElementById('compCatUrls').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  const competitorCategoryUrls = compCatList.slice();
   if (!myCategoryUrl) { alert('הזן את הקישור לקטגוריה שלך'); return; }
-  if (!competitorCategoryUrls.length) { alert('הזן לפחות קטגוריית מתחרה אחת'); return; }
+  if (!competitorCategoryUrls.length) { alert('הוסף לפחות קטגוריית מתחרה אחת (עם +)'); return; }
   setStatus('סורק קטגוריות ומשווה מחירים...', true);
   try {
     const d = await compApi('/track-categories', 'POST', { myCategoryUrl, competitorCategoryUrls });
-    document.getElementById('myCatUrl').value = '';
-    document.getElementById('compCatUrls').value = '';
     await loadModels();
     setStatus('הושלם', false);
     alert(`✅ נוצרו ${d.created} דגמים עם התאמת מתחרים.\nדולגו ${d.skipped} מוצרים (ללא מחיר או ללא התאמה אצל מתחרה).\n(מוצרים שלי: ${d.myProducts} · מוצרי מתחרים שנסרקו: ${d.competitorProducts})`);
