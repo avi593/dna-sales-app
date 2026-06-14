@@ -264,7 +264,13 @@ def extract_price(html):
         if price:
             return price
 
-    # 4. regex של ₪ / ש"ח / NIS ליד מספר
+    # 4. JSON מוטמע: "price": <מספר> — תופס נתוני מוצר בתוך סקריפטים (מתעלם מאפסים)
+    for mm in re.finditer(r'"price"\s*:\s*"?([\d.,]+)"?', html):
+        price = _to_price(mm.group(1))
+        if price:
+            return price
+
+    # 5. regex של ₪ / ש"ח / NIS ליד מספר
     text = soup.get_text(" ", strip=True)
     m = (re.search(r"(?:₪|ש\"?ח|NIS)\s*([\d.,]+)", text)
          or re.search(r"([\d.,]+)\s*(?:₪|ש\"?ח|NIS)", text))
@@ -279,6 +285,9 @@ def fetch_price(url):
         r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
         if r.status_code != 200:
             return {"price": None, "status": r.status_code}
+        # תיקון קידוד: כשהשרת לא מצהיר charset, requests מניח ISO-8859-1 ושובר את ₪.
+        if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = r.apparent_encoding or "utf-8"
         return {"price": extract_price(r.text), "status": 200}
     except Exception as e:
         return {"price": None, "status": "error", "error": str(e)}
