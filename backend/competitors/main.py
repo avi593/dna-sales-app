@@ -621,6 +621,50 @@ def search_competitors_api(data):
     return _json({"competitors": serp_competitors(q, token, only_domains=only)})
 
 
+def create_tracked(data):
+    """יצירת דגם מקישורים ידניים בלבד: הקישור שלי + קישורי מתחרים → סריקת מחירים.
+    פוסל אם אין מחיר שלי או של אף מתחרה, ומונע כפילות לפי הקישור שלי."""
+    data = data or {}
+    name = (data.get("name") or "").strip()
+    my_url = (data.get("myUrl") or "").strip()
+    comp_urls = [u.strip() for u in (data.get("competitorUrls") or []) if u and u.strip()]
+    if not name:
+        return _json({"error": "שם הדגם הוא חובה"}, 400)
+    if not my_url:
+        return _json({"error": "הקישור שלך הוא חובה"}, 400)
+    if not comp_urls:
+        return _json({"error": "יש להזין לפחות קישור מתחרה אחד"}, 400)
+
+    # מניעת כפילות לפי הקישור שלי
+    if list(db.collection("models").where("myUrl", "==", my_url).limit(1).stream()):
+        return _json({"error": "דגם עם הקישור הזה כבר קיים"}, 409)
+
+    # סריקת המחיר שלי
+    my = fetch_price(my_url)
+    if my["price"] is None:
+        return _json({"error": "לא נמצא מחיר בקישור שלך — בדוק שהקישור נכון ומכיל מחיר"}, 422)
+
+    # סריקת מחירי המתחרים במקביל; שומרים רק כאלה עם מחיר
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        results = list(ex.map(lambda u: (u, fetch_price(u)), comp_urls))
+    valid = [(u, r["price"]) for u, r in results if r["price"] is not None]
+    if not valid:
+        return _json({"error": "לא נמצא מחיר אצל אף אחד מהמתחרים — בדוק את הקישורים"}, 422)
+
+    now = firestore.SERVER_TIMESTAMP
+    mref = db.collection("models").document()
+    mref.set({"name": name, "myUrl": my_url, "myPrice": my["price"], "status": "active",
+              "lastScanAt": now, "createdAt": now, "updatedAt": now})
+    for u, price in valid:
+        db.collection("priceSources").document().set({
+            "modelId": mref.id, "url": u, "name": _domain(u),
+            "lastPrice": price, "lastScanAt": now, "lastStatus": 200, "createdAt": now})
+
+    m = _ts_to_iso(_doc_to_dict(mref.get()))
+    m["competitors"] = _sources_for(mref.id)
+    return _json({"model": m, "skippedCompetitors": len(comp_urls) - len(valid)}, 201)
+
+
 # ═══════════════════════════ ROUTER ═══════════════════════════
 
 @functions_framework.http
@@ -682,6 +726,10 @@ def competitors_api(request):
         elif resource == "scan":
             if method == "POST" and item_id:
                 return scan_model(item_id)
+
+        elif resource == "track":
+            if method == "POST":
+                return create_tracked(data)
 
         elif resource == "discover":
             if method == "POST":

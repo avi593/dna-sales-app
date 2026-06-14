@@ -297,6 +297,13 @@
     .page-link:hover { color: var(--blue); }
     .page-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 20px; }
     /* ══ PRICE TRACKING (דגמים) ══ */
+    .add-model-box {
+      display: flex; flex-direction: column; gap: 8px;
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px; margin-bottom: 12px;
+    }
+    .add-model-box textarea.inp { resize: vertical; min-height: 60px; font-family: 'Heebo',sans-serif; }
+    .add-model-actions { display: flex; gap: 8px; }
     .models-list { display: flex; flex-direction: column; gap: 12px; }
     .model-card {
       background: var(--bg2); border: 1px solid var(--border);
@@ -720,14 +727,14 @@
         <div class="sec-title">🏷️ מעקב מחירים לפי דגם</div>
         <div class="sec-sub">המחיר שלי מול מתחרים — נסרק אוטומטית · אדום = זול ממני, ירוק = יקר ממני</div>
       </div>
-      <div class="input-row">
+      <div class="add-model-box">
         <input class="inp" id="modelName" placeholder="שם הדגם *" />
-        <input class="inp" id="modelUrl" placeholder="הקישור שלי לדגם באתר שלי" />
-        <button class="btn btn-blue" onclick="addModel()">➕ הוסף דגם</button>
-        <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
-      </div>
-      <div class="input-row">
-        <button class="btn btn-green" onclick="openDiscover()">🔎 גלה מתחרים אוטומטית (לפי קטגוריה)</button>
+        <input class="inp" id="modelUrl" placeholder="הקישור שלי למוצר *" />
+        <textarea class="inp" id="modelComps" rows="3" placeholder="קישורי מתחרים — קישור אחד בכל שורה *"></textarea>
+        <div class="add-model-actions">
+          <button class="btn btn-blue" onclick="addTracked()">➕ הוסף וסרוק מחירים</button>
+          <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
+        </div>
       </div>
       <div class="input-row">
         <input class="inp" id="modelSearch" placeholder="🔍 חיפוש דגם..." oninput="renderModels()" />
@@ -893,32 +900,6 @@
       <button class="btn btn-blue" onclick="addPage()">➕ הוסף דף</button>
     </div>
     <div id="pagesList" class="pages-list"></div>
-  </div>
-</div>
-
-<!-- ══════════════ DISCOVER COMPETITORS MODAL ══════════════ -->
-<div class="overlay hidden" id="discoverModal">
-  <div class="modal modal-wide">
-    <div class="pages-head">
-      <h3>🔎 גילוי מתחרים אוטומטי</h3>
-      <button class="pages-close" onclick="closeDiscover()">✕</button>
-    </div>
-    <p class="pages-sub">הדבק קישור לעמוד קטגוריה באתר שלך. המערכת תשלוף את הדגמים ותציע מתחרים לכל אחד. שום דבר לא נשמר עד שתאשר.</p>
-    <div id="serpStatus" class="serp-status"></div>
-    <div class="known-comps">
-      <div class="muted-sm">🎯 המתחרים שלי — החיפוש יתמקד רק בהם (אופציונלי):</div>
-      <div id="knownList" class="known-list"></div>
-      <div class="disc-manual">
-        <input type="text" class="inp" id="knownInp" placeholder="דומיין מתחרה (לדוגמה: ksp.co.il)" onkeydown="if(event.key==='Enter')addKnownComp()" />
-        <button class="add-plus" title="הוסף מתחרה" onclick="addKnownComp()">+</button>
-      </div>
-    </div>
-    <div class="pages-add">
-      <input type="text" class="inp" id="catUrl" placeholder="קישור לעמוד קטגוריה באתר שלי" />
-      <button class="btn btn-blue" onclick="runDiscover()">🔎 גלה דגמים</button>
-    </div>
-    <div id="discoverList" class="discover-list"></div>
-    <div id="discoverActions"></div>
   </div>
 </div>
 
@@ -1664,6 +1645,8 @@ function renderModels() {
   }
   const q = (document.getElementById('modelSearch')?.value || '').trim().toLowerCase();
   let list = models.map(m => ({ m, ...modelMetrics(m) }))
+    // מציגים רק דגמים עם מחיר שלי ולפחות מחיר מתחרה אחד
+    .filter(x => x.m.myPrice != null && x.cheapest != null)
     .filter(x => !q || (x.m.name || '').toLowerCase().includes(q));
   // מיון: דגמים שמתחרה זול בהם קודם (לפי הפער השלילי ביותר), אז מובילים, אז ללא נתונים
   list.sort((a, b) => {
@@ -1741,17 +1724,22 @@ function renderModels() {
     </table>`;
 }
 
-async function addModel() {
+async function addTracked() {
   const name = document.getElementById('modelName').value.trim();
-  if (!name) { alert('יש להזין שם דגם'); return; }
   const myUrl = document.getElementById('modelUrl').value.trim();
-  setStatus('מוסיף דגם...', true);
+  const comps = document.getElementById('modelComps').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!name) { alert('הזן שם דגם'); return; }
+  if (!myUrl) { alert('הזן את הקישור שלך'); return; }
+  if (!comps.length) { alert('הזן לפחות קישור מתחרה אחד'); return; }
+  setStatus('סורק מחירים ויוצר דגם...', true);
   try {
-    await compApi('/models', 'POST', { name, myUrl });
+    const d = await compApi('/track', 'POST', { name, myUrl, competitorUrls: comps });
     document.getElementById('modelName').value = '';
     document.getElementById('modelUrl').value = '';
+    document.getElementById('modelComps').value = '';
     await loadModels();
     setStatus('נוסף', false);
+    if (d.skippedCompetitors) alert(`הדגם נוסף ✅\n${d.skippedCompetitors} קישורי מתחרים דולגו (לא נמצא בהם מחיר).`);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
@@ -1769,9 +1757,10 @@ async function delModel(id) {
 async function addSource(modelId) {
   const url = document.getElementById('srcUrl-' + modelId).value.trim();
   if (!url) { alert('יש להזין קישור מתחרה'); return; }
-  setStatus('מוסיף מתחרה...', true);
+  setStatus('מוסיף וסורק...', true);
   try {
     await compApi('/sources', 'POST', { modelId, url });   // שם המתחרה נגזר אוטומטית מהקישור
+    await compApi('/scan/' + modelId, 'POST', {});         // סריקה מיידית למשיכת המחיר
     await loadModels();                                     // הלינק מוסתר — המתחרה מוצג לפי שם
     setStatus('נוסף', false);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
