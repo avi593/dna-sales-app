@@ -543,8 +543,14 @@ def serp_competitors(query, token, max_validate=8, only_domains=None):
     if not key:
         return []
     only_domains = only_domains or []
+    # כשמוגדרים מתחרים — חיפוש ממוקד-אתר (site:) ששואל את גוגל ישירות אם הדגם קיים אצלם,
+    # גם אם הם לא מדורגים גבוה. אחרת — חיפוש כללי בכל אתרי .il.
+    q = f'"{query}"'
+    if only_domains:
+        q += " (" + " OR ".join(f"site:{d}" for d in only_domains) + ")"
+    cap = max(max_validate, len(only_domains) + 2) if only_domains else max_validate
     try:
-        params = {"engine": "google", "q": f'"{query}"',
+        params = {"engine": "google", "q": q,
                   "gl": "il", "hl": "he", "num": 20, "api_key": key}
         r = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
         data = r.json()
@@ -564,7 +570,7 @@ def serp_competitors(query, token, max_validate=8, only_domains=None):
             continue
         seen.add(dom)
         cands.append({"url": link, "name": it.get("source") or it.get("displayed_link") or dom})
-        if len(cands) >= max_validate:
+        if len(cands) >= cap:
             break
 
     with ThreadPoolExecutor(max_workers=6) as ex:
