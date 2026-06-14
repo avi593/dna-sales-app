@@ -542,7 +542,8 @@ def serp_competitors(query, token, max_validate=6):
     for it in (data.get("ads") or []) + (data.get("organic_results") or []):
         link = it.get("link")
         dom = _domain(link)
-        if not dom or OUR_DOMAIN in dom or dom in seen:
+        # רק מתחרים מישראל (דומיין .il), לא האתר שלנו, וללא כפילויות
+        if not dom or not dom.endswith(".il") or OUR_DOMAIN in dom or dom in seen:
             continue
         seen.add(dom)
         cands.append({"url": link, "name": it.get("source") or it.get("displayed_link") or dom})

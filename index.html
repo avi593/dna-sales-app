@@ -356,6 +356,9 @@
     .vbadge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
     .vok { color: #34d399; }
     .vwarn { color: #fbbf24; cursor: help; }
+    .vman { color: #a78bfa; }
+    .disc-manual { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
+    .disc-manual .inp { flex: 1; padding: 5px 8px; font-size: 12px; }
     /* ══ PRICE TABLE ══ */
     .price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
     .price-table thead th {
@@ -1886,11 +1889,12 @@ function renderDiscover() {
     </label>`;
   el.innerHTML = discovered.map((p, pi) => {
     const comps = p.competitors || [];
-    const ver = [], unc = [];
-    comps.forEach((c, ci) => (c.verified ? ver : unc).push(
-      compRow(c, ci, pi, c.verified
-        ? '<span class="vbadge vok">✓ אומת</span>'
-        : `<span class="vbadge vwarn" title="${esc(c.reason || '')}">⚠ לא ודאי</span>`)));
+    const ver = [], man = [], unc = [];
+    comps.forEach((c, ci) => {
+      if (c._manual) man.push(compRow(c, ci, pi, '<span class="vbadge vman">✋ ידני</span>'));
+      else if (c.verified) ver.push(compRow(c, ci, pi, '<span class="vbadge vok">✓ אומת</span>'));
+      else unc.push(compRow(c, ci, pi, `<span class="vbadge vwarn" title="${esc(c.reason || '')}">⚠ לא ודאי</span>`));
+    });
     return `
     <div class="disc-card">
       <label class="disc-head">
@@ -1905,10 +1909,15 @@ function renderDiscover() {
       </div>
       <div class="disc-comps">
         ${ver.join('')}
+        ${man.join('')}
         ${unc.length ? `<div class="disc-uncertain">לא ודאי — בדוק לפני אישור:</div>${unc.join('')}` : ''}
         ${comps.length ? '' : (p._searched
-          ? '<div class="disc-none">לא נמצאו מתחרים. נסה לערוך את מונח החיפוש ולחפש שוב.</div>'
-          : '<div class="disc-none">לחץ "🔎 חפש מתחרים" למציאת מתחרים לדגם זה.</div>')}
+          ? '<div class="disc-none">לא נמצאו מתחרים. נסה לערוך את מונח החיפוש, או הוסף ידנית.</div>'
+          : '<div class="disc-none">לחץ "🔎 חפש מתחרים", או הוסף מתחרה ידנית למטה.</div>')}
+      </div>
+      <div class="disc-manual">
+        <input class="inp" id="mc-${pi}" placeholder="הוסף קישור מתחרה ידנית (URL מלא)" />
+        <button class="comp-btn" onclick="addManualCompetitor(${pi})">➕ הוסף ידנית</button>
       </div>
     </div>`;
   }).join('');
@@ -1924,6 +1933,16 @@ async function searchProductCompetitors(pi, q) {
   discovered[pi].searchTerm = query;
   discovered[pi]._searched = true;
   discovered[pi].competitors = (d.competitors || []).map(c => ({ ...c, _sel: !!c.verified }));
+}
+
+function addManualCompetitor(pi) {
+  const inp = document.getElementById('mc-' + pi);
+  const url = (inp?.value || '').trim();
+  if (!url) return;
+  if (!/^https?:\/\//i.test(url)) { alert('הדבק קישור מלא שמתחיל ב-http'); return; }
+  discovered[pi].competitors = discovered[pi].competitors || [];
+  discovered[pi].competitors.push({ name: '', url, price: null, verified: false, _manual: true, _sel: true });
+  renderDiscover();
 }
 
 async function researchProduct(pi) {
