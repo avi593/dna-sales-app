@@ -411,6 +411,63 @@
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
 
+    /* ══ SOCIAL VIEW ══ */
+    .social-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .social-tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+    .stab {
+      padding: 7px 15px; border-radius: 8px; border: 1px solid var(--border);
+      background: var(--bg2); color: var(--muted); font-family: 'Heebo',sans-serif;
+      font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s;
+    }
+    .stab.active { background: linear-gradient(135deg,rgba(37,99,235,.25),rgba(124,58,237,.25)); border-color: rgba(99,102,241,.5); color: #fff; }
+    .stab:hover:not(.active) { background: var(--bg3); color: var(--text); }
+    .social-panel { display: none; flex-direction: column; gap: 12px; }
+    .social-panel.active { display: flex; }
+
+    .ads-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .ads-table th { background: var(--bg3); padding: 8px 10px; text-align: right; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--border); }
+    .ads-table td { padding: 8px 10px; border-bottom: 1px solid rgba(71,85,105,.3); color: var(--text); vertical-align: top; }
+    .ads-table tr:hover td { background: rgba(255,255,255,.02); }
+    .ads-table .ad-body { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 11px; }
+    .ad-platform { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+    .ad-platform.facebook { background: rgba(24,119,242,.2); color: #60a5fa; border: 1px solid rgba(24,119,242,.3); }
+    .ad-platform.instagram { background: rgba(219,39,119,.15); color: #f472b6; border: 1px solid rgba(219,39,119,.3); }
+
+    .campaign-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 14px; display: flex;
+      flex-direction: column; gap: 8px;
+    }
+    .campaign-title { font-size: 14px; font-weight: 700; }
+    .campaign-meta  { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: var(--muted); align-items: center; }
+    .status-pill-sm { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+    .status-draft     { background: rgba(148,163,184,.15); color: #94a3b8; border: 1px solid rgba(148,163,184,.3); }
+    .status-published { background: rgba(5,150,105,.15); color: #34d399; border: 1px solid rgba(5,150,105,.3); }
+    .status-scheduled { background: rgba(234,197,56,.1); color: #fbbf24; border: 1px solid rgba(234,197,56,.3); }
+    .campaign-content { font-size: 12px; color: #cbd5e1; line-height: 1.6; max-height: 60px; overflow: hidden; }
+    .campaign-tags  { display: flex; gap: 5px; flex-wrap: wrap; }
+    .tag-chip { font-size: 10px; padding: 2px 7px; border-radius: 999px; background: rgba(99,102,241,.15); border: 1px solid rgba(99,102,241,.3); color: #a5b4fc; }
+    .campaign-actions { display: flex; gap: 6px; }
+    .c-btn { padding: 5px 11px; border: 1px solid var(--border); background: var(--bg3); color: var(--text); border-radius: 7px; font-family: 'Heebo',sans-serif; font-size: 11px; font-weight: 600; cursor: pointer; transition: all .15s; }
+    .c-btn:hover { border-color: rgba(99,102,241,.5); background: rgba(99,102,241,.1); }
+    .c-btn.pub { border-color: rgba(5,150,105,.4); color: #34d399; }
+    .c-btn.pub:hover { background: rgba(5,150,105,.15); }
+    .c-btn.del { border-color: rgba(248,113,113,.3); color: #f87171; }
+    .c-btn.del:hover { background: rgba(248,113,113,.1); }
+
+    .gen-form { display: flex; flex-direction: column; gap: 10px; }
+    .gen-row  { display: flex; gap: 8px; align-items: center; }
+    .gen-row .inp { flex: 1; }
+    .gen-row select { flex: 0 0 160px; }
+    select.inp { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; color: var(--text); font-family: 'Heebo',sans-serif; font-size: 13px; }
+    .gen-result { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px; font-size: 13px; line-height: 1.75; white-space: pre-wrap; color: #e2e8f0; min-height: 60px; }
+    .gen-json { background: var(--bg); border: 1px solid rgba(99,102,241,.3); border-radius: 10px; padding: 12px; font-size: 11px; font-family: monospace; line-height: 1.6; color: #a5b4fc; max-height: 300px; overflow-y: auto; white-space: pre-wrap; }
+
+    .social-config-row { display: flex; flex-direction: column; gap: 8px; }
+    .social-config-row label { font-size: 11px; color: var(--muted); font-weight: 600; }
+    .publish-row { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+    .pub-preview { font-size: 13px; line-height: 1.7; color: #e2e8f0; white-space: pre-wrap; padding: 10px; background: var(--bg2); border-radius: 8px; border: 1px solid var(--border); min-height: 60px; }
+
     /* ══ WHATSAPP CARD ══ */
     .wa-card {
       background: linear-gradient(135deg,rgba(37,211,102,.08),rgba(37,211,102,.04));
@@ -539,6 +596,7 @@
       .action-grid { grid-template-columns: repeat(2,1fr); }
       .comp-grid { grid-template-columns: 1fr; }
       .mkt-grid  { grid-template-columns: 1fr; }
+      .social-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -587,6 +645,9 @@
     </button>
     <button class="nav-btn" id="nav-performance" onclick="showView('performance'); loadAnalytics()">
       <span class="nav-icon">📡</span><span>ביצועים</span>
+    </button>
+    <button class="nav-btn" id="nav-social" onclick="showView('social'); initSocialView()">
+      <span class="nav-icon">📱</span><span>סושיאל & קמפיינים</span>
     </button>
     <div class="nav-sep"></div>
     <button class="nav-btn" id="nav-chat" onclick="showView('chat')">
@@ -839,6 +900,214 @@
       </div>
     </div>
 
+    <!-- ── SOCIAL & CAMPAIGNS ── -->
+    <div id="view-social" class="view">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="sec-title">📱 סושיאל & קמפיינים</div>
+          <div class="sec-sub">ניטור מודעות מתחרים, יצירת קמפיינים עם AI ופרסום אוטומטי</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-blue" onclick="exportSocialJSON()">📥 ייצוא JSON</button>
+          <button class="btn btn-yellow" onclick="showSocialConfig()">⚙️ הגדרות</button>
+        </div>
+      </div>
+
+      <!-- Sub-tabs -->
+      <div class="social-tabs">
+        <button class="stab active" id="stab-ads" onclick="switchSocialTab('ads')">🔍 מודעות מתחרים</button>
+        <button class="stab" id="stab-generate" onclick="switchSocialTab('generate')">🤖 צור קמפיין AI</button>
+        <button class="stab" id="stab-campaigns" onclick="switchSocialTab('campaigns'); loadCampaigns()">📋 קמפיינים</button>
+        <button class="stab" id="stab-publish" onclick="switchSocialTab('publish')">🚀 פרסום</button>
+        <button class="stab" id="stab-insights" onclick="switchSocialTab('insights')">💡 תובנות AI</button>
+      </div>
+
+      <!-- ── TAB: מודעות מתחרים ── -->
+      <div class="social-panel active" id="spanel-ads">
+        <div class="card">
+          <div class="card-head">🔍 סריקת מודעות Facebook Ads Library</div>
+          <div class="card-body">
+            <div class="gen-form">
+              <div class="gen-row">
+                <input class="inp" id="adsScanTerms" placeholder="מונחי חיפוש (מופרדים בפסיק): מקלחת, כלי אינסטלציה, ברז..." />
+                <select class="inp" id="adsScanType" style="flex:0 0 130px">
+                  <option value="ALL">כל הסוגים</option>
+                  <option value="POLITICAL_AND_ISSUE_ADS">פוליטי/עניין</option>
+                  <option value="EMPLOYMENT_ADS">תעסוקה</option>
+                  <option value="HOUSING_ADS">נדל"ן</option>
+                </select>
+                <button class="btn btn-blue" onclick="runAdsScan()">🔍 סרוק</button>
+              </div>
+              <div style="font-size:11px;color:var(--muted)">
+                דורש Facebook Access Token עם הרשאות Ads Library — הגדר תחת ⚙️ הגדרות
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head" style="justify-content:space-between">
+            <span>📊 מודעות מתחרים שנסרקו</span>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="inp" id="adsFilter" placeholder="סנן..." style="width:160px;padding:5px 10px;font-size:12px" oninput="filterAdsTable()" />
+              <button class="btn btn-green" style="padding:6px 12px;font-size:12px" onclick="loadCompetitorAds()">🔄 רענן</button>
+            </div>
+          </div>
+          <div id="adsTableWrap" style="overflow-x:auto">
+            <div class="card-empty" style="padding:30px">
+              <div class="card-empty-icon">🔍</div>
+              <div class="card-empty-title">אין מודעות שנסרקו</div>
+              <div class="card-empty-desc">לחץ "סרוק" כדי לחפש מודעות פעילות של מתחרים</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: יצירת קמפיין AI ── -->
+      <div class="social-panel" id="spanel-generate">
+        <div class="social-grid">
+          <!-- טופס יצירה -->
+          <div class="card">
+            <div class="card-head">🤖 יצירת קמפיין עם AI</div>
+            <div class="card-body">
+              <div class="gen-form">
+                <div>
+                  <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">מוצר / נושא הקמפיין</label>
+                  <input class="inp" id="genProduct" placeholder="מקלחת גשם מרובעת 90x90 עם שסתום..." />
+                </div>
+                <div class="gen-row">
+                  <div style="flex:1">
+                    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">פלטפורמה</label>
+                    <select class="inp" id="genPlatform">
+                      <option value="facebook">Facebook</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="both">Facebook + Instagram</option>
+                      <option value="tiktok">TikTok</option>
+                      <option value="linkedin">LinkedIn</option>
+                    </select>
+                  </div>
+                  <div style="flex:1">
+                    <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">מטרה</label>
+                    <select class="inp" id="genObjective">
+                      <option value="leads">לידים</option>
+                      <option value="sales">מכירות</option>
+                      <option value="awareness">מודעות</option>
+                      <option value="traffic">תנועה לאתר</option>
+                      <option value="engagement">מעורבות</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">קהל יעד</label>
+                  <input class="inp" id="genAudience" placeholder="בעלי בתים 30-55, מתעסקים בשיפוץ, ישראל..." />
+                </div>
+                <div>
+                  <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">טון ומסרים מיוחדים (אופציונלי)</label>
+                  <input class="inp" id="genTone" placeholder="מקצועי + אמין, הדגש אחריות, משלוח מהיר..." />
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-blue" style="flex:1" onclick="generateCampaignAI()">🤖 צור תוכן AI</button>
+                  <button class="btn btn-purple" onclick="generateCampaignImage()">🖼️ צור תמונה</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- תצוגה מקדימה -->
+          <div class="card">
+            <div class="card-head" style="justify-content:space-between">
+              <span>👁️ תוצאת AI</span>
+              <button class="c-btn" onclick="saveCampaignFromAI()" id="saveGenBtn" style="display:none">💾 שמור קמפיין</button>
+            </div>
+            <div class="card-body" id="genOutput">
+              <div class="card-empty">
+                <div class="card-empty-icon">🤖</div>
+                <div class="card-empty-title">ממתין לבקשה</div>
+                <div class="card-empty-desc">מלא את הטופס ולחץ "צור תוכן AI"</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- JSON output -->
+        <div class="card" id="genJsonCard" style="display:none">
+          <div class="card-head" style="justify-content:space-between">
+            <span>📄 פלט JSON מלא</span>
+            <button class="c-btn" onclick="copyGenJSON()">📋 העתק JSON</button>
+          </div>
+          <div class="card-body"><pre class="gen-json" id="genJsonOut"></pre></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: קמפיינים ── -->
+      <div class="social-panel" id="spanel-campaigns">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-size:13px;color:var(--muted)" id="campaignsCount">טוען...</div>
+          <button class="btn btn-blue" onclick="switchSocialTab('generate')">+ קמפיין חדש</button>
+        </div>
+        <div id="campaignsGrid" class="social-grid"></div>
+      </div>
+
+      <!-- ── TAB: פרסום ── -->
+      <div class="social-panel" id="spanel-publish">
+        <div class="card">
+          <div class="card-head">🚀 פרסום מהיר</div>
+          <div class="card-body">
+            <div class="publish-row">
+              <div>
+                <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">פלטפורמה לפרסום</label>
+                <select class="inp" id="pubPlatform">
+                  <option value="facebook">Facebook בלבד</option>
+                  <option value="instagram">Instagram בלבד</option>
+                  <option value="both">Facebook + Instagram</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">תוכן הפוסט</label>
+                <textarea class="inp" id="pubContent" rows="4" placeholder="כתוב כאן את תוכן הפוסט (עברית ✓)..." style="resize:vertical"></textarea>
+              </div>
+              <div>
+                <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">קישור לתמונה (אופציונלי)</label>
+                <input class="inp" id="pubMediaUrl" placeholder="https://... (URL ציבורי לתמונה)" />
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-green" onclick="publishPost()">🚀 פרסם עכשיו</button>
+                <button class="btn btn-blue" onclick="previewPost()">👁️ תצוגה מקדימה</button>
+              </div>
+            </div>
+            <div id="pubResult" style="margin-top:12px"></div>
+          </div>
+        </div>
+
+        <div class="card" id="pubPreviewCard" style="display:none">
+          <div class="card-head">👁️ תצוגה מקדימה</div>
+          <div class="card-body">
+            <div class="pub-preview" id="pubPreviewContent"></div>
+            <div id="pubPreviewImg" style="margin-top:10px"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: תובנות AI ── -->
+      <div class="social-panel" id="spanel-insights">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-blue" onclick="analyzeCompetitorAds()">🔍 נתח מודעות מתחרים</button>
+          <button class="btn btn-purple" onclick="generateSocialStrategy()">📈 אסטרטגיה חודשית</button>
+          <button class="btn btn-green" onclick="generateHashtagStrategy()">🏷️ אסטרטגיית האשטאגים</button>
+          <button class="btn btn-orange" onclick="generateContentCalendar()">📅 לוח תוכן שבועי</button>
+        </div>
+        <div id="insightsOutput">
+          <div class="card"><div class="card-body">
+            <div class="card-empty">
+              <div class="card-empty-icon">💡</div>
+              <div class="card-empty-title">תובנות AI לסושיאל</div>
+              <div class="card-empty-desc">בחר ניתוח מהכפתורים למעלה</div>
+            </div>
+          </div></div>
+        </div>
+      </div>
+    </div>
+
     <!-- ── CHAT ── -->
     <div id="view-chat" class="view">
       <div class="chat-wrap">
@@ -870,6 +1139,39 @@
     <input type="password" class="modal-inp" id="apiInp" placeholder="AIza..."
       onkeydown="if(event.key==='Enter')saveKey()" />
     <button class="modal-btn" onclick="saveKey()">שמור והפעל</button>
+  </div>
+</div>
+
+<!-- ══════════════ SOCIAL CONFIG MODAL ══════════════ -->
+<div class="overlay hidden" id="socialConfigModal">
+  <div class="modal" style="max-width:480px">
+    <div style="font-size:32px;margin-bottom:10px">📱</div>
+    <h3>הגדרות Social Media</h3>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:14px">
+      הגדר חשבונות Meta לסריקת מודעות ופרסום אוטומטי.<br>
+      הנתונים נשמרים בענן (Firestore) בלבד — לא בדפדפן.
+    </p>
+    <div class="social-config-row" style="margin-bottom:10px">
+      <label>Facebook Access Token (נדרש להכל)</label>
+      <input type="password" class="modal-inp" id="scFbToken" placeholder="EAAx... (מ-Meta Business Suite)" />
+    </div>
+    <div class="social-config-row" style="margin-bottom:10px">
+      <label>Facebook Page ID</label>
+      <input type="text" class="modal-inp" id="scPageId" placeholder="123456789" />
+    </div>
+    <div class="social-config-row" style="margin-bottom:10px">
+      <label>Facebook Page Name (לתצוגה)</label>
+      <input type="text" class="modal-inp" id="scPageName" placeholder="DNA ציוד אינסטלציה" />
+    </div>
+    <div class="social-config-row" style="margin-bottom:14px">
+      <label>Instagram Account ID (לפרסום אינסטגרם)</label>
+      <input type="text" class="modal-inp" id="scIgId" placeholder="17841400..." />
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="modal-btn" onclick="saveSocialConfig()">💾 שמור הגדרות</button>
+      <button style="flex:1;padding:11px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--muted);font-family:Heebo,sans-serif;font-size:14px;cursor:pointer" onclick="document.getElementById('socialConfigModal').classList.add('hidden')">ביטול</button>
+    </div>
+    <div id="scStatus" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
   </div>
 </div>
 
@@ -924,6 +1226,13 @@ const COMP_API_DEFAULT = 'https://dna-competitors-477673568731.europe-west1.run.
 let competitors = [];                                  // נטען מה-API
 let compAnalyses = JSON.parse(localStorage.getItem('dna_comp_analyses') || '{}');  // מטמון ניתוחי AI לפי מזהה מתחרה
 let models = [];                                       // דגמים למעקב מחירים — נטען מה-API
+
+// Social & Campaigns — כתובת ה-API תוגדר ב-localStorage או כברירת מחדל
+const SOCIAL_API_DEFAULT = localStorage.getItem('dna_social_api') || '';
+let socialApiUrl = SOCIAL_API_DEFAULT;
+let allCompetitorAds = [];       // cache מודעות מתחרים שנסרקו
+let allCampaigns = [];           // cache קמפיינים
+let lastGenResult = null;        // תוצאת AI אחרונה
 
 const WA_STORE = {};
 let waIdx = 0;
@@ -2566,6 +2875,684 @@ document.getElementById('backendModal').addEventListener('click', e => {
 });
 
 // ═══════════════════════════════════
+// ═══════════════════════════════════
+// SOCIAL & CAMPAIGNS MODULE
+// ═══════════════════════════════════
+
+function socialApiBase() {
+  const stored = localStorage.getItem('dna_social_api') || '';
+  return stored.replace(/\/$/, '');
+}
+
+async function socialApi(path, method = 'GET', body = null) {
+  const base = socialApiBase();
+  if (!base) throw new Error('כתובת Social API לא הוגדרה — עדכן בהגדרות');
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(base + path, opts);
+  const d = await r.json();
+  if (d.error) throw new Error(d.error);
+  return d;
+}
+
+function switchSocialTab(name) {
+  document.querySelectorAll('.stab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.social-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('stab-' + name)?.classList.add('active');
+  document.getElementById('spanel-' + name)?.classList.add('active');
+}
+
+function initSocialView() {
+  loadCompetitorAds();
+}
+
+// ── Social Config ──────────────────────────────────────────
+
+function showSocialConfig() {
+  // הצג גם אפשרות להגדיר את כתובת ה-API אם חסרה
+  const modal = document.getElementById('socialConfigModal');
+  if (!socialApiBase()) {
+    const url = prompt('הזן את כתובת ה-Social API (Cloud Run URL):\nלמשל: https://social-api-xxx.run.app', '');
+    if (url && url.trim()) {
+      localStorage.setItem('dna_social_api', url.trim());
+    }
+    if (!url) return;
+  }
+  modal.classList.remove('hidden');
+  // טעינת נתוני קונפיג קיימים
+  socialApi('/config').then(cfg => {
+    document.getElementById('scPageId').value = cfg.facebookPageId || '';
+    document.getElementById('scPageName').value = cfg.facebookPageName || '';
+    document.getElementById('scIgId').value = cfg.instagramAccountId || '';
+    document.getElementById('scStatus').textContent =
+      cfg.configured ? `✅ Token מוגדר (${cfg.tokenPreview})` : '⚠️ Token לא מוגדר';
+  }).catch(e => {
+    document.getElementById('scStatus').textContent = `שגיאה: ${e.message}`;
+  });
+}
+
+async function saveSocialConfig() {
+  const token = document.getElementById('scFbToken').value.trim();
+  const pageId = document.getElementById('scPageId').value.trim();
+  const pageName = document.getElementById('scPageName').value.trim();
+  const igId = document.getElementById('scIgId').value.trim();
+  const st = document.getElementById('scStatus');
+
+  if (!socialApiBase()) { st.textContent = 'שגיאה: כתובת API לא הוגדרה'; return; }
+
+  const payload = {};
+  if (token)   payload.facebookAccessToken  = token;
+  if (pageId)  payload.facebookPageId       = pageId;
+  if (pageName) payload.facebookPageName    = pageName;
+  if (igId)    payload.instagramAccountId   = igId;
+
+  if (!Object.keys(payload).length) { st.textContent = 'מלא לפחות שדה אחד'; return; }
+
+  st.textContent = 'שומר...';
+  try {
+    const r = await socialApi('/config', 'POST', payload);
+    st.textContent = r.ok ? '✅ נשמר בהצלחה' : '⚠️ שגיאה';
+    if (r.ok) {
+      document.getElementById('scFbToken').value = '';
+      setTimeout(() => document.getElementById('socialConfigModal').classList.add('hidden'), 1200);
+    }
+  } catch(e) {
+    st.textContent = `שגיאה: ${e.message}`;
+  }
+}
+
+document.getElementById('socialConfigModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) e.currentTarget.classList.add('hidden');
+});
+
+// ── Competitor Ads ─────────────────────────────────────────
+
+async function loadCompetitorAds() {
+  const wrap = document.getElementById('adsTableWrap');
+  wrap.innerHTML = loadingHtml('טוען מודעות מתחרים...');
+  try {
+    const d = await socialApi('/ads?limit=150');
+    allCompetitorAds = d.ads || [];
+    renderAdsTable(allCompetitorAds);
+  } catch(e) {
+    wrap.innerHTML = `<div class="card-empty"><div class="card-empty-icon">⚠️</div>
+      <div class="card-empty-title">${e.message.includes('API') ? 'הגדר כתובת Social API' : 'שגיאה'}</div>
+      <div class="card-empty-desc">${esc(e.message)}</div>
+      <button class="btn btn-yellow" style="margin:14px auto 0" onclick="showSocialConfig()">⚙️ הגדרות</button></div>`;
+  }
+}
+
+function filterAdsTable() {
+  const q = (document.getElementById('adsFilter')?.value || '').toLowerCase();
+  const filtered = q ? allCompetitorAds.filter(a =>
+    (a.advertiserName||'').toLowerCase().includes(q) ||
+    (a.adBody||'').toLowerCase().includes(q) ||
+    (a.adTitle||'').toLowerCase().includes(q) ||
+    (a.searchTerm||'').toLowerCase().includes(q)
+  ) : allCompetitorAds;
+  renderAdsTable(filtered);
+}
+
+function renderAdsTable(ads) {
+  const wrap = document.getElementById('adsTableWrap');
+  if (!ads.length) {
+    wrap.innerHTML = `<div class="card-empty" style="padding:30px">
+      <div class="card-empty-icon">🔍</div>
+      <div class="card-empty-title">אין מודעות שנסרקו</div>
+      <div class="card-empty-desc">לחץ "סרוק" כדי לחפש מודעות פעילות של מתחרים ב-Facebook Ads Library</div>
+    </div>`;
+    return;
+  }
+  const rows = ads.slice(0, 200).map(a => {
+    const platforms = (a.platforms || [a.platform || 'facebook']);
+    const platHtml = platforms.map(p =>
+      `<span class="ad-platform ${p}">${p === 'facebook' ? '📘 FB' : p === 'instagram' ? '📸 IG' : p}</span>`
+    ).join(' ');
+    const imps = a.impressionsLower && a.impressionsUpper
+      ? `${Number(a.impressionsLower).toLocaleString('he-IL')} – ${Number(a.impressionsUpper).toLocaleString('he-IL')}`
+      : '—';
+    const snap = a.adSnapshotUrl ? `<a href="${esc(a.adSnapshotUrl)}" target="_blank" style="color:#60a5fa;font-size:11px">👁️</a>` : '';
+    return `<tr>
+      <td><strong>${esc(a.advertiserName||'—')}</strong></td>
+      <td class="ad-body">${esc(a.adBody||a.adTitle||'—')}</td>
+      <td>${platHtml}</td>
+      <td style="font-size:11px;color:var(--muted)">${imps}</td>
+      <td style="font-size:11px;color:var(--muted)">${(a.startDate||'').slice(0,10)||'—'}</td>
+      <td>${snap}</td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `<div style="font-size:12px;color:var(--muted);padding:8px 12px">${ads.length} מודעות</div>
+    <table class="ads-table">
+      <thead><tr>
+        <th>מפרסם</th><th>תוכן</th><th>פלטפורמה</th><th>חשיפות</th><th>תאריך</th><th></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+async function runAdsScan() {
+  const terms = document.getElementById('adsScanTerms').value.trim();
+  if (!terms) { alert('הזן לפחות מונח חיפוש אחד'); return; }
+  const adType = document.getElementById('adsScanType').value;
+  setStatus('סורק Facebook Ads Library...', true);
+  document.getElementById('adsTableWrap').innerHTML = loadingHtml('סורק מודעות מתחרים...');
+  try {
+    const r = await socialApi('/scan-ads', 'POST', { searchTerms: terms, adType, countries: ['IL'] });
+    setStatus(`נסרקו ${r.totalFound || 0} מודעות`, false);
+    await loadCompetitorAds();
+  } catch(e) {
+    document.getElementById('adsTableWrap').innerHTML = `<div class="card-empty"><div style="color:#f87171">${esc(e.message)}</div>
+      <button class="btn btn-yellow" style="margin:14px auto 0" onclick="showSocialConfig()">⚙️ הגדרות</button></div>`;
+    setStatus('שגיאה בסריקה', false);
+  }
+}
+
+// ── AI Campaign Generator ──────────────────────────────────
+
+async function generateCampaignAI() {
+  const product  = document.getElementById('genProduct').value.trim();
+  const platform = document.getElementById('genPlatform').value;
+  const objective= document.getElementById('genObjective').value;
+  const audience = document.getElementById('genAudience').value.trim();
+  const tone     = document.getElementById('genTone').value.trim();
+
+  if (!product) { document.getElementById('genProduct').focus(); return; }
+  if (!apiKey)  { showApiModal(); return; }
+
+  const out = document.getElementById('genOutput');
+  out.innerHTML = loadingHtml('מייצר תוכן קמפיין עם AI...');
+  document.getElementById('saveGenBtn').style.display = 'none';
+  document.getElementById('genJsonCard').style.display = 'none';
+  setStatus('מייצר קמפיין AI...', true);
+
+  // בניית context ממודעות מתחרים שנסרקו
+  const adsContext = allCompetitorAds.slice(0, 8).map(a =>
+    `- ${a.advertiserName}: "${(a.adBody||a.adTitle||'').slice(0,120)}"`
+  ).join('\n');
+
+  const objMap = { leads: 'לידים', sales: 'מכירות', awareness: 'מודעות מותג', traffic: 'תנועה לאתר', engagement: 'מעורבות' };
+  const platMap = { facebook: 'Facebook', instagram: 'Instagram', both: 'Facebook ואינסטגרם', tiktok: 'TikTok', linkedin: 'LinkedIn' };
+
+  const prompt = `אתה מומחה בפרסום ממומן B2B לחברת DNA ציוד אינסטלציה (https://www.dna-tools.co.il/).
+צור קמפיין פרסום מלא ומקצועי בעברית.
+
+## פרטי הקמפיין
+- **מוצר/נושא:** ${product}
+- **פלטפורמה:** ${platMap[platform] || platform}
+- **מטרה:** ${objMap[objective] || objective}
+- **קהל יעד:** ${audience || 'אנשי מקצוע — שרברבים, קבלנים, מהנדסי תשתית בישראל'}
+- **טון ומסרים:** ${tone || 'מקצועי, אמין, ממוקד פתרון'}
+
+${adsContext ? `## מודעות מתחרים פעילות (להתבסס עליהן ולהתבדל מהן)\n${adsContext}\n` : ''}
+
+## נדרש — החזר JSON בלבד, ללא הסברים:
+\`\`\`json
+{
+  "campaignTitle": "כותרת קמפיין",
+  "platform": "${platform}",
+  "objective": "${objective}",
+  "postContent": "טקסט הפוסט המלא (עם אמוג'י, מקצועי, עד 300 תווים לפייסבוק)",
+  "headline": "כותרת מודעה קצרה ומושכת (עד 40 תווים)",
+  "description": "תיאור קצר למודעה (עד 125 תווים)",
+  "callToAction": "השאר פרטים / קנה עכשיו / למד עוד / צור קשר",
+  "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#hashtag4", "#hashtag5"],
+  "seoTags": ["מילת מפתח 1", "מילת מפתח 2", "מילת מפתח 3"],
+  "imagePrompt": "תיאור מפורט לאינסטגרם/עיצוב תמונת מודעה (באנגלית לכלי AI)",
+  "targetingRecommendations": {
+    "age": "25-55",
+    "interests": ["עניין 1", "עניין 2"],
+    "behaviors": ["התנהגות 1"],
+    "geolocation": "ישראל",
+    "languages": ["עברית"]
+  },
+  "budget": {
+    "dailySuggested": "50-150",
+    "currency": "ILS",
+    "campaignDuration": "7-14 ימים"
+  },
+  "strategy": "הסבר אסטרטגי קצר (2-3 משפטים) על הגישה הנבחרת",
+  "variants": [
+    {"label": "גרסה A — רציונלית", "postContent": "טקסט חלופי 1"},
+    {"label": "גרסה B — רגשית", "postContent": "טקסט חלופי 2"}
+  ]
+}
+\`\`\``;
+
+  try {
+    const raw = await callAI(prompt, false);
+    // חילוץ JSON מהתשובה
+    const match = raw.match(/```json\s*([\s\S]*?)```/) || raw.match(/\{[\s\S]*\}/);
+    const jsonStr = match ? (match[1] || match[0]).trim() : raw.trim();
+    let parsed;
+    try { parsed = JSON.parse(jsonStr); } catch { parsed = null; }
+
+    lastGenResult = parsed;
+    renderGenResult(parsed || { postContent: raw, strategy: '' }, raw);
+    setStatus('קמפיין נוצר ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">שגיאה: ${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+function renderGenResult(parsed, raw) {
+  const out = document.getElementById('genOutput');
+  if (!parsed) {
+    out.innerHTML = `<div class="gen-result">${esc(raw)}</div>`;
+    return;
+  }
+  const tags = (parsed.hashtags || []).map(h => `<span class="tag-chip">${esc(h)}</span>`).join('');
+  const seo  = (parsed.seoTags  || []).map(t => `<span class="tag-chip" style="background:rgba(5,150,105,.1);border-color:rgba(5,150,105,.3);color:#34d399">${esc(t)}</span>`).join('');
+  out.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${parsed.headline ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">כותרת מודעה</div><div style="font-size:16px;font-weight:700;color:#60a5fa">${esc(parsed.headline)}</div></div>` : ''}
+      <div>
+        <div style="font-size:10px;color:var(--muted);margin-bottom:3px">תוכן הפוסט</div>
+        <div class="gen-result">${esc(parsed.postContent || '')}</div>
+      </div>
+      ${parsed.description ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">תיאור מודעה</div><div style="font-size:12px;color:#cbd5e1">${esc(parsed.description)}</div></div>` : ''}
+      ${parsed.callToAction ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">CTA</div><div class="status-pill-sm status-published" style="display:inline-block">${esc(parsed.callToAction)}</div></div>` : ''}
+      ${tags ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">האשטאגים</div><div class="campaign-tags">${tags}</div></div>` : ''}
+      ${seo  ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">מילות מפתח SEO</div><div class="campaign-tags">${seo}</div></div>` : ''}
+      ${parsed.imagePrompt ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">פרומפט תמונה לAI</div><div style="font-size:11px;color:#a5b4fc;background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.2);border-radius:8px;padding:8px;line-height:1.6">${esc(parsed.imagePrompt)}</div></div>` : ''}
+      ${parsed.strategy ? `<div><div style="font-size:10px;color:var(--muted);margin-bottom:3px">אסטרטגיה</div><div style="font-size:12px;color:#cbd5e1;line-height:1.6">${esc(parsed.strategy)}</div></div>` : ''}
+      ${parsed.budget ? `<div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="kpi" style="flex:1;min-width:120px"><div class="kpi-label">תקציב יומי מומלץ</div><div class="kpi-val" style="font-size:18px">₪${esc(String(parsed.budget.dailySuggested||''))}</div></div>
+        <div class="kpi" style="flex:1;min-width:120px"><div class="kpi-label">משך קמפיין</div><div class="kpi-val" style="font-size:18px">${esc(String(parsed.budget.campaignDuration||''))}</div></div>
+      </div>` : ''}
+    </div>`;
+  document.getElementById('saveGenBtn').style.display = '';
+  // JSON card
+  const jsonCard = document.getElementById('genJsonCard');
+  jsonCard.style.display = '';
+  document.getElementById('genJsonOut').textContent = JSON.stringify(parsed, null, 2);
+}
+
+async function generateCampaignImage() {
+  const product = document.getElementById('genProduct').value.trim();
+  if (!product) { document.getElementById('genProduct').focus(); return; }
+  const prompt = lastGenResult?.imagePrompt ||
+    `Professional product advertisement photo for Israeli plumbing store DNA Tools. Product: ${product}. Clean white background, studio lighting, high-quality commercial photography, modern design, Hebrew text area for price tag. Ultra realistic, 4K quality.`;
+  const out = document.getElementById('genOutput');
+  out.innerHTML = loadingHtml('מייצר תמונת מודעה...');
+  setStatus('מייצר תמונה...', true);
+  try {
+    const img = await callImageAI(prompt);
+    out.innerHTML = `<img src="${img}" class="gen-img" alt="תמונת מודעה" />
+      <div class="gen-img-actions">
+        <a href="${img}" download="campaign-image.png" class="btn btn-green" style="text-decoration:none">⬇️ הורד תמונה</a>
+        <button class="btn btn-blue" onclick="document.getElementById('pubMediaUrl').value='data:image/png;base64,...';switchSocialTab('publish')">🚀 שלח לפרסום</button>
+      </div>`;
+    setStatus('תמונה נוצרה ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">שגיאה: ${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+async function saveCampaignFromAI() {
+  if (!lastGenResult) return;
+  if (!socialApiBase()) { showSocialConfig(); return; }
+  const p = lastGenResult;
+  const payload = {
+    title: p.campaignTitle || p.headline || document.getElementById('genProduct').value,
+    platform: document.getElementById('genPlatform').value,
+    objective: document.getElementById('genObjective').value,
+    content: p.postContent || '',
+    hashtags: p.hashtags || [],
+    seoTags: p.seoTags || [],
+    imagePrompt: p.imagePrompt || '',
+    budget: JSON.stringify(p.budget || {}),
+    targetAudience: JSON.stringify(p.targetingRecommendations || {}),
+    callToAction: p.callToAction || '',
+    notes: p.strategy || '',
+    status: 'draft',
+  };
+  setStatus('שומר קמפיין...', true);
+  try {
+    await socialApi('/campaigns', 'POST', payload);
+    setStatus('קמפיין נשמר ✓', false);
+    document.getElementById('saveGenBtn').textContent = '✅ נשמר!';
+    setTimeout(() => { document.getElementById('saveGenBtn').textContent = '💾 שמור קמפיין'; }, 2000);
+  } catch(e) {
+    alert('שגיאה בשמירה: ' + e.message);
+    setStatus('שגיאה', false);
+  }
+}
+
+function copyGenJSON() {
+  const text = document.getElementById('genJsonOut').textContent;
+  navigator.clipboard?.writeText(text).then(() => {
+    setStatus('JSON הועתק ✓', false);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(ta); ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    setStatus('JSON הועתק ✓', false);
+  });
+}
+
+// ── Campaigns ─────────────────────────────────────────────
+
+async function loadCampaigns() {
+  const grid = document.getElementById('campaignsGrid');
+  const count = document.getElementById('campaignsCount');
+  grid.innerHTML = loadingHtml('טוען קמפיינים...');
+  try {
+    const d = await socialApi('/campaigns');
+    allCampaigns = d.campaigns || [];
+    count.textContent = `${allCampaigns.length} קמפיינים`;
+    renderCampaigns(allCampaigns);
+  } catch(e) {
+    grid.innerHTML = `<div style="color:#f87171">${esc(e.message)}</div>`;
+    count.textContent = 'שגיאה';
+  }
+}
+
+function renderCampaigns(campaigns) {
+  const grid = document.getElementById('campaignsGrid');
+  if (!campaigns.length) {
+    grid.innerHTML = `<div class="card" style="grid-column:1/-1"><div class="card-body">
+      <div class="card-empty">
+        <div class="card-empty-icon">📋</div>
+        <div class="card-empty-title">אין קמפיינים</div>
+        <div class="card-empty-desc">צור קמפיין ראשון עם AI בלשונית "צור קמפיין AI"</div>
+      </div></div></div>`;
+    return;
+  }
+  const statusLabel = { draft: 'טיוטה', published: 'פורסם', scheduled: 'מתוזמן' };
+  const platIcon    = { facebook: '📘', instagram: '📸', both: '📘📸', tiktok: '🎵', linkedin: '💼' };
+  grid.innerHTML = campaigns.map(c => {
+    const tags = [...(c.hashtags||[]).slice(0,3), ...(c.seoTags||[]).slice(0,2)]
+      .map(t => `<span class="tag-chip">${esc(t)}</span>`).join('');
+    return `<div class="campaign-card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start">
+        <div class="campaign-title">${platIcon[c.platform]||'📢'} ${esc(c.title||'')}</div>
+        <span class="status-pill-sm status-${c.status||'draft'}">${statusLabel[c.status||'draft']||c.status}</span>
+      </div>
+      <div class="campaign-meta">
+        <span>${esc(c.platform||'')}</span>
+        ${c.objective ? `<span>· ${esc(c.objective)}</span>` : ''}
+        ${c.createdAt ? `<span style="margin-inline-start:auto">${c.createdAt.slice(0,10)}</span>` : ''}
+      </div>
+      ${c.content ? `<div class="campaign-content">${esc(c.content)}</div>` : ''}
+      ${tags ? `<div class="campaign-tags">${tags}</div>` : ''}
+      <div class="campaign-actions">
+        <button class="c-btn pub" onclick="publishCampaign('${esc(c.id)}')">🚀 פרסם</button>
+        <button class="c-btn" onclick="loadCampaignToPublish('${esc(c.id)}')">📤 שלח לפרסום</button>
+        <button class="c-btn del" onclick="deleteCampaign('${esc(c.id)}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function deleteCampaign(id) {
+  if (!confirm('למחוק קמפיין זה?')) return;
+  try {
+    await socialApi('/campaigns/' + id, 'DELETE');
+    await loadCampaigns();
+    setStatus('נמחק', false);
+  } catch(e) { alert(e.message); }
+}
+
+function loadCampaignToPublish(id) {
+  const c = allCampaigns.find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('pubContent').value = c.content || '';
+  document.getElementById('pubMediaUrl').value = c.mediaUrl || '';
+  document.getElementById('pubPlatform').value = c.platform || 'facebook';
+  document.getElementById('pubPreviewCard').style.display = 'none';
+  switchSocialTab('publish');
+}
+
+async function publishCampaign(id) {
+  const c = allCampaigns.find(x => x.id === id);
+  if (!c) return;
+  if (!confirm(`לפרסם "${c.title}" עכשיו ב-${c.platform}?`)) return;
+  setStatus('מפרסם...', true);
+  try {
+    const r = await socialApi('/publish', 'POST', {
+      campaignId: id,
+      content: c.content,
+      platform: c.platform,
+      mediaUrl: c.mediaUrl || '',
+    });
+    if (r.success) {
+      setStatus('פורסם ✓', false);
+      await loadCampaigns();
+    } else {
+      alert('שגיאות בפרסום:\n' + (r.errors || []).join('\n'));
+      setStatus('שגיאה', false);
+    }
+  } catch(e) {
+    alert('שגיאה: ' + e.message);
+    setStatus('שגיאה', false);
+  }
+}
+
+// ── Publish ───────────────────────────────────────────────
+
+function previewPost() {
+  const content = document.getElementById('pubContent').value;
+  const mediaUrl = document.getElementById('pubMediaUrl').value.trim();
+  const card = document.getElementById('pubPreviewCard');
+  card.style.display = '';
+  document.getElementById('pubPreviewContent').textContent = content || '(ריק)';
+  const imgEl = document.getElementById('pubPreviewImg');
+  imgEl.innerHTML = mediaUrl
+    ? `<img src="${esc(mediaUrl)}" style="max-width:100%;border-radius:8px;max-height:300px;object-fit:cover" alt="תמונה" />`
+    : '';
+}
+
+async function publishPost() {
+  const content  = document.getElementById('pubContent').value.trim();
+  const platform = document.getElementById('pubPlatform').value;
+  const mediaUrl = document.getElementById('pubMediaUrl').value.trim();
+  if (!content) { document.getElementById('pubContent').focus(); return; }
+  if (!socialApiBase()) { showSocialConfig(); return; }
+  const res = document.getElementById('pubResult');
+  res.innerHTML = loadingHtml('מפרסם...');
+  setStatus('מפרסם...', true);
+  try {
+    const r = await socialApi('/publish', 'POST', { content, platform, mediaUrl });
+    if (r.success) {
+      const links = Object.entries(r.results || {})
+        .filter(([,v]) => v.postUrl)
+        .map(([p,v]) => `<a href="${esc(v.postUrl)}" target="_blank" style="color:#60a5fa">${p}: ${esc(v.postId)}</a>`)
+        .join('<br>');
+      res.innerHTML = `<div style="color:#34d399;font-size:13px">✅ פורסם בהצלחה!${links ? '<br>' + links : ''}</div>`;
+      setStatus('פורסם ✓', false);
+      document.getElementById('pubContent').value = '';
+    } else {
+      const errs = (r.errors || []).join('<br>');
+      res.innerHTML = `<div style="color:#f87171;font-size:12px">שגיאות:<br>${errs}</div>`;
+      setStatus('שגיאה', false);
+    }
+  } catch(e) {
+    res.innerHTML = `<div style="color:#f87171">${esc(e.message)}</div>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+// ── Insights ──────────────────────────────────────────────
+
+async function analyzeCompetitorAds() {
+  if (!apiKey) { showApiModal(); return; }
+  const out = document.getElementById('insightsOutput');
+  out.innerHTML = loadingHtml('מנתח מודעות מתחרים עם AI...');
+  setStatus('מנתח...', true);
+
+  const ads = allCompetitorAds.slice(0, 20);
+  if (!ads.length) {
+    out.innerHTML = outputCard('אין נתונים', 'סרוק מודעות מתחרים קודם');
+    setStatus('', false);
+    return;
+  }
+
+  const adsJson = ads.map(a => ({
+    advertiser: a.advertiserName,
+    title: a.adTitle,
+    body: (a.adBody||'').slice(0, 200),
+    platforms: a.platforms,
+    impressions: `${a.impressionsLower}–${a.impressionsUpper}`,
+    date: a.startDate,
+  }));
+
+  const prompt = `אתה מנתח תחרות למותג "DNA ציוד אינסטלציה" — חברה ישראלית B2B לציוד אינסטלציה.
+
+## מודעות מתחרים פעילות שנאספו
+\`\`\`json
+${JSON.stringify(adsJson, null, 2)}
+\`\`\`
+
+## ניתוח נדרש:
+
+### 1. פאטרנים של מודעות מצליחות
+מה המסרים, הטונים, ה-CTA הנפוצים ביותר אצל המתחרים?
+
+### 2. הזדמנויות בידול
+מה חסר אצל המתחרים? במה DNA יכולה להתבדל?
+
+### 3. 5 המלצות מיידיות לקמפיין
+פעולות ספציפיות עבור DNA ציוד אינסטלציה על בסיס הנתונים.
+
+### 4. אסטרטגיית תקציב מומלצת
+כמה ואיפה להשקיע בהתחשב בתחרות הנוכחית.`;
+
+  try {
+    const r = await callAI(prompt, false);
+    out.innerHTML = outputCard('🔍 ניתוח מודעות מתחרים', renderAI(r));
+    setStatus('ניתוח הושלם ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+async function generateSocialStrategy() {
+  if (!apiKey) { showApiModal(); return; }
+  const out = document.getElementById('insightsOutput');
+  out.innerHTML = loadingHtml('מייצר אסטרטגיה חודשית...');
+  setStatus('מייצר אסטרטגיה...', true);
+
+  const prompt = `צור אסטרטגיית סושיאל מדיה חודשית מלאה עבור DNA ציוד אינסטלציה (https://www.dna-tools.co.il/).
+
+**מידע על החברה:**
+- ענף: ציוד אינסטלציה מקצועי B2B — שרברבים, קבלנים, מהנדסים
+- שוק: ישראל
+- קהל יעד: בעלי עסקים ואנשי מקצוע בתחום הבנייה והתשתיות
+- מוצרים: ברזים, צינורות, כלי איתור, ציוד תרמי, שסתומים
+
+## אסטרטגיה לחודש הקרוב:
+
+### 1. לוח תוכן שבועי (4 שבועות)
+עבור כל שבוע: נושא מרכזי + 3 פוסטים + פלטפורמה
+
+### 2. 10 פוסטים חזקים לפייסבוק (כולל hashtags)
+[WHATSAPP_MESSAGE_START]
+השתמש בפורמט הודעה לדוגמה לכל פוסט מומלץ
+[WHATSAPP_MESSAGE_END]
+
+### 3. אסטרטגיית תקציב
+הקצאת תקציב פרסום ממומן לפי מטרות
+
+### 4. KPIs ומדדי הצלחה
+מה נמדד ואיך נדע שהצלחנו`;
+
+  try {
+    const r = await callAI(prompt, true);
+    out.innerHTML = outputCard('📈 אסטרטגיית סושיאל חודשית', renderAI(r));
+    setStatus('אסטרטגיה נוצרה ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+async function generateHashtagStrategy() {
+  if (!apiKey) { showApiModal(); return; }
+  const out = document.getElementById('insightsOutput');
+  out.innerHTML = loadingHtml('מייצר אסטרטגיית האשטאגים...');
+  setStatus('מייצר...', true);
+
+  const prompt = `צור אסטרטגיית האשטאגים מקצועית לעברית ואנגלית עבור DNA ציוד אינסטלציה.
+
+## נדרש:
+1. **30 האשטאגים מובילים לפייסבוק** (עם הסבר על כל קבוצה)
+2. **30 האשטאגים לאינסטגרם** (מחולקים: נישה, כללי, ישראלי)
+3. **10 האשטאגים SEO** (מילות מפתח שישראלים מחפשים)
+4. **אסטרטגיית שימוש** — כמה לפוסט, באיזה שילוב
+5. **האשטאגים ממותגים** ייחודיים ל-DNA
+
+פורמט פלט: רשימה מסודרת לפי קטגוריות, מוכן להעתקה ישירה לפוסטים.`;
+
+  try {
+    const r = await callAI(prompt, true);
+    out.innerHTML = outputCard('🏷️ אסטרטגיית האשטאגים', renderAI(r));
+    setStatus('הושלם ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+async function generateContentCalendar() {
+  if (!apiKey) { showApiModal(); return; }
+  const out = document.getElementById('insightsOutput');
+  out.innerHTML = loadingHtml('מייצר לוח תוכן שבועי...');
+  setStatus('מייצר...', true);
+
+  const today = new Date().toLocaleDateString('he-IL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+  const prompt = `צור לוח תוכן שבועי מפורט לסושיאל מדיה של DNA ציוד אינסטלציה, החל מ-${today}.
+
+## 7 ימים × 2 פוסטים:
+לכל יום: פוסט בוקר + ערב
+לכל פוסט: פלטפורמה, נושא, טקסט מלא + hashtags
+
+**סוגי תוכן מגוון:**
+- טיפים מקצועיים לשרברבים
+- הצגת מוצרים חדשים
+- לפני/אחרי של פרויקטים
+- שאלה למעורבות (engagement)
+- סרטון how-to (script קצר)
+- מבצע/הנחה
+- testimonial / ביקורת לקוח
+
+**פורמט:** טבלה מסודרת יום/שעה/פלטפורמה/תוכן`;
+
+  try {
+    const r = await callAI(prompt, true);
+    out.innerHTML = outputCard('📅 לוח תוכן שבועי', renderAI(r));
+    setStatus('הושלם ✓', false);
+  } catch(e) {
+    out.innerHTML = `<span style="color:#f87171">${esc(e.message)}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+// ── JSON Export ────────────────────────────────────────────
+
+async function exportSocialJSON() {
+  if (!socialApiBase()) { showSocialConfig(); return; }
+  setStatus('מייצא נתונים...', true);
+  try {
+    const data = await socialApi('/export');
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `dna-social-export-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setStatus(`ייצוא הושלם — ${data.competitorAds?.count||0} מודעות, ${data.campaigns?.count||0} קמפיינים`, false);
+  } catch(e) {
+    alert('שגיאה בייצוא: ' + e.message);
+    setStatus('שגיאה', false);
+  }
+}
+
 // START
 // ═══════════════════════════════════
 
