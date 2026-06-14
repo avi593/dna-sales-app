@@ -327,6 +327,13 @@
     .model-add { display: flex; flex-wrap: wrap; gap: 8px; }
     .model-add .inp { flex: 1; min-width: 120px; }
     .model-actions { display: flex; gap: 8px; }
+    .link-name { color: inherit; text-decoration: none; }
+    .link-name:hover { color: var(--blue); text-decoration: underline; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer; font-size: 13px;
+      padding: 0 4px; opacity: .65; vertical-align: middle;
+    }
+    .icon-btn:hover { opacity: 1; }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -1555,8 +1562,10 @@ function renderModels() {
     const rows = comps.length ? comps.map(c => `
       <div class="src-row">
         <div class="src-info">
-          <div class="src-name">${esc(c.name || '')}</div>
-          <a class="src-link" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a>
+          <div class="src-name">
+            ${c.url ? `<a class="link-name" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.name || 'מתחרה')}</a>` : esc(c.name || 'מתחרה')}
+            <button class="icon-btn" title="ערוך קישור" onclick="editSource('${c.id}')">✏️</button>
+          </div>
         </div>
         <div class="src-price ${priceClass(c.lastPrice, m.myPrice)}">${fmtPrice(c.lastPrice)}</div>
         <button class="comp-btn comp-btn-del" onclick="delSource('${c.id}')">✕</button>
@@ -1566,8 +1575,12 @@ function renderModels() {
     <div class="model-card">
       <div class="model-head">
         <div>
-          <div class="model-name">${esc(m.name)} ${modelBadge(m)}</div>
-          ${m.myUrl ? `<a class="src-link" href="${esc(m.myUrl)}" target="_blank" rel="noopener">${esc(m.myUrl)}</a>` : '<span class="src-link">לא הוגדר קישור שלי</span>'}
+          <div class="model-name">
+            ${m.myUrl ? `<a class="link-name" href="${esc(m.myUrl)}" target="_blank" rel="noopener">${esc(m.name)}</a>` : esc(m.name)}
+            ${modelBadge(m)}
+            <button class="icon-btn" title="ערוך את הקישור שלי" onclick="editModelUrl('${m.id}')">✏️</button>
+          </div>
+          ${m.myUrl ? '' : '<div class="src-link">לא הוגדר קישור — לחץ על העיפרון</div>'}
         </div>
         <div class="model-myprice">
           <div class="myprice-label">המחיר שלי</div>
@@ -1632,6 +1645,34 @@ async function delSource(sourceId) {
     await compApi('/sources/' + sourceId, 'DELETE');
     await loadModels();
     setStatus('נמחק', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function editModelUrl(id) {
+  const m = models.find(x => x.id === id);
+  const v = prompt('עדכן את הקישור שלך לדגם זה (URL מלא):', m?.myUrl || '');
+  if (v === null) return;
+  setStatus('מעדכן קישור...', true);
+  try {
+    await compApi('/models/' + id, 'PUT', { myUrl: v.trim() });
+    await loadModels();
+    setStatus('עודכן', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function editSource(id) {
+  let cur = '';
+  for (const m of models) {
+    const c = (m.competitors || []).find(x => x.id === id);
+    if (c) { cur = c.url || ''; break; }
+  }
+  const v = prompt('עדכן את קישור המתחרה (URL מלא):', cur);
+  if (v === null) return;
+  setStatus('מעדכן קישור...', true);
+  try {
+    await compApi('/sources/' + id, 'PUT', { url: v.trim() });
+    await loadModels();
+    setStatus('עודכן', false);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 

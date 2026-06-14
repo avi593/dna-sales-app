@@ -383,6 +383,17 @@ def create_source(data):
     return _json(_ts_to_iso(_doc_to_dict(ref.get())), 201)
 
 
+def update_source(sid, data):
+    fields = _pick(data, {"name", "url"})
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    ref = db.collection("priceSources").document(sid)
+    if not ref.get().exists:
+        return _json({"error": "מתחרה לא נמצא"}, 404)
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
 def delete_source(sid):
     ref = db.collection("priceSources").document(sid)
     if not ref.get().exists:
@@ -473,6 +484,8 @@ def competitors_api(request):
         elif resource == "sources":
             if method == "POST":
                 return create_source(data)
+            if method == "PUT" and item_id:
+                return update_source(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_source(item_id)
 
