@@ -433,6 +433,17 @@ def scan_model(mid):
     return _json(result)
 
 
+def scan_all():
+    """סורק את כל הדגמים — מופעל ידנית ('סרוק הכל') ובתזמון יומי (Cloud Scheduler)."""
+    ids = [s.id for s in db.collection("models").stream()]
+    for mid in ids:
+        try:
+            scan_model(mid)
+        except Exception:
+            pass
+    return _json({"scanned": len(ids)})
+
+
 # ═══════════════════════════ AUTO-DISCOVERY (גילוי מתחרים) ═══════════════════════════
 # תהליך: שולפים דגמים מעמוד קטגוריה באתר של דנא → לכל דגם מחפשים מתחרים ב-SERP →
 # מחזירים הצעות (ללא שמירה). רק לאחר אישור המשתמש נוצרים models + priceSources בפועל.
@@ -865,6 +876,10 @@ def competitors_api(request):
         elif resource == "scan":
             if method == "POST" and item_id:
                 return scan_model(item_id)
+
+        elif resource == "scan-all":
+            if method in ("GET", "POST"):
+                return scan_all()
 
         elif resource == "track":
             if method == "POST":

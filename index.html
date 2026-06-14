@@ -1845,9 +1845,7 @@ async function scanAllModels() {
   if (!models.length) { alert('אין דגמים לסריקה'); return; }
   setStatus('סורק את כל הדגמים...', true);
   try {
-    for (const m of models) {
-      await compApi('/scan/' + m.id, 'POST', {});
-    }
+    await compApi('/scan-all', 'POST', {});   // הסריקה מתבצעת בצד-שרת בקריאה אחת
     await loadModels();
     setStatus('הסריקה הושלמה', false);
   } catch (e) { alert('שגיאה בסריקה: ' + e.message); setStatus('שגיאה', false); }
