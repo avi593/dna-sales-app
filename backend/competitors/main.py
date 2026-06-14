@@ -558,10 +558,18 @@ def extract_model_id(name):
     toks = [t for t in toks if len(t) >= 2 or any(c.isdigit() for c in t)]
     search = ' '.join(toks[:6]).strip()
     token = ''
+    # 1. קוד דגם אמיתי = שילוב אותיות+ספרות (E96, C5, ETS320, i64) — לא מספר מפרט כמו 0.03
     for t in toks:
-        if any(c.isdigit() for c in t):   # הטוקן המבחין הוא בד"כ זה עם הספרה (C5, ETS320)
+        if re.search(r'[A-Za-z]', t) and re.search(r'\d', t):
             token = t
             break
+    # 2. אחרת — הטוקן הראשון שמכיל ספרה
+    if not token:
+        for t in toks:
+            if any(c.isdigit() for c in t):
+                token = t
+                break
+    # 3. אחרת — הטוקן האחרון
     if not token and toks:
         token = toks[-1]
     return (search or (name or '').strip()), token
