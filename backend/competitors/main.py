@@ -718,10 +718,6 @@ def create_tracked(data):
         seg = unquote(my_url.rstrip('/').split('?')[0].split('/')[-1])
         name = seg.replace('-', ' ').strip() or "מוצר"
 
-    # מניעת כפילות לפי הקישור שלי
-    if list(db.collection("models").where("myUrl", "==", my_url).limit(1).stream()):
-        return _json({"error": "דגם עם הקישור הזה כבר קיים"}, 409)
-
     # סריקת המחיר שלי
     my = fetch_price(my_url)
     if my["price"] is None:
@@ -735,17 +731,30 @@ def create_tracked(data):
         return _json({"error": "לא נמצא מחיר אצל אף אחד מהמתחרים — בדוק את הקישורים"}, 422)
 
     now = firestore.SERVER_TIMESTAMP
-    mref = db.collection("models").document()
-    mref.set({"name": name, "myUrl": my_url, "myPrice": my["price"], "status": "active",
-              "lastScanAt": now, "createdAt": now, "updatedAt": now})
+    # אם הדגם כבר קיים (אותו myUrl) — מוסיפים אליו את המתחרים (מיזוג), לא חוסמים
+    existing = list(db.collection("models").where("myUrl", "==", my_url).limit(1).stream())
+    if existing:
+        mref = existing[0].reference
+        mref.update({"myPrice": my["price"], "lastScanAt": now, "updatedAt": now})
+        have = {s.to_dict().get("url") for s in
+                db.collection("priceSources").where("modelId", "==", mref.id).stream()}
+    else:
+        mref = db.collection("models").document()
+        mref.set({"name": name, "myUrl": my_url, "myPrice": my["price"], "status": "active",
+                  "lastScanAt": now, "createdAt": now, "updatedAt": now})
+        have = set()
+
     for u, price in valid:
+        if u in have:                      # מתחרה שכבר קיים — מדלגים
+            continue
         db.collection("priceSources").document().set({
             "modelId": mref.id, "url": u, "name": _domain(u),
             "lastPrice": price, "lastScanAt": now, "lastStatus": 200, "createdAt": now})
 
     m = _ts_to_iso(_doc_to_dict(mref.get()))
     m["competitors"] = _sources_for(mref.id)
-    return _json({"model": m, "skippedCompetitors": len(comp_urls) - len(valid)}, 201)
+    return _json({"model": m, "skippedCompetitors": len(comp_urls) - len(valid),
+                  "merged": bool(existing)}, 201)
 
 
 def track_categories(data):
