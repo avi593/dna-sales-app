@@ -492,8 +492,32 @@ def scrape_category(url):
     if products:
         return {"products": products}
 
-    # 2) היוריסטיקה גנרית: לכל טקסט מחיר, מטפסים למעלה עד מציאת קישור מוצר
     base = url
+    # 2) משפחת WooCommerce לפי קישורי /product/ (ערכות כמו WoodMart — smartliner)
+    plinks = {}
+    for a in soup.select('a[href*="/product/"]'):
+        href = urljoin(base, a["href"].split("?")[0])
+        if "/product-category/" in href or href in plinks:
+            continue
+        name = (a.get("aria-label") or a.get("title") or a.get_text(" ", strip=True) or "").strip()
+        if not name:
+            img = a.find("img")
+            name = (img.get("alt") or "").strip() if img else ""
+        price, node = None, a
+        for _ in range(6):
+            if node is None:
+                break
+            pe = node.select_one(".woocommerce-Price-amount bdi, .woocommerce-Price-amount, .price bdi")
+            if pe:
+                price = _to_price(pe.get_text())
+                break
+            node = node.parent
+        if name and len(name) >= 3:
+            plinks[href] = {"name": name, "myUrl": href, "myPrice": price}
+    if plinks:
+        return {"products": list(plinks.values())}
+
+    # 3) היוריסטיקה גנרית: לכל טקסט מחיר, מטפסים למעלה עד מציאת קישור מוצר
     for node in soup.find_all(string=PRICE_TEXT):
         price = _to_price(PRICE_TEXT.search(node).group(0))
         if price is None:
