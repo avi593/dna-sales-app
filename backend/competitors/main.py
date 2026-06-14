@@ -431,6 +431,97 @@ def scan_model(mid):
     return _json(result)
 
 
+# ═══════════════════════════ AUTO-DISCOVERY (גילוי מתחרים) ═══════════════════════════
+# תהליך: שולפים דגמים מעמוד קטגוריה באתר של דנא → לכל דגם מחפשים מתחרים ב-SERP →
+# מחזירים הצעות (ללא שמירה). רק לאחר אישור המשתמש נוצרים models + priceSources בפועל.
+
+def _get_config(key, default=None):
+    try:
+        doc = db.collection("config").document("settings").get()
+        if doc.exists:
+            return (doc.to_dict() or {}).get(key, default)
+    except Exception:
+        pass
+    return default
+
+
+def set_config(data):
+    fields = _pick(data, {"serpApiKey", "serpProvider"})
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    db.collection("config").document("settings").set(fields, merge=True)
+    # מחזירים רק האם המפתח מוגדר — בלי לחשוף אותו
+    return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey"))})
+
+
+def config_status():
+    return _json({"serpConfigured": bool(_get_config("serpApiKey")),
+                  "serpProvider": _get_config("serpProvider", "serpapi")})
+
+
+def scrape_category(url):
+    """שולף מוצרים מעמוד קטגוריה של WooCommerce: שם · קישור · מחיר."""
+    r = requests.get(url, headers=SCAN_HEADERS, timeout=25)
+    if r.status_code != 200:
+        return {"error": f"שגיאת טעינת הקטגוריה (status {r.status_code})"}
+    if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+        r.encoding = r.apparent_encoding or "utf-8"
+    soup = BeautifulSoup(r.text, "html.parser")
+    products = []
+    seen = set()
+    for li in soup.select("li.product"):
+        a = li.select_one("a.woocommerce-loop-product__link") or li.find("a", href=True)
+        if not a or not a.get("href") or "/product/" not in a["href"]:
+            continue
+        href = a["href"].split("?")[0]
+        if href in seen:
+            continue
+        seen.add(href)
+        t = li.select_one(".woocommerce-loop-product__title")
+        name = t.get_text(strip=True) if t else a.get_text(strip=True)
+        pe = li.select_one(".woocommerce-Price-amount bdi") or li.select_one(".woocommerce-Price-amount")
+        price = _to_price(pe.get_text()) if pe else None
+        products.append({"name": name, "myUrl": href, "myPrice": price})
+    return {"products": products}
+
+
+def serp_competitors(query, limit=0):
+    """מחפש מתחרים ב-SERP (Google Shopping) לדגם נתון. דורש מפתח ב-config."""
+    key = _get_config("serpApiKey")
+    if not key:
+        return []
+    try:
+        params = {"engine": "google_shopping", "q": query,
+                  "gl": "il", "hl": "he", "api_key": key}
+        r = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
+        data = r.json()
+        out = []
+        for it in data.get("shopping_results", []):
+            link = it.get("product_link") or it.get("link")
+            if not link:
+                continue
+            out.append({"name": it.get("source") or it.get("seller") or "",
+                        "url": link, "price": _to_price(it.get("price"))})
+        return out[:limit] if limit else out
+    except Exception:
+        return []
+
+
+def discover_category(data):
+    url = (data or {}).get("categoryUrl", "").strip()
+    if not url:
+        return _json({"error": "שדה 'categoryUrl' הוא חובה"}, 400)
+    res = scrape_category(url)
+    if "error" in res:
+        return _json(res, 502)
+    products = res["products"]
+    # לכל דגם — מחפשים מתחרים (אם מוגדר מפתח SERP; אחרת רשימה ריקה)
+    for p in products:
+        p["competitors"] = serp_competitors(p["name"])
+    return _json({"products": products, "count": len(products),
+                  "serpConfigured": bool(_get_config("serpApiKey"))})
+
+
 # ═══════════════════════════ ROUTER ═══════════════════════════
 
 @functions_framework.http
@@ -492,6 +583,16 @@ def competitors_api(request):
         elif resource == "scan":
             if method == "POST" and item_id:
                 return scan_model(item_id)
+
+        elif resource == "discover":
+            if method == "POST":
+                return discover_category(data)
+
+        elif resource == "config":
+            if method == "GET":
+                return config_status()
+            if method == "POST":
+                return set_config(data)
 
         elif resource == "changes":
             if method == "GET":
