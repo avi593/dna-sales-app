@@ -350,6 +350,23 @@
     .disc-cname { flex: 1; word-break: break-all; }
     .disc-cprice { color: var(--muted); white-space: nowrap; }
     .disc-none { font-size: 12px; color: var(--muted); }
+    /* ══ PRICE TABLE ══ */
+    .price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .price-table thead th {
+      text-align: right; font-size: 12px; color: var(--muted); font-weight: 600;
+      padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .pt-row { cursor: pointer; border-bottom: 1px solid var(--border); transition: background .15s; }
+    .pt-row:hover, .pt-row.pt-open { background: var(--bg3); }
+    .pt-row td { padding: 11px 12px; }
+    .pt-name { font-weight: 600; }
+    .pt-chev { color: var(--muted); display: inline-block; width: 14px; }
+    .pt-my { font-weight: 700; }
+    .pt-num { text-align: center; color: var(--muted); }
+    .muted-sm { font-size: 12px; color: var(--muted); }
+    .pt-detail td { padding: 0 12px 14px; background: var(--bg3); border-bottom: 1px solid var(--border); }
+    .detail-head { display: flex; align-items: center; gap: 8px; padding: 10px 0; flex-wrap: wrap; }
+    .detail-spacer { flex: 1; }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -692,6 +709,9 @@
       </div>
       <div class="input-row">
         <button class="btn btn-green" onclick="openDiscover()">🔎 גלה מתחרים אוטומטית (לפי קטגוריה)</button>
+      </div>
+      <div class="input-row">
+        <input class="inp" id="modelSearch" placeholder="🔍 חיפוש דגם..." oninput="renderModels()" />
       </div>
       <div id="modelsList" class="models-list">
         <div class="card"><div class="card-body">
@@ -1584,6 +1604,27 @@ function modelBadge(m) {
     : `<span class="model-badge badge-high">אני מוביל</span>`;
 }
 
+let expandedModels = new Set();
+
+function toggleModel(id) {
+  if (expandedModels.has(id)) expandedModels.delete(id); else expandedModels.add(id);
+  renderModels();
+}
+
+// מחשב את מדדי הדגם: המתחרה הזול ביותר, הפער ב-₪ ובאחוזים
+function modelMetrics(m) {
+  const comps = m.competitors || [];
+  const priced = comps.map(c => c.lastPrice).filter(v => v != null);
+  const cheapest = priced.length ? Math.min(...priced) : null;
+  const cheapestComp = cheapest != null ? comps.find(c => c.lastPrice === cheapest) : null;
+  let diff = null, pct = null;
+  if (m.myPrice != null && cheapest != null) {
+    diff = cheapest - m.myPrice;            // חיובי = אני זול יותר (מוביל); שלילי = מתחרה זול ממני
+    pct = m.myPrice ? (diff / m.myPrice * 100) : 0;
+  }
+  return { comps, cheapest, cheapestComp, diff, pct };
+}
+
 function renderModels() {
   const el = document.getElementById('modelsList');
   if (!models.length) {
@@ -1594,9 +1635,45 @@ function renderModels() {
     </div></div></div>`;
     return;
   }
-  el.innerHTML = models.map(m => {
-    const comps = m.competitors || [];
-    const rows = comps.length ? comps.map(c => `
+  const q = (document.getElementById('modelSearch')?.value || '').trim().toLowerCase();
+  let list = models.map(m => ({ m, ...modelMetrics(m) }))
+    .filter(x => !q || (x.m.name || '').toLowerCase().includes(q));
+  // מיון: דגמים שמתחרה זול בהם קודם (לפי הפער השלילי ביותר), אז מובילים, אז ללא נתונים
+  list.sort((a, b) => {
+    const rank = x => x.diff == null ? 2 : (x.diff < 0 ? 0 : 1);
+    const ra = rank(a), rb = rank(b);
+    if (ra !== rb) return ra - rb;
+    if (a.pct != null && b.pct != null) return a.pct - b.pct;
+    return 0;
+  });
+
+  const body = list.map(({ m, comps, cheapest, cheapestComp, diff, pct }) => {
+    const open = expandedModels.has(m.id);
+    let gapCell = '<span class="price-neutral">—</span>';
+    let statusCell = '<span class="price-neutral">—</span>';
+    if (diff != null) {
+      const cls = diff < 0 ? 'price-low' : 'price-high';
+      const sign = diff >= 0 ? '+' : '−';
+      gapCell = `<span class="${cls}">${sign}₪${Math.abs(diff).toLocaleString('he-IL')} (${sign}${Math.abs(pct).toFixed(1)}%)</span>`;
+      statusCell = diff < 0
+        ? '<span class="model-badge badge-low">מתחרה זול</span>'
+        : '<span class="model-badge badge-high">אני מוביל</span>';
+    }
+    const cheapCell = cheapest != null
+      ? `${fmtPrice(cheapest)}${cheapestComp ? ' <span class="muted-sm">— ' + esc(cheapestComp.name || '') + '</span>' : ''}`
+      : '<span class="price-neutral">—</span>';
+
+    const mainRow = `
+      <tr class="pt-row ${open ? 'pt-open' : ''}" onclick="toggleModel('${m.id}')">
+        <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(m.name)}</td>
+        <td class="pt-my">${fmtPrice(m.myPrice)}</td>
+        <td>${cheapCell}</td>
+        <td>${gapCell}</td>
+        <td class="pt-num">${comps.length}</td>
+        <td>${statusCell}</td>
+      </tr>`;
+
+    const compRows = comps.length ? comps.map(c => `
       <div class="src-row">
         <div class="src-info">
           <div class="src-name">
@@ -1606,36 +1683,36 @@ function renderModels() {
         </div>
         <div class="src-price ${priceClass(c.lastPrice, m.myPrice)}">${fmtPrice(c.lastPrice)}</div>
         <button class="comp-btn comp-btn-del" onclick="delSource('${c.id}')">✕</button>
-      </div>`).join('') : '<div class="page-empty">אין עדיין מתחרים לדגם זה. הוסף קישור למטה.</div>';
+      </div>`).join('') : '<div class="page-empty">אין עדיין מתחרים לדגם זה.</div>';
 
-    return `
-    <div class="model-card">
-      <div class="model-head">
-        <div>
-          <div class="model-name">
-            ${m.myUrl ? `<a class="link-name" href="${esc(m.myUrl)}" target="_blank" rel="noopener">${esc(m.name)}</a>` : esc(m.name)}
-            ${modelBadge(m)}
-            <button class="icon-btn" title="ערוך את הקישור שלי" onclick="editModelUrl('${m.id}')">✏️</button>
-          </div>
-          ${m.myUrl ? '' : '<div class="src-link">לא הוגדר קישור — לחץ על העיפרון</div>'}
+    const detailRow = open ? `
+      <tr class="pt-detail"><td colspan="6">
+        <div class="detail-head">
+          <span class="muted-sm">הקישור שלי:</span>
+          ${m.myUrl ? `<a class="link-name" href="${esc(m.myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : '<span class="price-neutral">לא הוגדר</span>'}
+          <button class="icon-btn" title="ערוך את הקישור שלי" onclick="editModelUrl('${m.id}')">✏️</button>
+          <span class="detail-spacer"></span>
+          <button class="comp-btn" onclick="scanModel('${m.id}')">🔄 סרוק</button>
+          <button class="comp-btn comp-btn-del" onclick="delModel('${m.id}')">🗑️ מחק דגם</button>
         </div>
-        <div class="model-myprice">
-          <div class="myprice-label">המחיר שלי</div>
-          <div class="myprice-val">${fmtPrice(m.myPrice)}</div>
+        <div class="src-list">${compRows}</div>
+        <div class="model-add">
+          <input class="inp" id="srcName-${m.id}" placeholder="שם מתחרה (אופציונלי)" />
+          <input class="inp" id="srcUrl-${m.id}" placeholder="קישור המתחרה לאותו דגם" />
+          <button class="btn btn-blue" onclick="addSource('${m.id}')">הוסף מתחרה</button>
         </div>
-      </div>
-      <div class="src-list">${rows}</div>
-      <div class="model-add">
-        <input class="inp" id="srcName-${m.id}" placeholder="שם מתחרה (אופציונלי)" />
-        <input class="inp" id="srcUrl-${m.id}" placeholder="קישור המתחרה לאותו דגם" />
-        <button class="btn btn-blue" onclick="addSource('${m.id}')">הוסף מתחרה</button>
-      </div>
-      <div class="model-actions">
-        <button class="comp-btn" onclick="scanModel('${m.id}')">🔄 סרוק מחירים</button>
-        <button class="comp-btn comp-btn-del" onclick="delModel('${m.id}')">🗑️ מחק דגם</button>
-      </div>
-    </div>`;
+      </td></tr>` : '';
+
+    return mainRow + detailRow;
   }).join('');
+
+  el.innerHTML = `
+    <table class="price-table">
+      <thead><tr>
+        <th>דגם</th><th>המחיר שלי</th><th>הזול במתחרים</th><th>פער</th><th>מתחרים</th><th>מצב</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>`;
 }
 
 async function addModel() {
