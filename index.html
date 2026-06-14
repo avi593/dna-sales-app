@@ -334,6 +334,22 @@
       padding: 0 4px; opacity: .65; vertical-align: middle;
     }
     .icon-btn:hover { opacity: 1; }
+    /* ══ DISCOVERY MODAL ══ */
+    .serp-status { font-size: 12px; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .serp-ok { color: #34d399; }
+    .serp-warn { color: #fbbf24; }
+    .discover-list { display: flex; flex-direction: column; gap: 10px; max-height: 52vh; overflow-y: auto; margin-bottom: 14px; }
+    .disc-card { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .disc-head { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+    .disc-head input { width: 16px; height: 16px; accent-color: var(--blue); }
+    .disc-name { font-size: 14px; font-weight: 600; flex: 1; }
+    .disc-price { font-size: 13px; color: var(--muted); white-space: nowrap; }
+    .disc-comps { margin-top: 8px; padding-inline-start: 24px; display: flex; flex-direction: column; gap: 5px; }
+    .disc-comp { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; }
+    .disc-comp input { width: 14px; height: 14px; accent-color: var(--blue); }
+    .disc-cname { flex: 1; word-break: break-all; }
+    .disc-cprice { color: var(--muted); white-space: nowrap; }
+    .disc-none { font-size: 12px; color: var(--muted); }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -674,6 +690,9 @@
         <button class="btn btn-blue" onclick="addModel()">➕ הוסף דגם</button>
         <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
       </div>
+      <div class="input-row">
+        <button class="btn btn-green" onclick="openDiscover()">🔎 גלה מתחרים אוטומטית (לפי קטגוריה)</button>
+      </div>
       <div id="modelsList" class="models-list">
         <div class="card"><div class="card-body">
           <div class="card-empty">
@@ -835,6 +854,24 @@
       <button class="btn btn-blue" onclick="addPage()">➕ הוסף דף</button>
     </div>
     <div id="pagesList" class="pages-list"></div>
+  </div>
+</div>
+
+<!-- ══════════════ DISCOVER COMPETITORS MODAL ══════════════ -->
+<div class="overlay hidden" id="discoverModal">
+  <div class="modal modal-wide">
+    <div class="pages-head">
+      <h3>🔎 גילוי מתחרים אוטומטי</h3>
+      <button class="pages-close" onclick="closeDiscover()">✕</button>
+    </div>
+    <p class="pages-sub">הדבק קישור לעמוד קטגוריה באתר שלך. המערכת תשלוף את הדגמים ותציע מתחרים לכל אחד. שום דבר לא נשמר עד שתאשר.</p>
+    <div id="serpStatus" class="serp-status"></div>
+    <div class="pages-add">
+      <input type="text" class="inp" id="catUrl" placeholder="קישור לעמוד קטגוריה באתר שלי" />
+      <button class="btn btn-blue" onclick="runDiscover()">🔎 גלה דגמים</button>
+    </div>
+    <div id="discoverList" class="discover-list"></div>
+    <div id="discoverActions"></div>
   </div>
 </div>
 
@@ -1695,6 +1732,108 @@ async function scanAllModels() {
     await loadModels();
     setStatus('הסריקה הושלמה', false);
   } catch (e) { alert('שגיאה בסריקה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+// ── גילוי מתחרים אוטומטי ──
+let discovered = [];
+
+async function openDiscover() {
+  document.getElementById('discoverModal').classList.remove('hidden');
+  document.getElementById('catUrl').value = '';
+  discovered = [];
+  renderDiscover();
+  await refreshSerpStatus();
+}
+
+function closeDiscover() {
+  document.getElementById('discoverModal').classList.add('hidden');
+}
+
+async function refreshSerpStatus() {
+  const el = document.getElementById('serpStatus');
+  try {
+    const d = await compApi('/config');
+    el.innerHTML = d.serpConfigured
+      ? `<span class="serp-ok">✅ מפתח SERP מוגדר — יוצעו מתחרים אמיתיים</span> <button class="icon-btn" title="החלף מפתח" onclick="setSerpKey()">✏️</button>`
+      : `<span class="serp-warn">⚠️ אין מפתח SERP — יישלפו דגמים בלבד (בלי הצעות מתחרים)</span> <button class="comp-btn" onclick="setSerpKey()">🔑 הגדר מפתח</button>`;
+  } catch (e) { el.innerHTML = `<span class="serp-warn">${e.message}</span>`; }
+}
+
+async function setSerpKey() {
+  const k = prompt('הדבק את מפתח ה-API של SerpApi (נשמר בצד-שרת בלבד):');
+  if (k === null || !k.trim()) return;
+  setStatus('שומר מפתח...', true);
+  try {
+    await compApi('/config', 'POST', { serpApiKey: k.trim(), serpProvider: 'serpapi' });
+    await refreshSerpStatus();
+    setStatus('המפתח נשמר', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function runDiscover() {
+  const url = document.getElementById('catUrl').value.trim();
+  if (!url) { alert('הדבק קישור לעמוד קטגוריה'); return; }
+  setStatus('שולף דגמים...', true);
+  document.getElementById('discoverList').innerHTML = loadingHtml('שולף דגמים ומחפש מתחרים... (עשוי לקחת דקה)');
+  document.getElementById('discoverActions').innerHTML = '';
+  try {
+    const d = await compApi('/discover', 'POST', { categoryUrl: url });
+    discovered = (d.products || []).map(p => ({
+      ...p, _sel: true,
+      competitors: (p.competitors || []).map(c => ({ ...c, _sel: true }))
+    }));
+    renderDiscover();
+    setStatus(`נמצאו ${discovered.length} דגמים`, false);
+  } catch (e) {
+    document.getElementById('discoverList').innerHTML = `<span style="color:#f87171">${e.message}</span>`;
+    setStatus('שגיאה', false);
+  }
+}
+
+function renderDiscover() {
+  const el = document.getElementById('discoverList');
+  const act = document.getElementById('discoverActions');
+  if (!discovered.length) { el.innerHTML = ''; act.innerHTML = ''; return; }
+  el.innerHTML = discovered.map((p, pi) => `
+    <div class="disc-card">
+      <label class="disc-head">
+        <input type="checkbox" ${p._sel ? 'checked' : ''} onchange="discovered[${pi}]._sel=this.checked">
+        <span class="disc-name">${esc(p.name)}</span>
+        <span class="disc-price">${fmtPrice(p.myPrice)}</span>
+      </label>
+      <div class="disc-comps">
+        ${(p.competitors || []).length
+          ? p.competitors.map((c, ci) => `
+            <label class="disc-comp">
+              <input type="checkbox" ${c._sel ? 'checked' : ''} onchange="discovered[${pi}].competitors[${ci}]._sel=this.checked">
+              <span class="disc-cname">${esc(c.name || c.url)}</span>
+              <span class="disc-cprice">${fmtPrice(c.price)}</span>
+            </label>`).join('')
+          : '<div class="disc-none">אין הצעות מתחרים לדגם זה</div>'}
+      </div>
+    </div>`).join('');
+  act.innerHTML = `<button class="btn btn-green" onclick="approveDiscover()">✅ אשר ויצור את הדגמים הנבחרים</button>`;
+}
+
+async function approveDiscover() {
+  const chosen = discovered.filter(p => p._sel);
+  if (!chosen.length) { alert('לא נבחרו דגמים'); return; }
+  if (!confirm(`ליצור ${chosen.length} דגמים במעקב המחירים? (כולל המתחרים שסומנו)`)) return;
+  setStatus('יוצר דגמים...', true);
+  let created = 0;
+  try {
+    for (const p of chosen) {
+      const m = await compApi('/models', 'POST', { name: p.name, myUrl: p.myUrl, myPrice: p.myPrice });
+      for (const c of (p.competitors || []).filter(x => x._sel)) {
+        await compApi('/sources', 'POST', { modelId: m.id, url: c.url, name: c.name });
+      }
+      created++;
+    }
+    closeDiscover();
+    await loadModels();
+    setStatus('הושלם', false);
+    alert(`נוצרו ${created} דגמים במעקב המחירים ✅`);
+  } catch (e) { alert('שגיאה ביצירה: ' + e.message); setStatus('שגיאה', false); }
 }
 
 // ═══════════════════════════════════
