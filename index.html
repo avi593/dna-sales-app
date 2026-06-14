@@ -324,8 +324,14 @@
     .price-low { color: #f87171; }
     .price-high { color: #34d399; }
     .price-neutral { color: var(--muted); }
-    .model-add { display: flex; flex-wrap: wrap; gap: 8px; }
+    .model-add { display: flex; align-items: center; gap: 8px; margin: 6px 0 10px; }
     .model-add .inp { flex: 1; min-width: 120px; }
+    .add-plus {
+      width: 38px; height: 38px; flex: 0 0 38px; border: 1px solid var(--border);
+      background: var(--bg3); color: var(--blue); font-size: 22px; line-height: 1;
+      font-weight: 700; border-radius: 8px; cursor: pointer; transition: background .15s;
+    }
+    .add-plus:hover { background: rgba(99,102,241,.15); }
     .model-actions { display: flex; gap: 8px; }
     .link-name { color: inherit; text-decoration: none; }
     .link-name:hover { color: var(--blue); text-decoration: underline; }
@@ -1704,12 +1710,11 @@ function renderModels() {
           <button class="comp-btn" onclick="scanModel('${m.id}')">🔄 סרוק</button>
           <button class="comp-btn comp-btn-del" onclick="delModel('${m.id}')">🗑️ מחק דגם</button>
         </div>
-        <div class="src-list">${compRows}</div>
         <div class="model-add">
-          <input class="inp" id="srcName-${m.id}" placeholder="שם מתחרה (אופציונלי)" />
-          <input class="inp" id="srcUrl-${m.id}" placeholder="קישור המתחרה לאותו דגם" />
-          <button class="btn btn-blue" onclick="addSource('${m.id}')">הוסף מתחרה</button>
+          <input class="inp" id="srcUrl-${m.id}" placeholder="הוסף קישור מתחרה" onkeydown="if(event.key==='Enter')addSource('${m.id}')" />
+          <button class="add-plus" title="הוסף מתחרה" onclick="addSource('${m.id}')">+</button>
         </div>
+        <div class="src-list">${compRows}</div>
       </td></tr>` : '';
 
     return mainRow + detailRow;
@@ -1752,11 +1757,10 @@ async function delModel(id) {
 async function addSource(modelId) {
   const url = document.getElementById('srcUrl-' + modelId).value.trim();
   if (!url) { alert('יש להזין קישור מתחרה'); return; }
-  const name = document.getElementById('srcName-' + modelId).value.trim();
   setStatus('מוסיף מתחרה...', true);
   try {
-    await compApi('/sources', 'POST', { modelId, url, name });
-    await loadModels();
+    await compApi('/sources', 'POST', { modelId, url });   // שם המתחרה נגזר אוטומטית מהקישור
+    await loadModels();                                     // הלינק מוסתר — המתחרה מוצג לפי שם
     setStatus('נוסף', false);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
