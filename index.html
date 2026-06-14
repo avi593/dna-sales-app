@@ -1901,29 +1901,48 @@ function renderDiscover() {
       <div class="disc-search">
         <span class="muted-sm">חיפוש:</span>
         <input class="inp" id="dq-${pi}" value="${esc(p.searchTerm || '')}" />
-        <button class="comp-btn" onclick="researchProduct(${pi})">🔄 חפש מחדש</button>
+        <button class="comp-btn" onclick="researchProduct(${pi})">🔎 חפש מתחרים</button>
       </div>
       <div class="disc-comps">
         ${ver.join('')}
         ${unc.length ? `<div class="disc-uncertain">לא ודאי — בדוק לפני אישור:</div>${unc.join('')}` : ''}
-        ${comps.length ? '' : '<div class="disc-none">לא נמצאו מתחרים. נסה לערוך את מונח החיפוש ולחפש מחדש.</div>'}
+        ${comps.length ? '' : (p._searched
+          ? '<div class="disc-none">לא נמצאו מתחרים. נסה לערוך את מונח החיפוש ולחפש שוב.</div>'
+          : '<div class="disc-none">לחץ "🔎 חפש מתחרים" למציאת מתחרים לדגם זה.</div>')}
       </div>
     </div>`;
   }).join('');
-  act.innerHTML = `<button class="btn btn-green" onclick="approveDiscover()">✅ אשר ויצור את הדגמים הנבחרים</button>`;
+  act.innerHTML = `
+    <button class="btn btn-blue" onclick="searchAllProducts()">🔎 חפש מתחרים לכל הדגמים</button>
+    <button class="btn btn-green" onclick="approveDiscover()">✅ אשר ויצור את הדגמים הנבחרים</button>`;
+}
+
+async function searchProductCompetitors(pi, q) {
+  const query = (q || document.getElementById('dq-' + pi)?.value || discovered[pi].searchTerm || '').trim();
+  if (!query) return;
+  const d = await compApi('/search-competitors', 'POST', { query });
+  discovered[pi].searchTerm = query;
+  discovered[pi]._searched = true;
+  discovered[pi].competitors = (d.competitors || []).map(c => ({ ...c, _sel: !!c.verified }));
 }
 
 async function researchProduct(pi) {
-  const q = (document.getElementById('dq-' + pi)?.value || '').trim();
-  if (!q) return;
   setStatus('מחפש מתחרים...', true);
   try {
-    const d = await compApi('/search-competitors', 'POST', { query: q });
-    discovered[pi].searchTerm = q;
-    discovered[pi].competitors = (d.competitors || []).map(c => ({ ...c, _sel: !!c.verified }));
+    await searchProductCompetitors(pi);
     renderDiscover();
     setStatus('עודכן', false);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function searchAllProducts() {
+  setStatus('מחפש מתחרים לכל הדגמים...', true);
+  for (let i = 0; i < discovered.length; i++) {
+    setStatus(`מחפש מתחרים... (${i + 1}/${discovered.length})`, true);
+    try { await searchProductCompetitors(i, discovered[i].searchTerm); } catch (e) {}
+    renderDiscover();
+  }
+  setStatus('הסתיים — בדוק ואשר', false);
 }
 
 async function approveDiscover() {

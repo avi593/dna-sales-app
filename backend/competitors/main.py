@@ -582,7 +582,7 @@ def discover_category(data):
         search, token = extract_model_id(p["name"])
         p["searchTerm"] = search
         p["modelToken"] = token
-        p["competitors"] = serp_competitors(search, token) if serp_on else []
+        p["competitors"] = []   # נטען לכל דגם בנפרד (/search-competitors) — מהיר ולא חורג ממכסת SERP
     return _json({"products": products, "count": len(products), "serpConfigured": serp_on})
 
 
