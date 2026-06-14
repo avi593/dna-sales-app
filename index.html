@@ -728,11 +728,10 @@
         <div class="sec-sub">המחיר שלי מול מתחרים — נסרק אוטומטית · אדום = זול ממני, ירוק = יקר ממני</div>
       </div>
       <div class="add-model-box">
-        <input class="inp" id="modelName" placeholder="שם הדגם *" />
-        <input class="inp" id="modelUrl" placeholder="הקישור שלי למוצר *" />
-        <textarea class="inp" id="modelComps" rows="3" placeholder="קישורי מתחרים — קישור אחד בכל שורה *"></textarea>
+        <input class="inp" id="myCatUrl" placeholder="הקישור לקטגוריה שלי *" />
+        <textarea class="inp" id="compCatUrls" rows="3" placeholder="קישורי קטגוריה של מתחרים — קישור אחד בכל שורה *"></textarea>
         <div class="add-model-actions">
-          <button class="btn btn-blue" onclick="addTracked()">➕ הוסף וסרוק מחירים</button>
+          <button class="btn btn-blue" onclick="trackCategories()">🔍 סרוק קטגוריות והשווה</button>
           <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
         </div>
       </div>
@@ -1724,22 +1723,19 @@ function renderModels() {
     </table>`;
 }
 
-async function addTracked() {
-  const name = document.getElementById('modelName').value.trim();
-  const myUrl = document.getElementById('modelUrl').value.trim();
-  const comps = document.getElementById('modelComps').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
-  if (!name) { alert('הזן שם דגם'); return; }
-  if (!myUrl) { alert('הזן את הקישור שלך'); return; }
-  if (!comps.length) { alert('הזן לפחות קישור מתחרה אחד'); return; }
-  setStatus('סורק מחירים ויוצר דגם...', true);
+async function trackCategories() {
+  const myCategoryUrl = document.getElementById('myCatUrl').value.trim();
+  const competitorCategoryUrls = document.getElementById('compCatUrls').value.split(/\n+/).map(s => s.trim()).filter(Boolean);
+  if (!myCategoryUrl) { alert('הזן את הקישור לקטגוריה שלך'); return; }
+  if (!competitorCategoryUrls.length) { alert('הזן לפחות קטגוריית מתחרה אחת'); return; }
+  setStatus('סורק קטגוריות ומשווה מחירים...', true);
   try {
-    const d = await compApi('/track', 'POST', { name, myUrl, competitorUrls: comps });
-    document.getElementById('modelName').value = '';
-    document.getElementById('modelUrl').value = '';
-    document.getElementById('modelComps').value = '';
+    const d = await compApi('/track-categories', 'POST', { myCategoryUrl, competitorCategoryUrls });
+    document.getElementById('myCatUrl').value = '';
+    document.getElementById('compCatUrls').value = '';
     await loadModels();
-    setStatus('נוסף', false);
-    if (d.skippedCompetitors) alert(`הדגם נוסף ✅\n${d.skippedCompetitors} קישורי מתחרים דולגו (לא נמצא בהם מחיר).`);
+    setStatus('הושלם', false);
+    alert(`✅ נוצרו ${d.created} דגמים עם התאמת מתחרים.\nדולגו ${d.skipped} מוצרים (ללא מחיר או ללא התאמה אצל מתחרה).\n(מוצרים שלי: ${d.myProducts} · מוצרי מתחרים שנסרקו: ${d.competitorProducts})`);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 

@@ -33,6 +33,7 @@ import os
 import re
 import json as _jsonlib
 from concurrent.futures import ThreadPoolExecutor
+from urllib.parse import urljoin
 import functions_framework
 import requests
 from bs4 import BeautifulSoup
@@ -460,16 +461,21 @@ def config_status():
                   "serpProvider": _get_config("serpProvider", "serpapi")})
 
 
+PRICE_TEXT = re.compile(r'(?:₪|ש"?ח|NIS)\s*[\d.,]+|[\d.,]{2,}\s*(?:₪|ש"?ח|NIS)')
+
+
 def scrape_category(url):
-    """שולף מוצרים מעמוד קטגוריה של WooCommerce: שם · קישור · מחיר."""
+    """שולף מוצרים (שם · קישור · מחיר) מעמוד קטגוריה. מנסה WooCommerce, ואז היוריסטיקה
+    גנרית (כרטיס מוצר = אלמנט שמכיל גם קישור וגם מחיר) שעובדת על פלטפורמות שונות."""
     r = requests.get(url, headers=SCAN_HEADERS, timeout=25)
     if r.status_code != 200:
         return {"error": f"שגיאת טעינת הקטגוריה (status {r.status_code})"}
     if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
         r.encoding = r.apparent_encoding or "utf-8"
     soup = BeautifulSoup(r.text, "html.parser")
-    products = []
-    seen = set()
+    products, seen = [], set()
+
+    # 1) WooCommerce (האתר של דנא)
     for li in soup.select("li.product"):
         a = li.select_one("a.woocommerce-loop-product__link") or li.find("a", href=True)
         if not a or not a.get("href") or "/product/" not in a["href"]:
@@ -477,12 +483,45 @@ def scrape_category(url):
         href = a["href"].split("?")[0]
         if href in seen:
             continue
-        seen.add(href)
         t = li.select_one(".woocommerce-loop-product__title")
         name = t.get_text(strip=True) if t else a.get_text(strip=True)
         pe = li.select_one(".woocommerce-Price-amount bdi") or li.select_one(".woocommerce-Price-amount")
         price = _to_price(pe.get_text()) if pe else None
+        seen.add(href)
         products.append({"name": name, "myUrl": href, "myPrice": price})
+    if products:
+        return {"products": products}
+
+    # 2) היוריסטיקה גנרית: לכל טקסט מחיר, מטפסים למעלה עד מציאת קישור מוצר
+    base = url
+    for node in soup.find_all(string=PRICE_TEXT):
+        price = _to_price(PRICE_TEXT.search(node).group(0))
+        if price is None:
+            continue
+        el, a = node.parent, None
+        for _ in range(6):
+            if el is None:
+                break
+            a = el.find("a", href=True)
+            if a:
+                break
+            el = el.parent
+        if not a or not a.get("href"):
+            continue
+        href = urljoin(base, a["href"].split("?")[0])
+        if href in seen or href.rstrip('/') == base.rstrip('/'):
+            continue
+        name = a.get_text(" ", strip=True) or a.get("title") or ""
+        if not name:
+            img = a.find("img")
+            name = (img.get("alt") or "") if img else ""
+        name = name.strip()
+        if not name or len(name) < 3:
+            continue
+        seen.add(href)
+        products.append({"name": name, "myUrl": href, "myPrice": price})
+        if len(products) >= 80:
+            break
     return {"products": products}
 
 
@@ -665,6 +704,74 @@ def create_tracked(data):
     return _json({"model": m, "skippedCompetitors": len(comp_urls) - len(valid)}, 201)
 
 
+def track_categories(data):
+    """קלט: קישור קטגוריה שלי + קישורי קטגוריה של מתחרים. שולפים את כל המוצרים מכל
+    הקטגוריות (כולל מחירים), מתאימים לפי מזהה דגם, ויוצרים דגם לכל מוצר שלי עם התאמה."""
+    data = data or {}
+    my_cat = (data.get("myCategoryUrl") or "").strip()
+    comp_cats = [u.strip() for u in (data.get("competitorCategoryUrls") or []) if u and u.strip()]
+    if not my_cat:
+        return _json({"error": "הקישור לקטגוריה שלך הוא חובה"}, 400)
+    if not comp_cats:
+        return _json({"error": "יש להזין לפחות קטגוריית מתחרה אחת"}, 400)
+
+    mine = scrape_category(my_cat)
+    if "error" in mine:
+        return _json({"error": "לא ניתן לטעון את הקטגוריה שלך: " + mine["error"]}, 502)
+    my_products = mine["products"]
+
+    def _scrape(u):
+        res = scrape_category(u)
+        return (_domain(u), res.get("products", []) if "error" not in res else [])
+
+    with ThreadPoolExecutor(max_workers=5) as ex:
+        comp_results = list(ex.map(_scrape, comp_cats))
+
+    # אינדקס מוצרי מתחרים לפי טוקן דגם
+    comp_by_token = {}
+    comp_found = 0
+    for dom, prods in comp_results:
+        for p in prods:
+            if p.get("myPrice") is None:
+                continue
+            _, tok = extract_model_id(p["name"])
+            if not tok:
+                continue
+            comp_found += 1
+            comp_by_token.setdefault(tok.lower(), []).append(
+                {"name": dom, "url": p["myUrl"], "price": p["myPrice"]})
+
+    now = firestore.SERVER_TIMESTAMP
+    created, skipped = 0, 0
+    for mp in my_products:
+        if mp.get("myPrice") is None:
+            skipped += 1
+            continue
+        _, mtok = extract_model_id(mp["name"])
+        matches = comp_by_token.get(mtok.lower(), []) if mtok else []
+        if not matches:
+            skipped += 1
+            continue
+        if list(db.collection("models").where("myUrl", "==", mp["myUrl"]).limit(1).stream()):
+            skipped += 1
+            continue
+        mref = db.collection("models").document()
+        mref.set({"name": mp["name"], "myUrl": mp["myUrl"], "myPrice": mp["myPrice"],
+                  "status": "active", "lastScanAt": now, "createdAt": now, "updatedAt": now})
+        seen_dom = set()
+        for c in matches:
+            if c["name"] in seen_dom:        # מתחרה אחד לכל דומיין
+                continue
+            seen_dom.add(c["name"])
+            db.collection("priceSources").document().set({
+                "modelId": mref.id, "url": c["url"], "name": c["name"],
+                "lastPrice": c["price"], "lastScanAt": now, "lastStatus": 200, "createdAt": now})
+        created += 1
+
+    return _json({"created": created, "skipped": skipped,
+                  "myProducts": len(my_products), "competitorProducts": comp_found})
+
+
 # ═══════════════════════════ ROUTER ═══════════════════════════
 
 @functions_framework.http
@@ -730,6 +837,10 @@ def competitors_api(request):
         elif resource == "track":
             if method == "POST":
                 return create_tracked(data)
+
+        elif resource == "track-categories":
+            if method == "POST":
+                return track_categories(data)
 
         elif resource == "discover":
             if method == "POST":
