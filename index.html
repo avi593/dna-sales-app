@@ -296,6 +296,37 @@
     .page-link { font-size: 12px; color: var(--muted); text-decoration: none; word-break: break-all; }
     .page-link:hover { color: var(--blue); }
     .page-empty { font-size: 13px; color: var(--muted); text-align: center; padding: 20px; }
+    /* ══ PRICE TRACKING (דגמים) ══ */
+    .models-list { display: flex; flex-direction: column; gap: 12px; }
+    .model-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .model-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .model-name { font-size: 16px; font-weight: 700; margin-bottom: 3px; }
+    .model-myprice { text-align: left; white-space: nowrap; }
+    .myprice-label { font-size: 11px; color: var(--muted); }
+    .myprice-val { font-size: 20px; font-weight: 800; }
+    .model-badge { font-size: 10px; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1px solid; margin-inline-start: 6px; vertical-align: middle; }
+    .badge-low  { color: #f87171; border-color: #f8717155; }
+    .badge-high { color: #34d399; border-color: #34d39955; }
+    .src-list { display: flex; flex-direction: column; gap: 8px; }
+    .src-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 12px;
+    }
+    .src-info { flex: 1; min-width: 0; }
+    .src-name { font-size: 14px; font-weight: 600; }
+    .src-link { font-size: 11px; color: var(--muted); text-decoration: none; word-break: break-all; }
+    .src-link:hover { color: var(--blue); }
+    .src-price { font-size: 16px; font-weight: 700; white-space: nowrap; }
+    .price-low { color: #f87171; }
+    .price-high { color: #34d399; }
+    .price-neutral { color: var(--muted); }
+    .model-add { display: flex; flex-wrap: wrap; gap: 8px; }
+    .model-add .inp { flex: 1; min-width: 120px; }
+    .model-actions { display: flex; gap: 8px; }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -479,6 +510,9 @@
     <button class="nav-btn" id="nav-competitors" onclick="showView('competitors')">
       <span class="nav-icon">🔍</span><span>מתחרים</span>
     </button>
+    <button class="nav-btn" id="nav-prices" onclick="showView('prices'); loadModels()">
+      <span class="nav-icon">🏷️</span><span>מחירים</span>
+    </button>
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
       <span class="nav-icon">✍️</span><span>תוכן</span>
     </button>
@@ -616,6 +650,29 @@
             <div class="card-empty-icon">🔍</div>
             <div class="card-empty-title">מודיעין מתחרים</div>
             <div class="card-empty-desc">הוסף מתחרה לרשימה, או לחץ "מפת שוק מלאה" לניתוח אוטומטי</div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ── PRICE TRACKING (דגמים) ── -->
+    <div id="view-prices" class="view">
+      <div>
+        <div class="sec-title">🏷️ מעקב מחירים לפי דגם</div>
+        <div class="sec-sub">המחיר שלי מול מתחרים — נסרק אוטומטית · אדום = זול ממני, ירוק = יקר ממני</div>
+      </div>
+      <div class="input-row">
+        <input class="inp" id="modelName" placeholder="שם הדגם *" />
+        <input class="inp" id="modelUrl" placeholder="הקישור שלי לדגם באתר שלי" />
+        <button class="btn btn-blue" onclick="addModel()">➕ הוסף דגם</button>
+        <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
+      </div>
+      <div id="modelsList" class="models-list">
+        <div class="card"><div class="card-body">
+          <div class="card-empty">
+            <div class="card-empty-icon">🏷️</div>
+            <div class="card-empty-title">מעקב מחירים</div>
+            <div class="card-empty-desc">הוסף דגם עם הקישור שלך, ואז הוסף מתחרים שמוכרים אותו דגם</div>
           </div>
         </div></div>
       </div>
@@ -789,6 +846,7 @@ let lastProductMatch = null;
 const COMP_API_DEFAULT = 'https://dna-competitors-477673568731.europe-west1.run.app';
 let competitors = [];                                  // נטען מה-API
 let compAnalyses = JSON.parse(localStorage.getItem('dna_comp_analyses') || '{}');  // מטמון ניתוחי AI לפי מזהה מתחרה
+let models = [];                                       // דגמים למעקב מחירים — נטען מה-API
 
 const WA_STORE = {};
 let waIdx = 0;
@@ -1443,6 +1501,159 @@ function viewSavedReport(key) {
 function clearSavedReport(key) {
   localStorage.removeItem(key);
   renderSavedReports();
+}
+
+// ═══════════════════════════════════
+// PRICE TRACKING (דגמים)
+// ═══════════════════════════════════
+
+function fmtPrice(p) {
+  return (p === null || p === undefined) ? '—' : '₪' + Number(p).toLocaleString('he-IL');
+}
+
+async function loadModels() {
+  const el = document.getElementById('modelsList');
+  el.innerHTML = loadingHtml('טוען דגמים...');
+  try {
+    const d = await compApi('/models');
+    models = d.models || [];
+    renderModels();
+  } catch (e) {
+    el.innerHTML = outputCard('שגיאת חיבור', `<span style="color:#f87171">${e.message}</span>`);
+  }
+}
+
+// צבע למחיר מתחרה ביחס למחיר שלי: אדום=זול ממני, ירוק=יקר ממני
+function priceClass(compPrice, myPrice) {
+  if (compPrice === null || compPrice === undefined || myPrice === null || myPrice === undefined) return 'price-neutral';
+  if (compPrice < myPrice) return 'price-low';   // זול ממני — אדום
+  if (compPrice > myPrice) return 'price-high';  // יקר ממני — ירוק
+  return 'price-neutral';
+}
+
+function modelBadge(m) {
+  const comps = (m.competitors || []).filter(c => c.lastPrice != null);
+  if (m.myPrice == null || !comps.length) return '';
+  const cheaper = comps.some(c => c.lastPrice < m.myPrice);
+  return cheaper
+    ? `<span class="model-badge badge-low">מתחרה זול ממני</span>`
+    : `<span class="model-badge badge-high">אני מוביל</span>`;
+}
+
+function renderModels() {
+  const el = document.getElementById('modelsList');
+  if (!models.length) {
+    el.innerHTML = `<div class="card"><div class="card-body"><div class="card-empty">
+      <div class="card-empty-icon">🏷️</div>
+      <div class="card-empty-title">מעקב מחירים</div>
+      <div class="card-empty-desc">הוסף דגם עם הקישור שלך, ואז הוסף מתחרים שמוכרים אותו דגם</div>
+    </div></div></div>`;
+    return;
+  }
+  el.innerHTML = models.map(m => {
+    const comps = m.competitors || [];
+    const rows = comps.length ? comps.map(c => `
+      <div class="src-row">
+        <div class="src-info">
+          <div class="src-name">${esc(c.name || '')}</div>
+          <a class="src-link" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.url)}</a>
+        </div>
+        <div class="src-price ${priceClass(c.lastPrice, m.myPrice)}">${fmtPrice(c.lastPrice)}</div>
+        <button class="comp-btn comp-btn-del" onclick="delSource('${c.id}')">✕</button>
+      </div>`).join('') : '<div class="page-empty">אין עדיין מתחרים לדגם זה. הוסף קישור למטה.</div>';
+
+    return `
+    <div class="model-card">
+      <div class="model-head">
+        <div>
+          <div class="model-name">${esc(m.name)} ${modelBadge(m)}</div>
+          ${m.myUrl ? `<a class="src-link" href="${esc(m.myUrl)}" target="_blank" rel="noopener">${esc(m.myUrl)}</a>` : '<span class="src-link">לא הוגדר קישור שלי</span>'}
+        </div>
+        <div class="model-myprice">
+          <div class="myprice-label">המחיר שלי</div>
+          <div class="myprice-val">${fmtPrice(m.myPrice)}</div>
+        </div>
+      </div>
+      <div class="src-list">${rows}</div>
+      <div class="model-add">
+        <input class="inp" id="srcName-${m.id}" placeholder="שם מתחרה (אופציונלי)" />
+        <input class="inp" id="srcUrl-${m.id}" placeholder="קישור המתחרה לאותו דגם" />
+        <button class="btn btn-blue" onclick="addSource('${m.id}')">הוסף מתחרה</button>
+      </div>
+      <div class="model-actions">
+        <button class="comp-btn" onclick="scanModel('${m.id}')">🔄 סרוק מחירים</button>
+        <button class="comp-btn comp-btn-del" onclick="delModel('${m.id}')">🗑️ מחק דגם</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function addModel() {
+  const name = document.getElementById('modelName').value.trim();
+  if (!name) { alert('יש להזין שם דגם'); return; }
+  const myUrl = document.getElementById('modelUrl').value.trim();
+  setStatus('מוסיף דגם...', true);
+  try {
+    await compApi('/models', 'POST', { name, myUrl });
+    document.getElementById('modelName').value = '';
+    document.getElementById('modelUrl').value = '';
+    await loadModels();
+    setStatus('נוסף', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function delModel(id) {
+  const m = models.find(x => x.id === id);
+  if (!confirm(`למחוק את הדגם "${m?.name || ''}" וכל המתחרים שלו?`)) return;
+  setStatus('מוחק...', true);
+  try {
+    await compApi('/models/' + id, 'DELETE');
+    await loadModels();
+    setStatus('נמחק', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function addSource(modelId) {
+  const url = document.getElementById('srcUrl-' + modelId).value.trim();
+  if (!url) { alert('יש להזין קישור מתחרה'); return; }
+  const name = document.getElementById('srcName-' + modelId).value.trim();
+  setStatus('מוסיף מתחרה...', true);
+  try {
+    await compApi('/sources', 'POST', { modelId, url, name });
+    await loadModels();
+    setStatus('נוסף', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function delSource(sourceId) {
+  if (!confirm('למחוק מתחרה זה?')) return;
+  setStatus('מוחק...', true);
+  try {
+    await compApi('/sources/' + sourceId, 'DELETE');
+    await loadModels();
+    setStatus('נמחק', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function scanModel(id) {
+  setStatus('סורק מחירים...', true);
+  try {
+    await compApi('/scan/' + id, 'POST', {});
+    await loadModels();
+    setStatus('הסריקה הושלמה', false);
+  } catch (e) { alert('שגיאה בסריקה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function scanAllModels() {
+  if (!models.length) { alert('אין דגמים לסריקה'); return; }
+  setStatus('סורק את כל הדגמים...', true);
+  try {
+    for (const m of models) {
+      await compApi('/scan/' + m.id, 'POST', {});
+    }
+    await loadModels();
+    setStatus('הסריקה הושלמה', false);
+  } catch (e) { alert('שגיאה בסריקה: ' + e.message); setStatus('שגיאה', false); }
 }
 
 // ═══════════════════════════════════
