@@ -350,6 +350,12 @@
     .disc-cname { flex: 1; word-break: break-all; }
     .disc-cprice { color: var(--muted); white-space: nowrap; }
     .disc-none { font-size: 12px; color: var(--muted); }
+    .disc-search { display: flex; align-items: center; gap: 6px; margin: 8px 0 4px; }
+    .disc-search .inp { flex: 1; padding: 5px 8px; font-size: 12px; }
+    .disc-uncertain { font-size: 11px; color: #fbbf24; font-weight: 600; margin: 8px 0 3px; }
+    .vbadge { font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 999px; white-space: nowrap; }
+    .vok { color: #34d399; }
+    .vwarn { color: #fbbf24; cursor: help; }
     /* ══ PRICE TABLE ══ */
     .price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
     .price-table thead th {
@@ -1857,7 +1863,7 @@ async function runDiscover() {
     const d = await compApi('/discover', 'POST', { categoryUrl: url });
     discovered = (d.products || []).map(p => ({
       ...p, _sel: true,
-      competitors: (p.competitors || []).map(c => ({ ...c, _sel: true }))
+      competitors: (p.competitors || []).map(c => ({ ...c, _sel: !!c.verified }))
     }));
     renderDiscover();
     setStatus(`נמצאו ${discovered.length} דגמים`, false);
@@ -1871,25 +1877,53 @@ function renderDiscover() {
   const el = document.getElementById('discoverList');
   const act = document.getElementById('discoverActions');
   if (!discovered.length) { el.innerHTML = ''; act.innerHTML = ''; return; }
-  el.innerHTML = discovered.map((p, pi) => `
+  const compRow = (c, ci, pi, badge) => `
+    <label class="disc-comp">
+      <input type="checkbox" ${c._sel ? 'checked' : ''} onchange="discovered[${pi}].competitors[${ci}]._sel=this.checked">
+      <span class="disc-cname">${esc(c.name || c.url)}</span>
+      ${badge}
+      <span class="disc-cprice">${fmtPrice(c.price)}</span>
+    </label>`;
+  el.innerHTML = discovered.map((p, pi) => {
+    const comps = p.competitors || [];
+    const ver = [], unc = [];
+    comps.forEach((c, ci) => (c.verified ? ver : unc).push(
+      compRow(c, ci, pi, c.verified
+        ? '<span class="vbadge vok">✓ אומת</span>'
+        : `<span class="vbadge vwarn" title="${esc(c.reason || '')}">⚠ לא ודאי</span>`)));
+    return `
     <div class="disc-card">
       <label class="disc-head">
         <input type="checkbox" ${p._sel ? 'checked' : ''} onchange="discovered[${pi}]._sel=this.checked">
         <span class="disc-name">${esc(p.name)}</span>
         <span class="disc-price">${fmtPrice(p.myPrice)}</span>
       </label>
-      <div class="disc-comps">
-        ${(p.competitors || []).length
-          ? p.competitors.map((c, ci) => `
-            <label class="disc-comp">
-              <input type="checkbox" ${c._sel ? 'checked' : ''} onchange="discovered[${pi}].competitors[${ci}]._sel=this.checked">
-              <span class="disc-cname">${esc(c.name || c.url)}</span>
-              <span class="disc-cprice">${fmtPrice(c.price)}</span>
-            </label>`).join('')
-          : '<div class="disc-none">אין הצעות מתחרים לדגם זה</div>'}
+      <div class="disc-search">
+        <span class="muted-sm">חיפוש:</span>
+        <input class="inp" id="dq-${pi}" value="${esc(p.searchTerm || '')}" />
+        <button class="comp-btn" onclick="researchProduct(${pi})">🔄 חפש מחדש</button>
       </div>
-    </div>`).join('');
+      <div class="disc-comps">
+        ${ver.join('')}
+        ${unc.length ? `<div class="disc-uncertain">לא ודאי — בדוק לפני אישור:</div>${unc.join('')}` : ''}
+        ${comps.length ? '' : '<div class="disc-none">לא נמצאו מתחרים. נסה לערוך את מונח החיפוש ולחפש מחדש.</div>'}
+      </div>
+    </div>`;
+  }).join('');
   act.innerHTML = `<button class="btn btn-green" onclick="approveDiscover()">✅ אשר ויצור את הדגמים הנבחרים</button>`;
+}
+
+async function researchProduct(pi) {
+  const q = (document.getElementById('dq-' + pi)?.value || '').trim();
+  if (!q) return;
+  setStatus('מחפש מתחרים...', true);
+  try {
+    const d = await compApi('/search-competitors', 'POST', { query: q });
+    discovered[pi].searchTerm = q;
+    discovered[pi].competitors = (d.competitors || []).map(c => ({ ...c, _sel: !!c.verified }));
+    renderDiscover();
+    setStatus('עודכן', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
 async function approveDiscover() {

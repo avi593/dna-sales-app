@@ -32,6 +32,7 @@ Runtime: Python 3.12
 import os
 import re
 import json as _jsonlib
+from concurrent.futures import ThreadPoolExecutor
 import functions_framework
 import requests
 from bs4 import BeautifulSoup
@@ -485,26 +486,87 @@ def scrape_category(url):
     return {"products": products}
 
 
-def serp_competitors(query, limit=0):
-    """מחפש מתחרים ב-SERP (Google Shopping) לדגם נתון. דורש מפתח ב-config."""
+OUR_DOMAIN = "dna-tools.co.il"
+
+
+def extract_model_id(name):
+    """מחלץ מזהה דגם (מותג+דגם, בד\"כ בלטינית) משם המוצר, ואת הטוקן המבחין."""
+    toks = re.findall(r'[A-Za-z0-9][A-Za-z0-9.\-]*', name or '')
+    toks = [t for t in toks if len(t) >= 2 or any(c.isdigit() for c in t)]
+    search = ' '.join(toks[:6]).strip()
+    token = ''
+    for t in toks:
+        if any(c.isdigit() for c in t):   # הטוקן המבחין הוא בד"כ זה עם הספרה (C5, ETS320)
+            token = t
+            break
+    if not token and toks:
+        token = toks[-1]
+    return (search or (name or '').strip()), token
+
+
+def _domain(url):
+    m = re.search(r'https?://([^/]+)', url or '')
+    return m.group(1).lower().replace('www.', '') if m else ''
+
+
+def validate_candidate(url, token):
+    """נכנס לדף המתחרה ובודק: האם מזהה הדגם מופיע, והאם יש מחיר."""
+    try:
+        r = requests.get(url, headers=SCAN_HEADERS, timeout=15)
+        if r.status_code != 200:
+            return {"price": None, "hasToken": False, "status": r.status_code}
+        if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = r.apparent_encoding or "utf-8"
+        html = r.text
+        return {"price": extract_price(html),
+                "hasToken": bool(token) and token.lower() in html.lower(),
+                "status": 200}
+    except Exception:
+        return {"price": None, "hasToken": False, "status": "error"}
+
+
+def serp_competitors(query, token, max_validate=6):
+    """SERP (אורגני + ממומן) → מועמדים, ואימות כל אחד מול הדף בפועל (במקביל)."""
     key = _get_config("serpApiKey")
     if not key:
         return []
     try:
-        params = {"engine": "google_shopping", "q": query,
-                  "gl": "il", "hl": "he", "api_key": key}
+        params = {"engine": "google", "q": f'"{query}"',
+                  "gl": "il", "hl": "he", "num": 20, "api_key": key}
         r = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
         data = r.json()
-        out = []
-        for it in data.get("shopping_results", []):
-            link = it.get("product_link") or it.get("link")
-            if not link:
-                continue
-            out.append({"name": it.get("source") or it.get("seller") or "",
-                        "url": link, "price": _to_price(it.get("price"))})
-        return out[:limit] if limit else out
     except Exception:
         return []
+
+    seen, cands = set(), []
+    for it in (data.get("ads") or []) + (data.get("organic_results") or []):
+        link = it.get("link")
+        dom = _domain(link)
+        if not dom or OUR_DOMAIN in dom or dom in seen:
+            continue
+        seen.add(dom)
+        cands.append({"url": link, "name": it.get("source") or it.get("displayed_link") or dom})
+        if len(cands) >= max_validate:
+            break
+
+    with ThreadPoolExecutor(max_workers=6) as ex:
+        validations = list(ex.map(lambda c: validate_candidate(c["url"], token), cands))
+
+    out = []
+    for c, v in zip(cands, validations):
+        verified = bool(v["hasToken"]) and v["price"] is not None
+        if verified:
+            reason = ""
+        elif v["hasToken"]:
+            reason = "הדגם נמצא אך לא זוהה מחיר"
+        elif v["price"] is not None:
+            reason = "נמצא מחיר אך הדגם לא אומת"
+        else:
+            reason = "הדגם לא נמצא בדף"
+        out.append({"name": c["name"], "url": c["url"], "price": v["price"],
+                    "verified": verified, "reason": reason})
+    out.sort(key=lambda x: 0 if x["verified"] else 1)
+    return out
 
 
 def discover_category(data):
@@ -515,11 +577,23 @@ def discover_category(data):
     if "error" in res:
         return _json(res, 502)
     products = res["products"]
-    # לכל דגם — מחפשים מתחרים (אם מוגדר מפתח SERP; אחרת רשימה ריקה)
+    serp_on = bool(_get_config("serpApiKey"))
     for p in products:
-        p["competitors"] = serp_competitors(p["name"])
-    return _json({"products": products, "count": len(products),
-                  "serpConfigured": bool(_get_config("serpApiKey"))})
+        search, token = extract_model_id(p["name"])
+        p["searchTerm"] = search
+        p["modelToken"] = token
+        p["competitors"] = serp_competitors(search, token) if serp_on else []
+    return _json({"products": products, "count": len(products), "serpConfigured": serp_on})
+
+
+def search_competitors_api(data):
+    """חיפוש מתחרים יחיד לפי מונח (כשהמשתמש עורך את מונח החיפוש לדגם)."""
+    q = (data or {}).get("query", "").strip()
+    if not q:
+        return _json({"error": "שדה 'query' הוא חובה"}, 400)
+    _, token = extract_model_id(q)
+    token = (data or {}).get("token") or token
+    return _json({"competitors": serp_competitors(q, token)})
 
 
 # ═══════════════════════════ ROUTER ═══════════════════════════
@@ -587,6 +661,10 @@ def competitors_api(request):
         elif resource == "discover":
             if method == "POST":
                 return discover_category(data)
+
+        elif resource == "search-competitors":
+            if method == "POST":
+                return search_competitors_api(data)
 
         elif resource == "config":
             if method == "GET":
