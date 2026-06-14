@@ -1920,8 +1920,8 @@ function renderDiscover() {
           : '<div class="disc-none">לחץ "🔎 חפש מתחרים", או הוסף מתחרה ידנית למטה.</div>')}
       </div>
       <div class="disc-manual">
-        <input class="inp" id="mc-${pi}" placeholder="הוסף קישור מתחרה ידנית (URL מלא)" />
-        <button class="comp-btn" onclick="addManualCompetitor(${pi})">➕ הוסף ידנית</button>
+        <input class="inp" id="mc-${pi}" placeholder="הוסף קישור מתחרה ידנית" onkeydown="if(event.key==='Enter')addManualCompetitor(${pi})" />
+        <button class="add-plus" title="הוסף מתחרה" onclick="addManualCompetitor(${pi})">+</button>
       </div>
     </div>`;
   }).join('');
