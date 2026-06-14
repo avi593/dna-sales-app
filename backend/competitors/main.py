@@ -509,6 +509,17 @@ def _domain(url):
     return m.group(1).lower().replace('www.', '') if m else ''
 
 
+def _norm_domains(lst):
+    """מנרמל רשימת קישורים/דומיינים לדומיינים נקיים (ksp.co.il)."""
+    out = []
+    for x in (lst or []):
+        d = re.sub(r'^https?://', '', (x or '').strip().lower())
+        d = d.replace('www.', '').split('/')[0]
+        if d:
+            out.append(d)
+    return out
+
+
 def validate_candidate(url, token):
     """נכנס לדף המתחרה ובודק: האם מזהה הדגם מופיע, והאם יש מחיר."""
     try:
@@ -525,11 +536,13 @@ def validate_candidate(url, token):
         return {"price": None, "hasToken": False, "status": "error"}
 
 
-def serp_competitors(query, token, max_validate=6):
-    """SERP (אורגני + ממומן) → מועמדים, ואימות כל אחד מול הדף בפועל (במקביל)."""
+def serp_competitors(query, token, max_validate=8, only_domains=None):
+    """SERP (אורגני + ממומן) → מועמדים, ואימות כל אחד מול הדף בפועל (במקביל).
+    אם only_domains ניתן — החיפוש ממוקד רק למתחרים האלה; אחרת כל אתר .il."""
     key = _get_config("serpApiKey")
     if not key:
         return []
+    only_domains = only_domains or []
     try:
         params = {"engine": "google", "q": f'"{query}"',
                   "gl": "il", "hl": "he", "num": 20, "api_key": key}
@@ -542,8 +555,12 @@ def serp_competitors(query, token, max_validate=6):
     for it in (data.get("ads") or []) + (data.get("organic_results") or []):
         link = it.get("link")
         dom = _domain(link)
-        # רק מתחרים מישראל (דומיין .il), לא האתר שלנו, וללא כפילויות
-        if not dom or not dom.endswith(".il") or OUR_DOMAIN in dom or dom in seen:
+        if not dom or OUR_DOMAIN in dom or dom in seen:
+            continue
+        if only_domains:
+            if not any(kd in dom for kd in only_domains):   # רק המתחרים שהוגדרו
+                continue
+        elif not dom.endswith(".il"):                       # אחרת — כל אתר ישראלי
             continue
         seen.add(dom)
         cands.append({"url": link, "name": it.get("source") or it.get("displayed_link") or dom})
@@ -594,7 +611,8 @@ def search_competitors_api(data):
         return _json({"error": "שדה 'query' הוא חובה"}, 400)
     _, token = extract_model_id(q)
     token = (data or {}).get("token") or token
-    return _json({"competitors": serp_competitors(q, token)})
+    only = _norm_domains((data or {}).get("competitors"))
+    return _json({"competitors": serp_competitors(q, token, only_domains=only)})
 
 
 # ═══════════════════════════ ROUTER ═══════════════════════════

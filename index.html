@@ -365,6 +365,10 @@
     .vman { color: #a78bfa; }
     .disc-manual { display: flex; align-items: center; gap: 6px; margin-top: 8px; }
     .disc-manual .inp { flex: 1; padding: 5px 8px; font-size: 12px; }
+    .known-comps { background: var(--bg3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; }
+    .known-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+    .known-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 12px; }
+    .known-chip button { background: none; border: none; color: #f87171; cursor: pointer; font-size: 11px; padding: 0; }
     /* ══ PRICE TABLE ══ */
     .price-table { width: 100%; border-collapse: collapse; font-size: 14px; }
     .price-table thead th {
@@ -901,6 +905,14 @@
     </div>
     <p class="pages-sub">הדבק קישור לעמוד קטגוריה באתר שלך. המערכת תשלוף את הדגמים ותציע מתחרים לכל אחד. שום דבר לא נשמר עד שתאשר.</p>
     <div id="serpStatus" class="serp-status"></div>
+    <div class="known-comps">
+      <div class="muted-sm">🎯 המתחרים שלי — החיפוש יתמקד רק בהם (אופציונלי):</div>
+      <div id="knownList" class="known-list"></div>
+      <div class="disc-manual">
+        <input type="text" class="inp" id="knownInp" placeholder="דומיין מתחרה (לדוגמה: ksp.co.il)" onkeydown="if(event.key==='Enter')addKnownComp()" />
+        <button class="add-plus" title="הוסף מתחרה" onclick="addKnownComp()">+</button>
+      </div>
+    </div>
     <div class="pages-add">
       <input type="text" class="inp" id="catUrl" placeholder="קישור לעמוד קטגוריה באתר שלי" />
       <button class="btn btn-blue" onclick="runDiscover()">🔎 גלה דגמים</button>
@@ -1826,12 +1838,38 @@ async function scanAllModels() {
 
 // ── גילוי מתחרים אוטומטי ──
 let discovered = [];
+let knownComps = JSON.parse(localStorage.getItem('dna_known_competitors') || '[]');
+
+function renderKnownComps() {
+  const el = document.getElementById('knownList');
+  if (!el) return;
+  el.innerHTML = knownComps.map((d, i) =>
+    `<span class="known-chip">${esc(d)} <button onclick="delKnownComp(${i})" title="הסר">✕</button></span>`).join('');
+}
+
+function addKnownComp() {
+  const inp = document.getElementById('knownInp');
+  let v = (inp.value || '').trim().replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0].toLowerCase();
+  if (v && !knownComps.includes(v)) {
+    knownComps.push(v);
+    localStorage.setItem('dna_known_competitors', JSON.stringify(knownComps));
+  }
+  inp.value = '';
+  renderKnownComps();
+}
+
+function delKnownComp(i) {
+  knownComps.splice(i, 1);
+  localStorage.setItem('dna_known_competitors', JSON.stringify(knownComps));
+  renderKnownComps();
+}
 
 async function openDiscover() {
   document.getElementById('discoverModal').classList.remove('hidden');
   document.getElementById('catUrl').value = '';
   discovered = [];
   renderDiscover();
+  renderKnownComps();
   await refreshSerpStatus();
 }
 
@@ -1933,7 +1971,7 @@ function renderDiscover() {
 async function searchProductCompetitors(pi, q) {
   const query = (q || document.getElementById('dq-' + pi)?.value || discovered[pi].searchTerm || '').trim();
   if (!query) return;
-  const d = await compApi('/search-competitors', 'POST', { query });
+  const d = await compApi('/search-competitors', 'POST', { query, competitors: knownComps });
   discovered[pi].searchTerm = query;
   discovered[pi]._searched = true;
   discovered[pi].competitors = (d.competitors || []).map(c => ({ ...c, _sel: !!c.verified }));
