@@ -296,14 +296,7 @@ def fetch_price(url):
         # תיקון קידוד: כשהשרת לא מצהיר charset, requests מניח ISO-8859-1 ושובר את ₪.
         if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
             r.encoding = r.apparent_encoding or "utf-8"
-        text = r.text
-        return {
-            "price": extract_price(text),
-            "status": 200,
-            "len": len(text),                # אבחון: אורך ה-HTML שהתקבל
-            "shk": "₪" in text,              # אבחון: האם יש ₪ בדף
-            "pj": '"price"' in text,         # אבחון: האם יש "price" בדף
-        }
+        return {"price": extract_price(r.text), "status": 200}
     except Exception as e:
         return {"price": None, "status": "error", "error": str(e)}
 
@@ -422,8 +415,7 @@ def scan_model(mid):
             "lastPrice": res["price"], "lastScanAt": now, "lastStatus": res.get("status"),
         })
         comps.append({"id": s.id, "name": sd.get("name"),
-                      "price": res["price"], "status": res.get("status"),
-                      "len": res.get("len"), "shk": res.get("shk"), "pj": res.get("pj")})
+                      "price": res["price"], "status": res.get("status")})
     result["competitors"] = comps
     return _json(result)
 
