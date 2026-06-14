@@ -33,7 +33,7 @@ import os
 import re
 import json as _jsonlib
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urljoin
+from urllib.parse import urljoin, unquote
 import functions_framework
 import requests
 from bs4 import BeautifulSoup
@@ -710,12 +710,13 @@ def create_tracked(data):
     name = (data.get("name") or "").strip()
     my_url = (data.get("myUrl") or "").strip()
     comp_urls = [u.strip() for u in (data.get("competitorUrls") or []) if u and u.strip()]
-    if not name:
-        return _json({"error": "שם הדגם הוא חובה"}, 400)
     if not my_url:
         return _json({"error": "הקישור שלך הוא חובה"}, 400)
     if not comp_urls:
         return _json({"error": "יש להזין לפחות קישור מתחרה אחד"}, 400)
+    if not name:   # שם אופציונלי — נגזר מה-slug של הקישור
+        seg = unquote(my_url.rstrip('/').split('?')[0].split('/')[-1])
+        name = seg.replace('-', ' ').strip() or "מוצר"
 
     # מניעת כפילות לפי הקישור שלי
     if list(db.collection("models").where("myUrl", "==", my_url).limit(1).stream()):

@@ -728,15 +728,16 @@
         <div class="sec-sub">המחיר שלי מול מתחרים — נסרק אוטומטית · אדום = זול ממני, ירוק = יקר ממני</div>
       </div>
       <div class="add-model-box">
-        <input class="inp" id="myCatUrl" placeholder="הקישור לקטגוריה שלי *" />
-        <div class="muted-sm">קטגוריות של מתחרים (הדבק קישור ולחץ +):</div>
-        <div id="compCatList" class="known-list"></div>
+        <input class="inp" id="prodName" placeholder="שם הדגם (אופציונלי)" />
+        <input class="inp" id="myProdUrl" placeholder="הקישור שלי למוצר *" />
+        <div class="muted-sm">קישורי מתחרים לאותו מוצר (הדבק ולחץ +):</div>
+        <div id="compProdList" class="known-list"></div>
         <div class="disc-manual">
-          <input class="inp" id="compCatInp" placeholder="הדבק קישור קטגוריה של מתחרה" onkeydown="if(event.key==='Enter')addCompCat()" />
-          <button class="add-plus" title="הוסף קטגוריה" onclick="addCompCat()">+</button>
+          <input class="inp" id="compProdInp" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter')addCompProd()" />
+          <button class="add-plus" title="הוסף מתחרה" onclick="addCompProd()">+</button>
         </div>
         <div class="add-model-actions">
-          <button class="btn btn-blue" onclick="trackCategories()">🔍 סרוק קטגוריות והשווה</button>
+          <button class="btn btn-blue" onclick="trackProduct()">➕ הוסף וסרוק מחירים</button>
           <button class="btn btn-orange" onclick="scanAllModels()">🔄 סרוק הכל</button>
         </div>
       </div>
@@ -1588,7 +1589,7 @@ function fmtPrice(p) {
 }
 
 async function loadModels() {
-  renderCompCatList();
+  renderCompProdList();
   const el = document.getElementById('modelsList');
   el.innerHTML = loadingHtml('טוען דגמים...');
   try {
@@ -1729,45 +1730,46 @@ function renderModels() {
     </table>`;
 }
 
-let compCatList = JSON.parse(localStorage.getItem('dna_comp_categories') || '[]');
+let compProdList = [];   // קישורי מתחרים למוצר הנוכחי (מתאפס אחרי הוספה)
 
-function renderCompCatList() {
-  const el = document.getElementById('compCatList');
+function renderCompProdList() {
+  const el = document.getElementById('compProdList');
   if (!el) return;
-  el.innerHTML = compCatList.map((u, i) =>
-    `<span class="known-chip">${esc(u)} <button onclick="delCompCat(${i})" title="הסר">✕</button></span>`).join('');
+  el.innerHTML = compProdList.map((u, i) =>
+    `<span class="known-chip">${esc(u)} <button onclick="delCompProd(${i})" title="הסר">✕</button></span>`).join('');
 }
 
-function addCompCat() {
-  const inp = document.getElementById('compCatInp');
+function addCompProd() {
+  const inp = document.getElementById('compProdInp');
   const v = (inp.value || '').trim();
   if (!v) return;
   if (!/^https?:\/\//i.test(v)) { alert('הדבק קישור מלא שמתחיל ב-http'); return; }
-  if (!compCatList.includes(v)) {
-    compCatList.push(v);
-    localStorage.setItem('dna_comp_categories', JSON.stringify(compCatList));
-  }
+  if (!compProdList.includes(v)) compProdList.push(v);
   inp.value = '';
-  renderCompCatList();
+  renderCompProdList();
 }
 
-function delCompCat(i) {
-  compCatList.splice(i, 1);
-  localStorage.setItem('dna_comp_categories', JSON.stringify(compCatList));
-  renderCompCatList();
+function delCompProd(i) {
+  compProdList.splice(i, 1);
+  renderCompProdList();
 }
 
-async function trackCategories() {
-  const myCategoryUrl = document.getElementById('myCatUrl').value.trim();
-  const competitorCategoryUrls = compCatList.slice();
-  if (!myCategoryUrl) { alert('הזן את הקישור לקטגוריה שלך'); return; }
-  if (!competitorCategoryUrls.length) { alert('הוסף לפחות קטגוריית מתחרה אחת (עם +)'); return; }
-  setStatus('סורק קטגוריות ומשווה מחירים...', true);
+async function trackProduct() {
+  const myUrl = document.getElementById('myProdUrl').value.trim();
+  const name = document.getElementById('prodName').value.trim();
+  const competitorUrls = compProdList.slice();
+  if (!myUrl) { alert('הזן את הקישור שלך למוצר'); return; }
+  if (!competitorUrls.length) { alert('הוסף לפחות קישור מתחרה אחד (עם +)'); return; }
+  setStatus('סורק מחירים ויוצר דגם...', true);
   try {
-    const d = await compApi('/track-categories', 'POST', { myCategoryUrl, competitorCategoryUrls });
+    const d = await compApi('/track', 'POST', { name, myUrl, competitorUrls });
+    document.getElementById('myProdUrl').value = '';
+    document.getElementById('prodName').value = '';
+    compProdList = [];
+    renderCompProdList();
     await loadModels();
-    setStatus('הושלם', false);
-    alert(`✅ נוצרו ${d.created} דגמים עם התאמת מתחרים.\nדולגו ${d.skipped} מוצרים (ללא מחיר או ללא התאמה אצל מתחרה).\n(מוצרים שלי: ${d.myProducts} · מוצרי מתחרים שנסרקו: ${d.competitorProducts})`);
+    setStatus('נוסף', false);
+    if (d.skippedCompetitors) alert(`הדגם נוסף ✅\n${d.skippedCompetitors} קישורי מתחרים דולגו (לא נמצא בהם מחיר).`);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
