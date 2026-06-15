@@ -1077,12 +1077,17 @@ async function callAI(prompt, useSearch = true, history = []) {
 
 const IMG_EP = k => `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${k}`;
 
-async function callImageAI(prompt) {
+async function callImageAI(prompt, refDataUrl) {
   if (!apiKey) { showApiModal(); throw new Error('אין מפתח API'); }
+  const parts = [{ text: prompt }];
+  if (refDataUrl) {
+    const m = refDataUrl.match(/^data:([^;]+);base64,(.+)$/);
+    if (m) parts.unshift({ inlineData: { mimeType: m[1], data: m[2] } });  // תמונת המוצר האמיתית כהפניה
+  }
   const r = await fetch(IMG_EP(apiKey), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
+    body: JSON.stringify({ contents: [{ role: 'user', parts }] })
   });
   const d = await r.json();
   if (d.error) throw new Error(d.error.message);
@@ -1102,20 +1107,29 @@ async function generateAdImage() {
   if (!prod) { document.getElementById('contInp').focus(); return; }
   if (!apiKey) { showApiModal(); return; }
   setStatus('יוצר תמונה...', true);
-  setOutput('contOutput', outputCard('🖼️ יוצר תמונת מודעה', loadingHtml(`מייצר תמונת מודעה עבור "${prod}"...`)));
+  setOutput('contOutput', outputCard('🖼️ יוצר תמונת קמפיין', loadingHtml(`מאתר את תמונת המוצר האמיתית ויוצר תמונת קמפיין עבור "${prod}"...`)));
 
-  const prompt = `Professional advertising product photograph of "${prod}" — a B2B plumbing / water-infrastructure / industrial tool product (DNA Tools, Israel). Clean commercial e-commerce style, studio lighting, modern industrial background, sharp focus, high detail, photorealistic, 4k, square 1:1 composition. No text, no logo, no watermark.`;
+  // מנסה לקבל את תמונת המוצר האמיתית מדף המוצר (כדי שהתמונה תהיה מדויקת)
+  let ref = null;
+  const pageUrl = lastProductMatch?.url || (findProducts(prod)[0]?.url);
+  if (pageUrl) {
+    try { const d = await compApi('/img?url=' + encodeURIComponent(pageUrl)); ref = d.dataUrl || null; } catch {}
+  }
+
+  const prompt = ref
+    ? `Use the EXACT product shown in the provided image — do not alter or redesign the product itself. Create a professional commercial advertising photograph featuring this product: clean modern studio scene, soft professional lighting, subtle water-infrastructure / industrial context, sharp focus, photorealistic, high detail, 4k, square 1:1 composition. Absolutely NO text, NO letters, NO Hebrew, NO logos, NO watermark.`
+    : `Professional advertising product photograph of "${prod}" — a B2B plumbing / water-infrastructure / industrial tool product. Clean commercial studio, soft professional lighting, modern industrial background, sharp focus, photorealistic, 4k, square 1:1 composition. Absolutely NO text, NO letters, NO Hebrew, NO logos, NO watermark.`;
 
   try {
-    const url = await callImageAI(prompt);
+    const url = await callImageAI(prompt, ref);
     const html = `
-      <img src="${url}" class="gen-img" alt="תמונת מודעה">
+      <img src="${url}" class="gen-img" alt="תמונת קמפיין">
       <div class="gen-img-actions">
-        <a class="btn btn-green" href="${url}" download="dna-ad-image.png">⬇️ הורד תמונה</a>
+        <a class="btn btn-green" href="${url}" download="dna-campaign-image.png">⬇️ הורד תמונה</a>
         <button class="btn btn-purple" onclick="generateAdImage()">🔄 צור גרסה נוספת</button>
       </div>
-      <div class="sec-sub" style="margin-top:8px">טיפ: לתמונה מדויקת יותר, כתוב תיאור מפורט בשדה (צבע, רקע, זווית).</div>`;
-    setOutput('contOutput', outputCard(`🖼️ תמונת מודעה: ${prod}`, html));
+      <div class="sec-sub" style="margin-top:8px">${ref ? '✓ נוצר על בסיס תמונת המוצר האמיתית מהאתר. ' : '⚠️ לא נמצאה תמונת מוצר באתר — נוצר מתיאור כללי. '}התמונה ללא טקסט (טקסט בעברית בתמונות AI יוצא הפוך — נוסיף כיתוב בנפרד אם צריך).</div>`;
+    setOutput('contOutput', outputCard(`🖼️ תמונת קמפיין: ${prod}`, html));
     setStatus('התמונה מוכנה', false);
   } catch(e) {
     setOutput('contOutput', outputCard('שגיאה ביצירת תמונה', `<span style="color:#f87171">${e.message}</span>`));

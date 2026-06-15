@@ -31,6 +31,7 @@ Runtime: Python 3.12
 
 import os
 import re
+import base64
 import json as _jsonlib
 from concurrent.futures import ThreadPoolExecutor
 from urllib.parse import urljoin, unquote
@@ -850,6 +851,45 @@ def get_fx():
     return _json({"rate": None})
 
 
+def fetch_image_b64(url):
+    """תמונת המוצר הראשית כ-data URL (base64) — מדף מוצר (og:image) או מתמונה ישירה.
+    משמש את מנוע התמונות כדי לייצר ויזואל מבוסס המוצר האמיתי."""
+    try:
+        r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
+        if r.status_code != 200:
+            return _json({"error": f"status {r.status_code}"}, 502)
+        ctype = (r.headers.get("Content-Type") or "").split(";")[0]
+        if ctype.startswith("image/"):
+            if len(r.content) > 5_000_000:
+                return _json({"error": "התמונה גדולה מדי"}, 413)
+            return _json({"dataUrl": f"data:{ctype};base64," + base64.b64encode(r.content).decode()})
+        # דף HTML → מאתרים את תמונת המוצר
+        if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = r.apparent_encoding or "utf-8"
+        soup = BeautifulSoup(r.text, "html.parser")
+        img_url = None
+        for attrs in ({"property": "og:image"}, {"property": "og:image:url"}, {"name": "twitter:image"}):
+            m = soup.find("meta", attrs=attrs)
+            if m and m.get("content"):
+                img_url = m["content"]
+                break
+        if not img_url:
+            el = soup.select_one(".woocommerce-product-gallery__image img, img.wp-post-image")
+            if el:
+                img_url = el.get("src") or el.get("data-src")
+        if not img_url:
+            return _json({"error": "לא נמצאה תמונת מוצר בדף"}, 404)
+        ir = requests.get(urljoin(url, img_url), headers=SCAN_HEADERS, timeout=20)
+        ictype = (ir.headers.get("Content-Type") or "").split(";")[0]
+        if ir.status_code != 200 or not ictype.startswith("image/"):
+            return _json({"error": "שגיאה בטעינת התמונה"}, 502)
+        if len(ir.content) > 5_000_000:
+            return _json({"error": "התמונה גדולה מדי"}, 413)
+        return _json({"dataUrl": f"data:{ictype};base64," + base64.b64encode(ir.content).decode()})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def list_catalog():
     docs = db.collection("catalog").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).stream()
@@ -958,6 +998,13 @@ def competitors_api(request):
         elif resource == "fx":
             if method == "GET":
                 return get_fx()
+
+        elif resource == "img":
+            if method == "GET":
+                u = args.get("url")
+                if not u:
+                    return _json({"error": "חסר url"}, 400)
+                return fetch_image_b64(u)
 
         elif resource == "catalog":
             if method == "GET":
