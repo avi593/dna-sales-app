@@ -1863,8 +1863,9 @@ function catCompute(it) {
   const ils = ilsM != null ? ilsM : (usd != null && fxRate ? usd * fxRate : null);
   const shipPct = catNum(it.shippingPct) != null ? catNum(it.shippingPct) : 10;
   const afterShip = ils != null ? ils * (1 + shipPct / 100) : null;
-  const prof = catNum(it.desiredProfit);
-  const priceExcl = (afterShip != null && prof != null && prof < 1) ? afterShip / (1 - prof) : null;
+  const profRaw = catNum(it.desiredProfit);
+  const prof = profRaw != null ? profRaw : 0.7;   // ברירת מחדל קבועה 0.7
+  const priceExcl = (afterShip != null && prof < 1) ? afterShip / (1 - prof) : null;
   const priceIncl = priceExcl != null ? priceExcl * VAT_RATE : null;
   const profitIls = (priceExcl != null && afterShip != null) ? priceExcl - afterShip : null;
   const profitPct = (priceExcl != null && profitIls != null) ? profitIls / priceExcl * 100 : null;
@@ -1877,20 +1878,21 @@ function renderCatalog() {
     el.innerHTML = '<div class="page-empty">אין פריטים בקטלוג. הוסף מוצר בטופס למעלה.</div>';
     return;
   }
-  const inp = (it, field, w) =>
-    `<input class="cat-inp" style="width:${w}" value="${esc(String(it[field] ?? ''))}" `
+  const inp = (it, field, w, ph) =>
+    `<input class="cat-inp" style="width:${w}" value="${esc(String(it[field] ?? ''))}" placeholder="${ph ?? ''}" `
     + `onchange="updateCatalogField('${it.id}','${field}',this.value)" />`;
   const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '<span class="price-neutral">—</span>';
   const rows = catalog.map(it => {
     const c = catCompute(it);
+    const ilsPh = (catNum(it.ilsManual) == null && c.ils != null) ? Math.round(c.ils) : '';
     return `<tr>
       <td>${inp(it, 'sku', '70px')}</td>
       <td>${inp(it, 'name', '150px')}</td>
       <td>${inp(it, 'usdPrice', '60px')}</td>
-      <td>${inp(it, 'ilsManual', '70px')}</td>
+      <td>${inp(it, 'ilsManual', '78px', ilsPh)}</td>
       <td>${inp(it, 'shippingPct', '48px')}</td>
       <td>${money(c.afterShip)}</td>
-      <td>${inp(it, 'desiredProfit', '56px')}</td>
+      <td>${inp(it, 'desiredProfit', '56px', '0.7')}</td>
       <td class="pt-my">${money(c.priceExcl)}</td>
       <td class="cat-incl">${money(c.priceIncl)}</td>
       <td><span class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</span></td>
@@ -1915,7 +1917,7 @@ async function addCatalog() {
     usdPrice: catNum(document.getElementById('catUsd').value),
     ilsManual: catNum(document.getElementById('catIls').value),
     shippingPct: catNum(document.getElementById('catShip').value) ?? 10,
-    desiredProfit: catNum(document.getElementById('catProfit').value),
+    desiredProfit: catNum(document.getElementById('catProfit').value) ?? 0.7,
   };
   setStatus('מוסיף פריט...', true);
   try {

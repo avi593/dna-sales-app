@@ -861,7 +861,7 @@ def create_catalog(data):
     if not fields.get("name") and not fields.get("sku"):
         return _json({"error": "יש להזין שם מוצר או מק\"ט"}, 400)
     fields.setdefault("shippingPct", 10)
-    fields.setdefault("desiredProfit", None)
+    fields.setdefault("desiredProfit", 0.7)
     fields["createdAt"] = firestore.SERVER_TIMESTAMP
     fields["updatedAt"] = firestore.SERVER_TIMESTAMP
     ref = db.collection("catalog").document()
