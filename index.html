@@ -810,29 +810,18 @@
     <div id="view-content" class="view">
       <div>
         <div class="sec-title">📣 פרסום וקידום</div>
-        <div class="sec-sub">חבילת קמפיין מלאה: אסטרטגיה, מודעות, תגיות SEO וקהל יעד — + תמונת קמפיין ופלט JSON</div>
+        <div class="sec-sub">חבילת קמפיין מלאה: אסטרטגיה, מודעות, תגיות SEO, קהל יעד ובריף ויזואלי לעיצוב חיצוני — ופלט JSON</div>
       </div>
       <div class="input-row">
         <input class="inp" id="contInp" placeholder="מוצר / מבצע / מטרת קמפיין" />
         <button class="btn btn-blue" onclick="generateCampaign()">🎯 צור קמפיין</button>
-        <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונת קמפיין</button>
-      </div>
-      <div class="input-row">
-        <label class="btn btn-green" style="cursor:pointer">📎 העלה תמונת מוצר משלי
-          <input type="file" id="campImgUpload" accept="image/*" onchange="onCampImg(this)" style="display:none">
-        </label>
-        <span id="campImgNote" class="sec-sub" style="display:flex;align-items:center;gap:8px"></span>
-      </div>
-      <div class="input-row">
-        <button class="btn btn-orange" onclick="designWithIdeogram()">🎨 עצב עם Ideogram (תמונה + טקסט)</button>
-        <button class="comp-btn" onclick="setIdeogram()">⚙️ הגדרות Ideogram</button>
       </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
           <div class="card-empty">
             <div class="card-empty-icon">📣</div>
             <div class="card-empty-title">מנוע פרסום וקידום</div>
-            <div class="card-empty-desc">הכנס מוצר/מבצע לקבלת חבילת קמפיין: אסטרטגיה · מודעות ל-Facebook/Instagram/WhatsApp · תגיות SEO · קהל יעד · והכל גם ב-JSON. עם 🖼️ גם תמונת קמפיין.</div>
+            <div class="card-empty-desc">הכנס מוצר/מבצע לקבלת חבילת קמפיין: אסטרטגיה · מודעות ל-Facebook/Instagram/WhatsApp · תגיות SEO · קהל יעד · בריף ויזואלי לעיצוב — והכל גם ב-JSON.</div>
           </div>
         </div></div>
       </div>
@@ -2391,8 +2380,8 @@ function renderCampaign(o) {
   if (p.whatsapp) html += block('💬 WhatsApp', esc(p.whatsapp.message || ''));
   if (o.seoTags) html += block('🔍 תגיות SEO', chips(o.seoTags));
   if (o.hashtags) html += block('#️⃣ האשטגים', chips(o.hashtags));
+  if (o.imagePrompt) html += block('🎨 בריף ויזואלי (לעיצוב בתוכנה חיצונית)', esc(o.imagePrompt));
   html += `<div class="gen-img-actions">
-    <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונת קמפיין</button>
     <button class="btn btn-blue" onclick="copyCampaignJson()">📋 העתק JSON</button>
   </div>`;
   html += `<details class="camp-json"><summary>הצג JSON גולמי</summary><pre>${esc(lastCampaignJson)}</pre></details>`;
