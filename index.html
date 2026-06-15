@@ -2463,7 +2463,11 @@ function renderCampaign(o) {
   if (p.whatsapp) html += block('💬 WhatsApp', esc(p.whatsapp.message || ''));
   if (o.seoTags) html += block('🔍 תגיות SEO', chips(o.seoTags));
   if (o.hashtags) html += block('#️⃣ האשטגים', chips(o.hashtags));
-  if (o.imagePrompt) html += block('🎨 בריף ויזואלי (לעיצוב בתוכנה חיצונית)', esc(o.imagePrompt));
+  html += `<div class="camp-block">
+    <div class="camp-title">🎨 פרומט לתמונה (ערוך והעתק לתוכנת העיצוב)</div>
+    <textarea id="campImgPrompt" class="inp" style="width:100%;min-height:90px;direction:ltr;text-align:left;resize:vertical">${esc(o.imagePrompt || '')}</textarea>
+    <button class="comp-btn" style="margin-top:6px" onclick="copyImgPrompt()">📋 העתק פרומט</button>
+  </div>`;
   html += `<div class="gen-img-actions">
     <button class="btn btn-blue" onclick="copyCampaignJson()">📋 העתק JSON</button>
   </div>`;
@@ -2474,6 +2478,11 @@ function renderCampaign(o) {
 function copyCampaignJson() {
   if (!lastCampaignJson) return;
   navigator.clipboard?.writeText(lastCampaignJson).then(() => setStatus('JSON הועתק ✓', false));
+}
+
+function copyImgPrompt() {
+  const t = document.getElementById('campImgPrompt');
+  if (t && t.value.trim()) navigator.clipboard?.writeText(t.value).then(() => setStatus('הפרומט לתמונה הועתק ✓', false));
 }
 
 async function generateCampaign() {
@@ -2490,8 +2499,15 @@ async function generateCampaign() {
       matches.map(m => `• ${m.name}${m.price ? ` | ${m.price}` : ''}${m.url ? ` | ${m.url}` : ''}`).join('\n')
     : `\n(המוצר לא נמצא בקטלוג — חפש אותו ישירות באתר site:dna-tools.co.il)`;
 
-  const prompt = `אתה אסטרטג פרסום דיגיטלי B2B עבור דנא ציוד אינסטלציה (קבלנים, אינסטלטורים, ישראל).
+  const prompt = `אתה קופירייטר ואסטרטג פרסום B2B מנוסה עבור דנא ציוד אינסטלציה (קבלנים, אינסטלטורים, ישראל).
 בנה חבילת קמפיין פרסום מלאה עבור: "${prod}".${grounding}
+
+✍️ כתיבה אנושית ומקצועית — חובה:
+- כתוב כמו קופירייטר ישראלי מנוסה: שפה טבעית, זורמת ואמינה — בלי "ריח" של AI.
+- אסור קלישאות וביטויים גנריים ("הפתרון המושלם", "איכות ללא פשרות", "במהירות וביעילות", "הכתובת שלך ל...").
+- דבר בגובה העיניים לקהל המקצועי, עם ביטחון וערך קונקרטי (חיסכון זמן, אמינות בשטח, זמינות, אחריות).
+- משפטים קצרים וספציפיים. טון מקצועי-חם, לא מכירתי-אגרסיבי, בלי סימני קריאה מיותרים.
+- העדף עובדות ופרטים אמיתיים מהמוצר על פני הבטחות מוגזמות.
 
 החזר אך ורק אובייקט JSON תקין בתוך בלוק \`\`\`json, בעברית, במבנה:
 \`\`\`json
@@ -2506,7 +2522,7 @@ async function generateCampaign() {
   },
   "seoTags": ["5-8 תגיות SEO"],
   "hashtags": ["5-8 האשטגים"],
-  "imagePrompt": "תיאור באנגלית לתמונת קמפיין"
+  "imagePrompt": "פרומט מפורט באנגלית ליצירת תמונת קמפיין (נושא, סגנון, רקע, תאורה, הרכב, מצב רוח) — מוכן להדבקה בכלי עיצוב תמונות"
 }
 \`\`\`
 אל תמציא מפרט או מחיר שלא קיים באתר. החזר JSON בלבד, בלי טקסט מחוץ לבלוק.`;
