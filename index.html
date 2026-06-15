@@ -816,6 +816,14 @@
         <input class="inp" id="contInp" placeholder="מוצר / מבצע / מטרת קמפיין" />
         <button class="btn btn-blue" onclick="generateCampaign()">🎯 צור קמפיין</button>
       </div>
+      <div class="add-model-box">
+        <div class="muted-sm">🔗 קישורים למידע על המכשיר (מפרט · ביקורת · דף יצרן — יעשירו את התוכן):</div>
+        <div id="campLinksList" class="known-list"></div>
+        <div class="disc-manual">
+          <input class="inp" id="campLinkInp" placeholder="הדבק קישור למידע על המכשיר" onkeydown="if(event.key==='Enter')addCampaignLink()" />
+          <button class="add-plus" title="הוסף קישור" onclick="addCampaignLink()">+</button>
+        </div>
+      </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
           <div class="card-empty">
@@ -2334,6 +2342,29 @@ function findProducts(query) {
 // ── פרסום וקידום: מנוע קמפיינים ──
 let lastCampaignJson = '';
 let lastCampaign = null;
+let campaignLinks = [];   // קישורי מידע על המכשיר (מקור לתוכן)
+
+function renderCampaignLinks() {
+  const el = document.getElementById('campLinksList');
+  if (!el) return;
+  el.innerHTML = campaignLinks.map((u, i) =>
+    `<span class="known-chip">${esc(u)} <button onclick="delCampaignLink(${i})" title="הסר">✕</button></span>`).join('');
+}
+
+function addCampaignLink() {
+  const inp = document.getElementById('campLinkInp');
+  const v = (inp.value || '').trim();
+  if (!v) return;
+  if (!/^https?:\/\//i.test(v)) { alert('הדבק קישור מלא שמתחיל ב-http'); return; }
+  if (!campaignLinks.includes(v)) campaignLinks.push(v);
+  inp.value = '';
+  renderCampaignLinks();
+}
+
+function delCampaignLink(i) {
+  campaignLinks.splice(i, 1);
+  renderCampaignLinks();
+}
 
 // ── מודעות מתחרים (ספריית Meta) ──
 let lastAds = [];
@@ -2499,8 +2530,12 @@ async function generateCampaign() {
       matches.map(m => `• ${m.name}${m.price ? ` | ${m.price}` : ''}${m.url ? ` | ${m.url}` : ''}`).join('\n')
     : `\n(המוצר לא נמצא בקטלוג — חפש אותו ישירות באתר site:dna-tools.co.il)`;
 
+  const linkBlock = campaignLinks.length
+    ? `\n\n🔗 מקורות מידע על המכשיר (קרא אותם והשתמש בהם לדיוק מפרט, תכונות ויתרונות):\n${campaignLinks.map(u => '• ' + u).join('\n')}`
+    : '';
+
   const prompt = `אתה קופירייטר ואסטרטג פרסום B2B מנוסה עבור דנא ציוד אינסטלציה (קבלנים, אינסטלטורים, ישראל).
-בנה חבילת קמפיין פרסום מלאה עבור: "${prod}".${grounding}
+בנה חבילת קמפיין פרסום מלאה עבור: "${prod}".${grounding}${linkBlock}
 
 ✍️ כתיבה אנושית ומקצועית — חובה:
 - כתוב כמו קופירייטר ישראלי מנוסה: שפה טבעית, זורמת ואמינה — בלי "ריח" של AI.
