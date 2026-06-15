@@ -823,6 +823,10 @@
         </label>
         <span id="campImgNote" class="sec-sub" style="display:flex;align-items:center;gap:8px"></span>
       </div>
+      <div class="input-row">
+        <button class="btn btn-orange" onclick="designWithPlacid()">🎨 עצב עם Placid (תמונה + טקסט)</button>
+        <button class="comp-btn" onclick="setPlacid()">⚙️ הגדרות Placid</button>
+      </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
           <div class="card-empty">
@@ -2329,6 +2333,39 @@ function findProducts(query) {
 
 // ── פרסום וקידום: מנוע קמפיינים ──
 let lastCampaignJson = '';
+let lastCampaign = null;
+
+async function setPlacid() {
+  const token = prompt('הדבק את מפתח ה-API של Placid:');
+  if (token === null || !token.trim()) return;
+  const template = prompt('הדבק את מזהה התבנית (Template UUID) מ-Placid:');
+  if (template === null || !template.trim()) return;
+  try {
+    await compApi('/config', 'POST', { placidToken: token.trim(), placidTemplate: template.trim() });
+    alert('הגדרות Placid נשמרו ✓');
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function designWithPlacid() {
+  const prod = document.getElementById('contInp').value.trim();
+  const pageUrl = lastProductMatch?.url || (prod && findProducts(prod)[0]?.url) || '';
+  let headline = prompt('כותרת לעיצוב:', lastCampaign?.platforms?.facebook?.headline || prod || '');
+  if (headline === null) return;
+  const price = prompt('מחיר / טקסט משני (אופציונלי):', '') || '';
+  setStatus('מעצב עם Placid...', true);
+  setOutput('contOutput', outputCard('🎨 מעצב עם Placid', loadingHtml('שולח ל-Placid וממתין לתמונה הסופית...')));
+  try {
+    const d = await compApi('/design', 'POST', { productPageUrl: pageUrl, headline, price });
+    if (!d.imageUrl) throw new Error(d.error || 'לא הוחזרה תמונה');
+    const html = `<img src="${d.imageUrl}" class="gen-img" alt="עיצוב Placid">
+      <div class="gen-img-actions"><a class="btn btn-green" href="${d.imageUrl}" target="_blank" rel="noopener">⬇️ הורד / פתח</a></div>`;
+    setOutput('contOutput', outputCard('🎨 תמונה מעוצבת (Placid)', html));
+    setStatus('מוכן', false);
+  } catch (e) {
+    setOutput('contOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
 
 function extractJson(text) {
   if (!text) return null;
@@ -2403,9 +2440,11 @@ async function generateCampaign() {
     const r = await callAI(prompt, true);
     const obj = extractJson(r);
     if (obj) {
+      lastCampaign = obj;
       lastCampaignJson = JSON.stringify(obj, null, 2);
       setOutput('contOutput', outputCard(`📣 קמפיין: ${esc(obj.product || prod)}`, renderCampaign(obj)));
     } else {
+      lastCampaign = null;
       lastCampaignJson = '';
       setOutput('contOutput', outputCard(`📣 קמפיין: ${esc(prod)}`, renderAI(r)));
     }

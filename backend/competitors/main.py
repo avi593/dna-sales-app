@@ -31,6 +31,7 @@ Runtime: Python 3.12
 
 import os
 import re
+import time
 import base64
 import json as _jsonlib
 from concurrent.futures import ThreadPoolExecutor
@@ -460,17 +461,19 @@ def _get_config(key, default=None):
 
 
 def set_config(data):
-    fields = _pick(data, {"serpApiKey", "serpProvider"})
+    fields = _pick(data, {"serpApiKey", "serpProvider", "placidToken", "placidTemplate"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
-    # מחזירים רק האם המפתח מוגדר — בלי לחשוף אותו
-    return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey"))})
+    # מחזירים רק האם המפתחות מוגדרים — בלי לחשוף אותם
+    return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey")),
+                  "placidConfigured": bool(_get_config("placidToken") and _get_config("placidTemplate"))})
 
 
 def config_status():
     return _json({"serpConfigured": bool(_get_config("serpApiKey")),
-                  "serpProvider": _get_config("serpProvider", "serpapi")})
+                  "serpProvider": _get_config("serpProvider", "serpapi"),
+                  "placidConfigured": bool(_get_config("placidToken") and _get_config("placidTemplate"))})
 
 
 PRICE_TEXT = re.compile(r'(?:₪|ש"?ח|NIS)\s*[\d.,]+|[\d.,]{2,}\s*(?:₪|ש"?ח|NIS)')
@@ -890,6 +893,70 @@ def fetch_image_b64(url):
         return _json({"error": str(e)}, 500)
 
 
+def _og_image_url(url):
+    """מחזיר את כתובת תמונת המוצר (og:image) — כתובת ציבורית להזנה ל-Placid."""
+    try:
+        r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
+        if r.status_code != 200:
+            return None
+        soup = BeautifulSoup(r.text, "html.parser")
+        for attrs in ({"property": "og:image"}, {"property": "og:image:url"}, {"name": "twitter:image"}):
+            m = soup.find("meta", attrs=attrs)
+            if m and m.get("content"):
+                return urljoin(url, m["content"])
+        el = soup.select_one(".woocommerce-product-gallery__image img, img.wp-post-image")
+        if el:
+            return urljoin(url, el.get("src") or el.get("data-src") or "")
+    except Exception:
+        pass
+    return None
+
+
+def design_image(data):
+    """מעצב תמונת קמפיין דרך Placid: תבנית + תמונת מוצר + טקסטים (כותרת/מחיר/CTA) → תמונה סופית."""
+    data = data or {}
+    token = _get_config("placidToken")
+    template = data.get("template") or _get_config("placidTemplate")
+    if not token:
+        return _json({"error": "לא הוגדר מפתח Placid"}, 400)
+    if not template:
+        return _json({"error": "לא הוגדרה תבנית Placid"}, 400)
+
+    img_url = data.get("imageUrl")
+    if not img_url and data.get("productPageUrl"):
+        img_url = _og_image_url(data["productPageUrl"])
+
+    layers = {}
+    if data.get("headline"):
+        layers["headline"] = {"text": data["headline"]}
+    if data.get("price"):
+        layers["price"] = {"text": data["price"]}
+    if data.get("cta"):
+        layers["cta"] = {"text": data["cta"]}
+    if img_url:
+        layers["product"] = {"image": img_url}
+
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    try:
+        r = requests.post("https://api.placid.app/api/rest/images", headers=headers,
+                          json={"template_uuid": template, "layers": layers}, timeout=30)
+        d = r.json()
+        status, image_url, poll = d.get("status"), d.get("image_url"), d.get("polling_url")
+        for _ in range(12):                       # המתנה לרינדור (Placid אסינכרוני)
+            if status == "finished" and image_url:
+                break
+            if not poll:
+                break
+            time.sleep(2)
+            d = requests.get(poll, headers=headers, timeout=30).json()
+            status, image_url = d.get("status"), d.get("image_url")
+        if image_url:
+            return _json({"imageUrl": image_url, "status": status})
+        return _json({"error": d.get("errors") or "Placid לא החזיר תמונה", "raw": d}, 502)
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def list_catalog():
     docs = db.collection("catalog").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).stream()
@@ -1005,6 +1072,10 @@ def competitors_api(request):
                 if not u:
                     return _json({"error": "חסר url"}, 400)
                 return fetch_image_b64(u)
+
+        elif resource == "design":
+            if method == "POST":
+                return design_image(data)
 
         elif resource == "catalog":
             if method == "GET":
