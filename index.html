@@ -2501,6 +2501,8 @@ function renderCampaign(o) {
   </div>`;
   html += `<div class="gen-img-actions">
     <button class="btn btn-blue" onclick="copyCampaignJson()">📋 העתק JSON</button>
+    <button class="btn btn-green" onclick="publishToFb()">📤 פרסם בפייסבוק (טיוטה→אישור)</button>
+    <button class="comp-btn" onclick="setFbPage()">⚙️ חיבור פייסבוק</button>
   </div>`;
   html += `<details class="camp-json"><summary>הצג JSON גולמי</summary><pre>${esc(lastCampaignJson)}</pre></details>`;
   return html;
@@ -2514,6 +2516,33 @@ function copyCampaignJson() {
 function copyImgPrompt() {
   const t = document.getElementById('campImgPrompt');
   if (t && t.value.trim()) navigator.clipboard?.writeText(t.value).then(() => setStatus('הפרומט לתמונה הועתק ✓', false));
+}
+
+async function setFbPage() {
+  const token = prompt('הדבק Page Access Token של דף הפייסבוק:');
+  if (token === null || !token.trim()) return;
+  const pageId = prompt('הדבק את Page ID (מזהה הדף):');
+  if (pageId === null || !pageId.trim()) return;
+  try {
+    await compApi('/config', 'POST', { fbPageToken: token.trim(), fbPageId: pageId.trim() });
+    alert('חיבור פייסבוק נשמר ✓');
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function publishToFb() {
+  const f = lastCampaign?.platforms?.facebook;
+  let msg = f ? [f.headline, f.primaryText, f.cta].filter(Boolean).join('\n\n') : '';
+  if (!msg) msg = prompt('טקסט הפוסט לפרסום בפייסבוק:', document.getElementById('contInp').value.trim()) || '';
+  if (!msg.trim()) return;
+  // שער אישור — תצוגה מקדימה ואישור מפורש לפני פרסום
+  if (!confirm('🔎 אישור פרסום — הפוסט הבא יתפרסם בדף הפייסבוק שלך:\n\n' + msg + '\n\nלפרסם?')) return;
+  setStatus('מפרסם בפייסבוק...', true);
+  try {
+    const d = await compApi('/publish-facebook', 'POST', { message: msg });
+    if (!d.ok) throw new Error(d.error || 'הפרסום נכשל');
+    setStatus('פורסם בפייסבוק ✓', false);
+    alert('✅ הפוסט פורסם בדף הפייסבוק' + (d.url ? '\n' + d.url : ''));
+  } catch (e) { alert('שגיאה בפרסום: ' + e.message); setStatus('שגיאה', false); }
 }
 
 async function generateCampaign() {

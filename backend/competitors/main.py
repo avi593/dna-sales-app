@@ -461,21 +461,53 @@ def _get_config(key, default=None):
 
 
 def set_config(data):
-    fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken"})
+    fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
+                          "fbPageToken", "fbPageId", "igUserId"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
     # מחזירים רק האם המפתחות מוגדרים — בלי לחשוף אותם
     return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey")),
                   "ideogramConfigured": bool(_get_config("ideogramKey")),
-                  "metaConfigured": bool(_get_config("metaToken"))})
+                  "metaConfigured": bool(_get_config("metaToken")),
+                  "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId"))})
 
 
 def config_status():
     return _json({"serpConfigured": bool(_get_config("serpApiKey")),
                   "serpProvider": _get_config("serpProvider", "serpapi"),
                   "ideogramConfigured": bool(_get_config("ideogramKey")),
-                  "metaConfigured": bool(_get_config("metaToken"))})
+                  "metaConfigured": bool(_get_config("metaToken")),
+                  "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId")),
+                  "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId"))})
+
+
+def publish_facebook(data):
+    """מפרסם פוסט לדף פייסבוק (טקסט, ותמונה אם סופקה כ-URL ציבורי). פרסום מאושר בלבד."""
+    data = data or {}
+    token = _get_config("fbPageToken")
+    page = _get_config("fbPageId")
+    if not token or not page:
+        return _json({"error": "לא הוגדרו Page Token + Page ID של פייסבוק"}, 400)
+    message = (data.get("message") or "").strip()
+    image = (data.get("imageUrl") or "").strip()
+    if not message and not image:
+        return _json({"error": "אין תוכן לפרסום"}, 400)
+    try:
+        if image:
+            r = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",
+                              data={"url": image, "caption": message, "access_token": token}, timeout=30)
+        else:
+            r = requests.post(f"https://graph.facebook.com/v21.0/{page}/feed",
+                              data={"message": message, "access_token": token}, timeout=30)
+        d = r.json()
+        if "error" in d:
+            return _json({"error": d["error"].get("message", "שגיאת פייסבוק"), "raw": d["error"]}, 502)
+        post_id = d.get("post_id") or d.get("id")
+        return _json({"ok": True, "postId": post_id,
+                      "url": f"https://www.facebook.com/{post_id}" if post_id else None})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
 
 
 def ads_library(data):
@@ -1111,6 +1143,10 @@ def competitors_api(request):
         elif resource == "ads-library":
             if method == "POST":
                 return ads_library(data)
+
+        elif resource == "publish-facebook":
+            if method == "POST":
+                return publish_facebook(data)
 
         elif resource == "catalog":
             if method == "GET":
