@@ -412,6 +412,7 @@
       border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; line-height: 1.6;
     }
     .camp-title { font-size: 13px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
+    .camp-thumb { width: 38px; height: 38px; object-fit: cover; border-radius: 6px; border: 1px solid var(--border); vertical-align: middle; }
     .camp-json { margin-top: 12px; }
     .camp-json summary { cursor: pointer; color: var(--muted); font-size: 13px; }
     .camp-json pre {
@@ -816,6 +817,12 @@
         <button class="btn btn-blue" onclick="generateCampaign()">🎯 צור קמפיין</button>
         <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונת קמפיין</button>
       </div>
+      <div class="input-row">
+        <label class="btn btn-green" style="cursor:pointer">📎 העלה תמונת מוצר משלי
+          <input type="file" id="campImgUpload" accept="image/*" onchange="onCampImg(this)" style="display:none">
+        </label>
+        <span id="campImgNote" class="sec-sub" style="display:flex;align-items:center;gap:8px"></span>
+      </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
           <div class="card-empty">
@@ -1102,18 +1109,61 @@ async function callImageAI(prompt, refDataUrl) {
   return `data:${mime};base64,${inline.data}`;
 }
 
+// תמונה שהמשתמש העלה (מקבלת עדיפות כהפניה ליצירת התמונה)
+let uploadedImageRef = null;
+
+function onCampImg(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 1024;
+      let { width, height } = img;
+      if (width > max || height > max) {
+        const s = max / Math.max(width, height);
+        width = Math.round(width * s); height = Math.round(height * s);
+      }
+      const cv = document.createElement('canvas');
+      cv.width = width; cv.height = height;
+      cv.getContext('2d').drawImage(img, 0, 0, width, height);
+      uploadedImageRef = cv.toDataURL('image/jpeg', 0.9);   // מוקטן כדי לא לחרוג ממגבלת הגודל
+      renderCampImgNote();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function renderCampImgNote() {
+  const el = document.getElementById('campImgNote');
+  if (!el) return;
+  el.innerHTML = uploadedImageRef
+    ? `<img src="${uploadedImageRef}" class="camp-thumb"> תמונה הועלתה ✓ <button class="comp-btn" onclick="clearCampImg()">הסר</button>`
+    : '';
+}
+
+function clearCampImg() {
+  uploadedImageRef = null;
+  const u = document.getElementById('campImgUpload'); if (u) u.value = '';
+  renderCampImgNote();
+}
+
 async function generateAdImage() {
   const prod = document.getElementById('contInp').value.trim();
-  if (!prod) { document.getElementById('contInp').focus(); return; }
+  if (!prod && !uploadedImageRef) { document.getElementById('contInp').focus(); return; }
   if (!apiKey) { showApiModal(); return; }
   setStatus('יוצר תמונה...', true);
-  setOutput('contOutput', outputCard('🖼️ יוצר תמונת קמפיין', loadingHtml(`מאתר את תמונת המוצר האמיתית ויוצר תמונת קמפיין עבור "${prod}"...`)));
+  setOutput('contOutput', outputCard('🖼️ יוצר תמונת קמפיין', loadingHtml(`יוצר תמונת קמפיין עבור "${prod || 'התמונה שהעלית'}"...`)));
 
-  // מנסה לקבל את תמונת המוצר האמיתית מדף המוצר (כדי שהתמונה תהיה מדויקת)
-  let ref = null;
-  const pageUrl = lastProductMatch?.url || (findProducts(prod)[0]?.url);
-  if (pageUrl) {
-    try { const d = await compApi('/img?url=' + encodeURIComponent(pageUrl)); ref = d.dataUrl || null; } catch {}
+  // עדיפות לתמונה שהמשתמש העלה; אחרת — תמונת המוצר מהאתר
+  let ref = uploadedImageRef, refSource = uploadedImageRef ? 'upload' : null;
+  if (!ref) {
+    const pageUrl = lastProductMatch?.url || (findProducts(prod)[0]?.url);
+    if (pageUrl) {
+      try { const d = await compApi('/img?url=' + encodeURIComponent(pageUrl)); ref = d.dataUrl || null; if (ref) refSource = 'site'; } catch {}
+    }
   }
 
   const prompt = ref
@@ -1128,7 +1178,7 @@ async function generateAdImage() {
         <a class="btn btn-green" href="${url}" download="dna-campaign-image.png">⬇️ הורד תמונה</a>
         <button class="btn btn-purple" onclick="generateAdImage()">🔄 צור גרסה נוספת</button>
       </div>
-      <div class="sec-sub" style="margin-top:8px">${ref ? '✓ נוצר על בסיס תמונת המוצר האמיתית מהאתר. ' : '⚠️ לא נמצאה תמונת מוצר באתר — נוצר מתיאור כללי. '}התמונה ללא טקסט (טקסט בעברית בתמונות AI יוצא הפוך — נוסיף כיתוב בנפרד אם צריך).</div>`;
+      <div class="sec-sub" style="margin-top:8px">${refSource === 'upload' ? '✓ נוצר על בסיס התמונה שהעלית. ' : refSource === 'site' ? '✓ נוצר על בסיס תמונת המוצר מהאתר. ' : '⚠️ ללא תמונת מקור — נוצר מתיאור כללי. '}התמונה ללא טקסט (טקסט בעברית בתמונות AI יוצא הפוך — נוסיף כיתוב בנפרד אם צריך).</div>`;
     setOutput('contOutput', outputCard(`🖼️ תמונת קמפיין: ${prod}`, html));
     setStatus('התמונה מוכנה', false);
   } catch(e) {
