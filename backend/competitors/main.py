@@ -833,6 +833,62 @@ def track_categories(data):
                   "myProducts": len(my_products), "competitorProducts": comp_found})
 
 
+# ═══════════════════════════ CATALOG (תמחור) + FX ═══════════════════════════
+
+CATALOG_FIELDS = {"sku", "name", "usdPrice", "ilsManual", "shippingPct", "desiredProfit"}
+
+
+def get_fx():
+    """שער דולר→שקל חי (USD→ILS)."""
+    try:
+        r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=15)
+        rate = (r.json().get("rates") or {}).get("ILS")
+        if rate:
+            return _json({"rate": round(float(rate), 4)})
+    except Exception:
+        pass
+    return _json({"rate": None})
+
+
+def list_catalog():
+    docs = db.collection("catalog").order_by(
+        "createdAt", direction=firestore.Query.DESCENDING).stream()
+    return _json({"items": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+
+
+def create_catalog(data):
+    fields = _pick(data, CATALOG_FIELDS)
+    if not fields.get("name") and not fields.get("sku"):
+        return _json({"error": "יש להזין שם מוצר או מק\"ט"}, 400)
+    fields.setdefault("shippingPct", 10)
+    fields.setdefault("desiredProfit", None)
+    fields["createdAt"] = firestore.SERVER_TIMESTAMP
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("catalog").document()
+    ref.set(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())), 201)
+
+
+def update_catalog(cid, data):
+    fields = _pick(data, CATALOG_FIELDS)
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("catalog").document(cid)
+    if not ref.get().exists:
+        return _json({"error": "פריט לא נמצא"}, 404)
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
+def delete_catalog(cid):
+    ref = db.collection("catalog").document(cid)
+    if not ref.get().exists:
+        return _json({"error": "פריט לא נמצא"}, 404)
+    ref.delete()
+    return _json({"deleted": cid})
+
+
 # ═══════════════════════════ ROUTER ═══════════════════════════
 
 @functions_framework.http
@@ -898,6 +954,20 @@ def competitors_api(request):
         elif resource == "scan-all":
             if method in ("GET", "POST"):
                 return scan_all()
+
+        elif resource == "fx":
+            if method == "GET":
+                return get_fx()
+
+        elif resource == "catalog":
+            if method == "GET":
+                return list_catalog()
+            if method == "POST":
+                return create_catalog(data)
+            if method == "PUT" and item_id:
+                return update_catalog(item_id, data)
+            if method == "DELETE" and item_id:
+                return delete_catalog(item_id)
 
         elif resource == "track":
             if method == "POST":
