@@ -1680,15 +1680,18 @@ function renderModels() {
       ? `${fmtPrice(cheapest)}${cheapestComp ? ' <span class="muted-sm">— ' + esc(cheapestComp.name || '') + '</span>' : ''}`
       : '<span class="price-neutral">—</span>';
 
-    // עלות ורווחיות (המחיר כולל מע"מ 18%, העלות נטו → רווח על המחיר נטו)
+    // עלות ורווחיות: עלות נטו (לפני מע"מ); מחיר המכירה כולל מע"מ → נטו = מחיר ÷ 1.18.
+    // רווח = מחיר נטו − עלות; אחוז הרווח מתוך מחיר המכירה נטו (מלמעלה).
     const VAT = 1.18;
     const cost = (m.myCost === 0 || m.myCost) ? m.myCost : null;
-    const marginNow = (cost != null && m.myPrice != null)
-      ? ((m.myPrice / VAT - cost) / (m.myPrice / VAT) * 100) : null;
-    const marginMatch = (cost != null && cheapest != null)
-      ? ((cheapest / VAT - cost) / (cheapest / VAT) * 100) : null;
-    const pctCell = v => v == null ? '<span class="price-neutral">—</span>'
-      : `<span class="${v < 0 ? 'price-low' : 'price-high'}">${v.toFixed(1)}%</span>`;
+    const netPrice = m.myPrice != null ? m.myPrice / VAT : null;
+    const netCheap = cheapest != null ? cheapest / VAT : null;
+    const profitCell = (netRef) => {
+      if (cost == null || netRef == null) return '<span class="price-neutral">—</span>';
+      const profit = netRef - cost, margin = profit / netRef * 100;
+      const cls = profit < 0 ? 'price-low' : 'price-high';
+      return `<span class="${cls}">₪${Math.round(profit).toLocaleString('he-IL')} <span class="muted-sm">(${margin.toFixed(1)}%)</span></span>`;
+    };
     const costCell = `${cost != null ? fmtPrice(cost) : '<span class="price-neutral">—</span>'} `
       + `<button class="icon-btn" title="ערוך עלות" onclick="event.stopPropagation();editCost('${m.id}')">✏️</button>`;
 
@@ -1697,10 +1700,10 @@ function renderModels() {
         <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(m.name)}</td>
         <td class="pt-my">${fmtPrice(m.myPrice)}</td>
         <td>${costCell}</td>
-        <td>${pctCell(marginNow)}</td>
+        <td>${profitCell(netPrice)}</td>
         <td>${cheapCell}</td>
         <td>${gapCell}</td>
-        <td>${pctCell(marginMatch)}</td>
+        <td>${profitCell(netCheap)}</td>
         <td class="pt-num">${comps.length}</td>
         <td>${statusCell}</td>
       </tr>`;
