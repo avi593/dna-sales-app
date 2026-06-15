@@ -461,19 +461,19 @@ def _get_config(key, default=None):
 
 
 def set_config(data):
-    fields = _pick(data, {"serpApiKey", "serpProvider", "placidToken", "placidTemplate"})
+    fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
     # מחזירים רק האם המפתחות מוגדרים — בלי לחשוף אותם
     return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey")),
-                  "placidConfigured": bool(_get_config("placidToken") and _get_config("placidTemplate"))})
+                  "ideogramConfigured": bool(_get_config("ideogramKey"))})
 
 
 def config_status():
     return _json({"serpConfigured": bool(_get_config("serpApiKey")),
                   "serpProvider": _get_config("serpProvider", "serpapi"),
-                  "placidConfigured": bool(_get_config("placidToken") and _get_config("placidTemplate"))})
+                  "ideogramConfigured": bool(_get_config("ideogramKey"))})
 
 
 PRICE_TEXT = re.compile(r'(?:₪|ש"?ח|NIS)\s*[\d.,]+|[\d.,]{2,}\s*(?:₪|ש"?ח|NIS)')
@@ -913,46 +913,30 @@ def _og_image_url(url):
 
 
 def design_image(data):
-    """מעצב תמונת קמפיין דרך Placid: תבנית + תמונת מוצר + טקסטים (כותרת/מחיר/CTA) → תמונה סופית."""
+    """מעצב תמונת קמפיין דרך Ideogram (חזק ברינדור טקסט בתמונה) מתוך prompt."""
     data = data or {}
-    token = _get_config("placidToken")
-    template = data.get("template") or _get_config("placidTemplate")
-    if not token:
-        return _json({"error": "לא הוגדר מפתח Placid"}, 400)
-    if not template:
-        return _json({"error": "לא הוגדרה תבנית Placid"}, 400)
-
-    img_url = data.get("imageUrl")
-    if not img_url and data.get("productPageUrl"):
-        img_url = _og_image_url(data["productPageUrl"])
-
-    layers = {}
-    if data.get("headline"):
-        layers["headline"] = {"text": data["headline"]}
-    if data.get("price"):
-        layers["price"] = {"text": data["price"]}
-    if data.get("cta"):
-        layers["cta"] = {"text": data["cta"]}
-    if img_url:
-        layers["product"] = {"image": img_url}
-
-    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    key = _get_config("ideogramKey")
+    if not key:
+        return _json({"error": "לא הוגדר מפתח Ideogram"}, 400)
+    prompt = (data.get("prompt") or "").strip()
+    if not prompt:
+        return _json({"error": "חסר תיאור (prompt)"}, 400)
+    body = {"image_request": {
+        "prompt": prompt,
+        "aspect_ratio": data.get("aspectRatio") or "ASPECT_1_1",
+        "model": data.get("model") or "V_2",
+        "magic_prompt_option": "AUTO",
+    }}
     try:
-        r = requests.post("https://api.placid.app/api/rest/images", headers=headers,
-                          json={"template_uuid": template, "layers": layers}, timeout=30)
+        r = requests.post("https://api.ideogram.ai/generate",
+                          headers={"Api-Key": key, "Content-Type": "application/json"},
+                          json=body, timeout=90)
         d = r.json()
-        status, image_url, poll = d.get("status"), d.get("image_url"), d.get("polling_url")
-        for _ in range(12):                       # המתנה לרינדור (Placid אסינכרוני)
-            if status == "finished" and image_url:
-                break
-            if not poll:
-                break
-            time.sleep(2)
-            d = requests.get(poll, headers=headers, timeout=30).json()
-            status, image_url = d.get("status"), d.get("image_url")
-        if image_url:
-            return _json({"imageUrl": image_url, "status": status})
-        return _json({"error": d.get("errors") or "Placid לא החזיר תמונה", "raw": d}, 502)
+        arr = d.get("data") or []
+        url = arr[0].get("url") if arr else None
+        if url:
+            return _json({"imageUrl": url})
+        return _json({"error": d.get("error") or d.get("message") or "Ideogram לא החזיר תמונה", "raw": d}, 502)
     except Exception as e:
         return _json({"error": str(e)}, 500)
 

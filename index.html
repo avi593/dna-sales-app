@@ -824,8 +824,8 @@
         <span id="campImgNote" class="sec-sub" style="display:flex;align-items:center;gap:8px"></span>
       </div>
       <div class="input-row">
-        <button class="btn btn-orange" onclick="designWithPlacid()">🎨 עצב עם Placid (תמונה + טקסט)</button>
-        <button class="comp-btn" onclick="setPlacid()">⚙️ הגדרות Placid</button>
+        <button class="btn btn-orange" onclick="designWithIdeogram()">🎨 עצב עם Ideogram (תמונה + טקסט)</button>
+        <button class="comp-btn" onclick="setIdeogram()">⚙️ הגדרות Ideogram</button>
       </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
@@ -2335,31 +2335,34 @@ function findProducts(query) {
 let lastCampaignJson = '';
 let lastCampaign = null;
 
-async function setPlacid() {
-  const token = prompt('הדבק את מפתח ה-API של Placid:');
-  if (token === null || !token.trim()) return;
-  const template = prompt('הדבק את מזהה התבנית (Template UUID) מ-Placid:');
-  if (template === null || !template.trim()) return;
+async function setIdeogram() {
+  const key = prompt('הדבק את מפתח ה-API של Ideogram:');
+  if (key === null || !key.trim()) return;
   try {
-    await compApi('/config', 'POST', { placidToken: token.trim(), placidTemplate: template.trim() });
-    alert('הגדרות Placid נשמרו ✓');
+    await compApi('/config', 'POST', { ideogramKey: key.trim() });
+    alert('מפתח Ideogram נשמר ✓');
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 
-async function designWithPlacid() {
+async function designWithIdeogram() {
   const prod = document.getElementById('contInp').value.trim();
-  const pageUrl = lastProductMatch?.url || (prod && findProducts(prod)[0]?.url) || '';
-  let headline = prompt('כותרת לעיצוב:', lastCampaign?.platforms?.facebook?.headline || prod || '');
+  const headline = prompt('כותרת למודעה (תופיע בתמונה):', lastCampaign?.platforms?.facebook?.headline || prod || '');
   if (headline === null) return;
-  const price = prompt('מחיר / טקסט משני (אופציונלי):', '') || '';
-  setStatus('מעצב עם Placid...', true);
-  setOutput('contOutput', outputCard('🎨 מעצב עם Placid', loadingHtml('שולח ל-Placid וממתין לתמונה הסופית...')));
+  if (!prod && !headline.trim()) { alert('הזן מוצר או כותרת'); return; }
+  const sub = prompt('טקסט משני / מחיר (אופציונלי):', '') || '';
+  const promptText = `Professional square 1:1 advertising poster for a B2B plumbing / water-infrastructure / industrial product${prod ? ` ("${prod}")` : ''}. Clean modern commercial design, studio background, high quality. Display the Hebrew text "${headline}"${sub ? ` and "${sub}"` : ''} large, clearly legible and correctly written right-to-left.`;
+  setStatus('יוצר עם Ideogram...', true);
+  setOutput('contOutput', outputCard('🎨 יוצר עם Ideogram', loadingHtml('שולח ל-Ideogram ומחכה לתמונה...')));
   try {
-    const d = await compApi('/design', 'POST', { productPageUrl: pageUrl, headline, price });
+    const d = await compApi('/design', 'POST', { prompt: promptText });
     if (!d.imageUrl) throw new Error(d.error || 'לא הוחזרה תמונה');
-    const html = `<img src="${d.imageUrl}" class="gen-img" alt="עיצוב Placid">
-      <div class="gen-img-actions"><a class="btn btn-green" href="${d.imageUrl}" target="_blank" rel="noopener">⬇️ הורד / פתח</a></div>`;
-    setOutput('contOutput', outputCard('🎨 תמונה מעוצבת (Placid)', html));
+    const html = `<img src="${d.imageUrl}" class="gen-img" alt="Ideogram">
+      <div class="gen-img-actions">
+        <a class="btn btn-green" href="${d.imageUrl}" target="_blank" rel="noopener">⬇️ הורד / פתח</a>
+        <button class="btn btn-purple" onclick="designWithIdeogram()">🔄 גרסה נוספת</button>
+      </div>
+      <div class="sec-sub" style="margin-top:8px">💡 Ideogram חזק בטקסט בתמונות. אם העברית יוצאת לא מדויקת — נסה כותרת קצרה יותר או טקסט באנגלית.</div>`;
+    setOutput('contOutput', outputCard('🎨 תמונה מעוצבת (Ideogram)', html));
     setStatus('מוכן', false);
   } catch (e) {
     setOutput('contOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
