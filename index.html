@@ -406,6 +406,18 @@
       outline: none; direction: ltr; text-align: start;
     }
     .cat-inp:focus { border-color: var(--blue); }
+    /* ══ CAMPAIGN (פרסום וקידום) ══ */
+    .camp-block {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; line-height: 1.6;
+    }
+    .camp-title { font-size: 13px; font-weight: 700; color: #a78bfa; margin-bottom: 6px; }
+    .camp-json { margin-top: 12px; }
+    .camp-json summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+    .camp-json pre {
+      background: var(--bg3); border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; overflow-x: auto; font-size: 12px; direction: ltr; text-align: left; margin-top: 8px;
+    }
     .comp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .comp-btn {
       flex: 1; padding: 7px; border-radius: 8px; font-size: 12px; font-weight: 600;
@@ -596,7 +608,7 @@
       <span class="nav-icon">🧮</span><span>קטלוג</span>
     </button>
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
-      <span class="nav-icon">✍️</span><span>תוכן</span>
+      <span class="nav-icon">📣</span><span>פרסום וקידום</span>
     </button>
     <button class="nav-btn" id="nav-market" onclick="showView('market')">
       <span class="nav-icon">📈</span><span>שוק</span>
@@ -657,9 +669,9 @@
           <span class="act-icon">👁️</span>
           <div><div>סרוק מתחרים</div><div class="act-desc">מחירים, מסרים, הזדמנויות</div></div>
         </button>
-        <button class="act-btn" onclick="showView('content'); generateWeeklyContent()">
-          <span class="act-icon">📱</span>
-          <div><div>תוכן לשבוע</div><div class="act-desc">WhatsApp + SEO + רעיונות</div></div>
+        <button class="act-btn" onclick="showView('content')">
+          <span class="act-icon">📣</span>
+          <div><div>פרסום וקידום</div><div class="act-desc">קמפיין, מודעות, תגיות SEO</div></div>
         </button>
         <button class="act-btn" onclick="showView('market'); runMarketOpp()">
           <span class="act-icon">💰</span>
@@ -793,24 +805,23 @@
       <div id="catalogTable"></div>
     </div>
 
-    <!-- ── CONTENT ── -->
+    <!-- ── PROMO (פרסום וקידום) ── -->
     <div id="view-content" class="view">
       <div>
-        <div class="sec-title">✍️ מנוע תוכן</div>
-        <div class="sec-sub">WhatsApp, SEO, רעיונות לסרטונים ותמונות, אסטרטגיית מכירה</div>
+        <div class="sec-title">📣 פרסום וקידום</div>
+        <div class="sec-sub">חבילת קמפיין מלאה: אסטרטגיה, מודעות, תגיות SEO וקהל יעד — + תמונת קמפיין ופלט JSON</div>
       </div>
       <div class="input-row">
-        <input class="inp" id="contInp" placeholder="מוצר ליצירת חבילת תוכן מלאה" />
-        <button class="btn btn-blue" onclick="generateContentPack()">🎯 חבילת תוכן</button>
-        <button class="btn btn-green" onclick="generateWeeklyContent()">📅 תוכן שבועי</button>
-        <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונה</button>
+        <input class="inp" id="contInp" placeholder="מוצר / מבצע / מטרת קמפיין" />
+        <button class="btn btn-blue" onclick="generateCampaign()">🎯 צור קמפיין</button>
+        <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונת קמפיין</button>
       </div>
       <div id="contOutput">
         <div class="card"><div class="card-body">
           <div class="card-empty">
-            <div class="card-empty-icon">✍️</div>
-            <div class="card-empty-title">מנוע יצירת תוכן</div>
-            <div class="card-empty-desc">הכנס מוצר לקבלת חבילה מלאה: WhatsApp + SEO + סרטון + אסטרטגיה — ועם 🖼️ גם תמונת מודעה אמיתית</div>
+            <div class="card-empty-icon">📣</div>
+            <div class="card-empty-title">מנוע פרסום וקידום</div>
+            <div class="card-empty-desc">הכנס מוצר/מבצע לקבלת חבילת קמפיין: אסטרטגיה · מודעות ל-Facebook/Instagram/WhatsApp · תגיות SEO · קהל יעד · והכל גם ב-JSON. עם 🖼️ גם תמונת קמפיין.</div>
           </div>
         </div></div>
       </div>
@@ -2250,6 +2261,95 @@ function findProducts(query) {
     .sort((a, b) => b.score - a.score)
     .slice(0, 3)
     .map(x => x.p);
+}
+
+// ── פרסום וקידום: מנוע קמפיינים ──
+let lastCampaignJson = '';
+
+function extractJson(text) {
+  if (!text) return null;
+  let s = text;
+  const m = text.match(/```json\s*([\s\S]*?)```/i) || text.match(/```\s*([\s\S]*?)```/);
+  if (m) s = m[1];
+  else { const a = text.indexOf('{'), b = text.lastIndexOf('}'); if (a >= 0 && b > a) s = text.slice(a, b + 1); }
+  try { return JSON.parse(s); } catch { return null; }
+}
+
+function renderCampaign(o) {
+  const p = o.platforms || {};
+  const chips = arr => (Array.isArray(arr) ? arr : []).map(x => `<span class="known-chip">${esc(String(x))}</span>`).join(' ');
+  const block = (title, body) => `<div class="camp-block"><div class="camp-title">${title}</div><div>${body}</div></div>`;
+  let html = '';
+  if (o.strategy) html += block('🎯 אסטרטגיה', esc(o.strategy));
+  if (o.targetAudience) html += block('👥 קהל יעד', esc(o.targetAudience));
+  if (p.facebook) html += block('📘 Facebook', `<b>${esc(p.facebook.headline || '')}</b><br>${esc(p.facebook.primaryText || '')}<br><span class="muted-sm">CTA: ${esc(p.facebook.cta || '')}</span>`);
+  if (p.instagram) html += block('📸 Instagram', `${esc(p.instagram.caption || '')}<br><span class="muted-sm">CTA: ${esc(p.instagram.cta || '')}</span>`);
+  if (p.whatsapp) html += block('💬 WhatsApp', esc(p.whatsapp.message || ''));
+  if (o.seoTags) html += block('🔍 תגיות SEO', chips(o.seoTags));
+  if (o.hashtags) html += block('#️⃣ האשטגים', chips(o.hashtags));
+  html += `<div class="gen-img-actions">
+    <button class="btn btn-purple" onclick="generateAdImage()">🖼️ צור תמונת קמפיין</button>
+    <button class="btn btn-blue" onclick="copyCampaignJson()">📋 העתק JSON</button>
+  </div>`;
+  html += `<details class="camp-json"><summary>הצג JSON גולמי</summary><pre>${esc(lastCampaignJson)}</pre></details>`;
+  return html;
+}
+
+function copyCampaignJson() {
+  if (!lastCampaignJson) return;
+  navigator.clipboard?.writeText(lastCampaignJson).then(() => setStatus('JSON הועתק ✓', false));
+}
+
+async function generateCampaign() {
+  const prod = document.getElementById('contInp').value.trim();
+  if (!prod) return;
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('יוצר קמפיין...', true);
+  setOutput('contOutput', outputCard('📣 יוצר קמפיין', loadingHtml(`בונה חבילת קמפיין עבור "${prod}"...`)));
+
+  const matches = findProducts(prod);
+  lastProductMatch = matches[0] || null;
+  const grounding = matches.length
+    ? `\nמוצרים תואמים מהקטלוג של dna-tools.co.il — בסס על דפי המוצר:\n` +
+      matches.map(m => `• ${m.name}${m.price ? ` | ${m.price}` : ''}${m.url ? ` | ${m.url}` : ''}`).join('\n')
+    : `\n(המוצר לא נמצא בקטלוג — חפש אותו ישירות באתר site:dna-tools.co.il)`;
+
+  const prompt = `אתה אסטרטג פרסום דיגיטלי B2B עבור דנא ציוד אינסטלציה (קבלנים, אינסטלטורים, ישראל).
+בנה חבילת קמפיין פרסום מלאה עבור: "${prod}".${grounding}
+
+החזר אך ורק אובייקט JSON תקין בתוך בלוק \`\`\`json, בעברית, במבנה:
+\`\`\`json
+{
+  "product": "שם המוצר/מבצע",
+  "strategy": "אסטרטגיית הקמפיין ב-2-3 משפטים",
+  "targetAudience": "קהל היעד המדויק",
+  "platforms": {
+    "facebook": { "headline": "כותרת", "primaryText": "טקסט מודעה", "cta": "קריאה לפעולה" },
+    "instagram": { "caption": "כיתוב לפוסט", "cta": "קריאה לפעולה" },
+    "whatsapp": { "message": "הודעת וואטסאפ מוכנה לשליחה" }
+  },
+  "seoTags": ["5-8 תגיות SEO"],
+  "hashtags": ["5-8 האשטגים"],
+  "imagePrompt": "תיאור באנגלית לתמונת קמפיין"
+}
+\`\`\`
+אל תמציא מפרט או מחיר שלא קיים באתר. החזר JSON בלבד, בלי טקסט מחוץ לבלוק.`;
+
+  try {
+    const r = await callAI(prompt, true);
+    const obj = extractJson(r);
+    if (obj) {
+      lastCampaignJson = JSON.stringify(obj, null, 2);
+      setOutput('contOutput', outputCard(`📣 קמפיין: ${esc(obj.product || prod)}`, renderCampaign(obj)));
+    } else {
+      lastCampaignJson = '';
+      setOutput('contOutput', outputCard(`📣 קמפיין: ${esc(prod)}`, renderAI(r)));
+    }
+    setStatus('הקמפיין מוכן', false);
+  } catch (e) {
+    setOutput('contOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
 }
 
 async function generateContentPack() {
