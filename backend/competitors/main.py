@@ -202,7 +202,7 @@ def list_changes(competitor_id=None, change_type=None):
 # מודל: כל "דגם" (model) הוא מוצר ספציפי עם הקישור והמחיר שלי, ומולו מתחרים (priceSources)
 # שמוכרים את אותו דגם — כל אחד עם קישור ומחיר. הסורק מושך מחיר אמיתי מכל קישור.
 
-MODEL_FIELDS = {"name", "myUrl", "myPrice", "status"}
+MODEL_FIELDS = {"name", "myUrl", "myPrice", "myCost", "status"}
 SOURCE_FIELDS = {"modelId", "name", "url"}
 
 SCAN_HEADERS = {
@@ -730,18 +730,26 @@ def create_tracked(data):
     if not valid:
         return _json({"error": "לא נמצא מחיר אצל אף אחד מהמתחרים — בדוק את הקישורים"}, 422)
 
+    try:
+        cost = float(data.get("myCost")) if data.get("myCost") not in (None, "") else None
+    except Exception:
+        cost = None
+
     now = firestore.SERVER_TIMESTAMP
     # אם הדגם כבר קיים (אותו myUrl) — מוסיפים אליו את המתחרים (מיזוג), לא חוסמים
     existing = list(db.collection("models").where("myUrl", "==", my_url).limit(1).stream())
     if existing:
         mref = existing[0].reference
-        mref.update({"myPrice": my["price"], "lastScanAt": now, "updatedAt": now})
+        upd = {"myPrice": my["price"], "lastScanAt": now, "updatedAt": now}
+        if cost is not None:
+            upd["myCost"] = cost
+        mref.update(upd)
         have = {s.to_dict().get("url") for s in
                 db.collection("priceSources").where("modelId", "==", mref.id).stream()}
     else:
         mref = db.collection("models").document()
-        mref.set({"name": name, "myUrl": my_url, "myPrice": my["price"], "status": "active",
-                  "lastScanAt": now, "createdAt": now, "updatedAt": now})
+        mref.set({"name": name, "myUrl": my_url, "myPrice": my["price"], "myCost": cost,
+                  "status": "active", "lastScanAt": now, "createdAt": now, "updatedAt": now})
         have = set()
 
     for u, price in valid:

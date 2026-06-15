@@ -730,6 +730,7 @@
       <div class="add-model-box">
         <input class="inp" id="prodName" placeholder="שם הדגם (אופציונלי)" />
         <input class="inp" id="myProdUrl" placeholder="הקישור שלי למוצר *" />
+        <input class="inp" id="prodCost" type="number" placeholder='עלות הקנייה שלי ללא מע"מ (אופציונלי)' />
         <div class="muted-sm">קישורי מתחרים לאותו מוצר (הדבק ולחץ +):</div>
         <div id="compProdList" class="known-list"></div>
         <div class="disc-manual">
@@ -1679,12 +1680,27 @@ function renderModels() {
       ? `${fmtPrice(cheapest)}${cheapestComp ? ' <span class="muted-sm">— ' + esc(cheapestComp.name || '') + '</span>' : ''}`
       : '<span class="price-neutral">—</span>';
 
+    // עלות ורווחיות (המחיר כולל מע"מ 18%, העלות נטו → רווח על המחיר נטו)
+    const VAT = 1.18;
+    const cost = (m.myCost === 0 || m.myCost) ? m.myCost : null;
+    const marginNow = (cost != null && m.myPrice != null)
+      ? ((m.myPrice / VAT - cost) / (m.myPrice / VAT) * 100) : null;
+    const marginMatch = (cost != null && cheapest != null)
+      ? ((cheapest / VAT - cost) / (cheapest / VAT) * 100) : null;
+    const pctCell = v => v == null ? '<span class="price-neutral">—</span>'
+      : `<span class="${v < 0 ? 'price-low' : 'price-high'}">${v.toFixed(1)}%</span>`;
+    const costCell = `${cost != null ? fmtPrice(cost) : '<span class="price-neutral">—</span>'} `
+      + `<button class="icon-btn" title="ערוך עלות" onclick="event.stopPropagation();editCost('${m.id}')">✏️</button>`;
+
     const mainRow = `
       <tr class="pt-row ${open ? 'pt-open' : ''}" onclick="toggleModel('${m.id}')">
         <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(m.name)}</td>
         <td class="pt-my">${fmtPrice(m.myPrice)}</td>
+        <td>${costCell}</td>
+        <td>${pctCell(marginNow)}</td>
         <td>${cheapCell}</td>
         <td>${gapCell}</td>
+        <td>${pctCell(marginMatch)}</td>
         <td class="pt-num">${comps.length}</td>
         <td>${statusCell}</td>
       </tr>`;
@@ -1702,7 +1718,7 @@ function renderModels() {
       </div>`).join('') : '<div class="page-empty">אין עדיין מתחרים לדגם זה.</div>';
 
     const detailRow = open ? `
-      <tr class="pt-detail"><td colspan="6">
+      <tr class="pt-detail"><td colspan="9">
         <div class="detail-head">
           <span class="muted-sm">הקישור שלי:</span>
           ${m.myUrl ? `<a class="link-name" href="${esc(m.myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : '<span class="price-neutral">לא הוגדר</span>'}
@@ -1724,7 +1740,7 @@ function renderModels() {
   el.innerHTML = `
     <table class="price-table">
       <thead><tr>
-        <th>דגם</th><th>המחיר שלי</th><th>הזול במתחרים</th><th>פער</th><th>מתחרים</th><th>מצב</th>
+        <th>דגם</th><th>המחיר שלי</th><th>עלות</th><th>רווח</th><th>הזול במתחרים</th><th>פער</th><th>רווח אם אשווה</th><th>מתחרים</th><th>מצב</th>
       </tr></thead>
       <tbody>${body}</tbody>
     </table>`;
@@ -1757,14 +1773,17 @@ function delCompProd(i) {
 async function trackProduct() {
   const myUrl = document.getElementById('myProdUrl').value.trim();
   const name = document.getElementById('prodName').value.trim();
+  const costRaw = document.getElementById('prodCost').value.trim();
+  const myCost = costRaw === '' ? null : parseFloat(costRaw);
   const competitorUrls = compProdList.slice();
   if (!myUrl) { alert('הזן את הקישור שלך למוצר'); return; }
   if (!competitorUrls.length) { alert('הוסף לפחות קישור מתחרה אחד (עם +)'); return; }
   setStatus('סורק מחירים ויוצר דגם...', true);
   try {
-    const d = await compApi('/track', 'POST', { name, myUrl, competitorUrls });
+    const d = await compApi('/track', 'POST', { name, myUrl, competitorUrls, myCost });
     document.getElementById('myProdUrl').value = '';
     document.getElementById('prodName').value = '';
+    document.getElementById('prodCost').value = '';
     compProdList = [];
     renderCompProdList();
     await loadModels();
@@ -1815,6 +1834,20 @@ async function editModelUrl(id) {
     await compApi('/models/' + id, 'PUT', { myUrl: v.trim() });
     await loadModels();
     setStatus('עודכן', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function editCost(id) {
+  const m = models.find(x => x.id === id);
+  const cur = (m && (m.myCost === 0 || m.myCost)) ? m.myCost : '';
+  const v = prompt('עלות הקנייה שלך למוצר (ללא מע"מ, ₪):', cur);
+  if (v === null) return;
+  const num = parseFloat(String(v).replace(/[^\d.]/g, ''));
+  setStatus('שומר עלות...', true);
+  try {
+    await compApi('/models/' + id, 'PUT', { myCost: isNaN(num) ? null : num });
+    await loadModels();
+    setStatus('נשמר', false);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
