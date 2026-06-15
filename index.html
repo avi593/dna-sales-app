@@ -1091,11 +1091,11 @@ async function callImageAI(prompt, refDataUrl) {
   });
   const d = await r.json();
   if (d.error) throw new Error(d.error.message);
-  const parts = d.candidates?.[0]?.content?.parts || [];
-  const img = parts.find(p => p.inlineData || p.inline_data);
+  const respParts = d.candidates?.[0]?.content?.parts || [];
+  const img = respParts.find(p => p.inlineData || p.inline_data);
   const inline = img && (img.inlineData || img.inline_data);
   if (!inline) {
-    const txt = parts.filter(p => p.text).map(p => p.text).join(' ');
+    const txt = respParts.filter(p => p.text).map(p => p.text).join(' ');
     throw new Error(txt || 'המודל לא החזיר תמונה');
   }
   const mime = inline.mimeType || inline.mime_type || 'image/png';
