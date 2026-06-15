@@ -461,19 +461,66 @@ def _get_config(key, default=None):
 
 
 def set_config(data):
-    fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey"})
+    fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
     # מחזירים רק האם המפתחות מוגדרים — בלי לחשוף אותם
     return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey")),
-                  "ideogramConfigured": bool(_get_config("ideogramKey"))})
+                  "ideogramConfigured": bool(_get_config("ideogramKey")),
+                  "metaConfigured": bool(_get_config("metaToken"))})
 
 
 def config_status():
     return _json({"serpConfigured": bool(_get_config("serpApiKey")),
                   "serpProvider": _get_config("serpProvider", "serpapi"),
-                  "ideogramConfigured": bool(_get_config("ideogramKey"))})
+                  "ideogramConfigured": bool(_get_config("ideogramKey")),
+                  "metaConfigured": bool(_get_config("metaToken"))})
+
+
+def ads_library(data):
+    """מושך מודעות מתחרים מספריית המודעות של Meta (Facebook/Instagram). קריאה בלבד."""
+    data = data or {}
+    token = _get_config("metaToken")
+    if not token:
+        return _json({"error": "לא הוגדר Meta Access Token"}, 400)
+    terms = (data.get("searchTerms") or "").strip()
+    page_ids = data.get("searchPageIds") or []
+    if not terms and not page_ids:
+        return _json({"error": "יש להזין מילת חיפוש או מזהה דף"}, 400)
+    params = {
+        "access_token": token,
+        "ad_reached_countries": _jsonlib.dumps(data.get("countries") or ["IL"]),
+        "ad_type": data.get("adType") or "ALL",
+        "ad_active_status": data.get("activeStatus") or "ACTIVE",
+        "fields": "id,page_id,page_name,ad_creative_bodies,ad_creative_link_titles,"
+                  "ad_snapshot_url,ad_delivery_start_time,publisher_platforms",
+        "limit": min(int(data.get("limit") or 25), 50),
+    }
+    if terms:
+        params["search_terms"] = terms
+    if page_ids:
+        params["search_page_ids"] = _jsonlib.dumps(page_ids)
+    try:
+        r = requests.get("https://graph.facebook.com/v21.0/ads_archive", params=params, timeout=30)
+        d = r.json()
+        if "error" in d:
+            return _json({"error": d["error"].get("message", "שגיאת Meta"), "raw": d["error"]}, 502)
+        ads = []
+        for a in d.get("data", []):
+            ads.append({
+                "id": a.get("id"),
+                "pageId": a.get("page_id"),
+                "pageName": a.get("page_name"),
+                "body": (a.get("ad_creative_bodies") or [""])[0],
+                "title": (a.get("ad_creative_link_titles") or [""])[0],
+                "url": a.get("ad_snapshot_url"),
+                "start": a.get("ad_delivery_start_time"),
+                "platforms": a.get("publisher_platforms") or [],
+            })
+        return _json({"ads": ads, "count": len(ads)})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
 
 
 PRICE_TEXT = re.compile(r'(?:₪|ש"?ח|NIS)\s*[\d.,]+|[\d.,]{2,}\s*(?:₪|ש"?ח|NIS)')
@@ -1060,6 +1107,10 @@ def competitors_api(request):
         elif resource == "design":
             if method == "POST":
                 return design_image(data)
+
+        elif resource == "ads-library":
+            if method == "POST":
+                return ads_library(data)
 
         elif resource == "catalog":
             if method == "GET":

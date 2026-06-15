@@ -825,6 +825,17 @@
           </div>
         </div></div>
       </div>
+
+      <div style="margin-top:22px">
+        <div class="sec-title">🔎 מודעות מתחרים (ספריית Meta)</div>
+        <div class="sec-sub">מודעות Facebook/Instagram פעילות של מתחרים — מחקר ותובנות</div>
+      </div>
+      <div class="input-row">
+        <input class="inp" id="adsQuery" placeholder="מילת חיפוש / שם מתחרה (לדוגמה: איתור נזילות)" onkeydown="if(event.key==='Enter')searchCompetitorAds()" />
+        <button class="btn btn-blue" onclick="searchCompetitorAds()">🔎 חפש מודעות</button>
+        <button class="comp-btn" onclick="setMetaToken()">⚙️ הגדרות Meta</button>
+      </div>
+      <div id="adsOutput"></div>
     </div>
 
     <!-- ── MARKET ── -->
@@ -2323,6 +2334,78 @@ function findProducts(query) {
 // ── פרסום וקידום: מנוע קמפיינים ──
 let lastCampaignJson = '';
 let lastCampaign = null;
+
+// ── מודעות מתחרים (ספריית Meta) ──
+let lastAds = [];
+
+async function setMetaToken() {
+  const token = prompt('הדבק את ה-Meta Access Token (לספריית המודעות):');
+  if (token === null || !token.trim()) return;
+  try {
+    await compApi('/config', 'POST', { metaToken: token.trim() });
+    alert('Meta Access Token נשמר ✓');
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function searchCompetitorAds() {
+  const q = document.getElementById('adsQuery').value.trim();
+  if (!q) { alert('הזן מילת חיפוש או שם מתחרה'); return; }
+  setStatus('מחפש מודעות מתחרים...', true);
+  setOutput('adsOutput', outputCard('🔎 מחפש', loadingHtml(`מחפש מודעות פעילות עבור "${q}"...`)));
+  try {
+    const d = await compApi('/ads-library', 'POST', { searchTerms: q, countries: ['IL'], limit: 30 });
+    lastAds = d.ads || [];
+    renderAds(q);
+    setStatus(`נמצאו ${lastAds.length} מודעות`, false);
+  } catch (e) {
+    setOutput('adsOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
+    setStatus('שגיאה', false);
+  }
+}
+
+function renderAds(q) {
+  if (!lastAds.length) {
+    setOutput('adsOutput', outputCard('🔎 מודעות מתחרים', '<div class="page-empty">לא נמצאו מודעות פעילות. נסה מילת חיפוש אחרת.</div>'));
+    return;
+  }
+  const rows = lastAds.map(a => `
+    <div class="src-row" style="align-items:flex-start">
+      <div class="src-info">
+        <div class="src-name">${esc(a.pageName || '')} ${a.platforms?.length ? `<span class="muted-sm">· ${esc(a.platforms.join(', '))}</span>` : ''}</div>
+        ${a.title ? `<div style="font-weight:600;font-size:13px">${esc(a.title)}</div>` : ''}
+        <div class="muted-sm" style="white-space:normal;line-height:1.5">${esc((a.body || '').slice(0, 220))}</div>
+        <a class="src-link" href="${esc(a.url)}" target="_blank" rel="noopener">צפה במודעה ↗</a>
+      </div>
+    </div>`).join('');
+  const head = `<div class="gen-img-actions" style="margin-bottom:10px">
+      <button class="btn btn-purple" onclick="adsInsights()">🧠 תובנות AI מהמודעות</button>
+    </div>`;
+  setOutput('adsOutput', outputCard(`🔎 ${lastAds.length} מודעות פעילות: ${esc(q)}`, head + `<div class="src-list">${rows}</div>`));
+}
+
+async function adsInsights() {
+  if (!lastAds.length) return;
+  if (!apiKey) { showApiModal(); return; }
+  setStatus('מנתח מודעות...', true);
+  const adsText = lastAds.map((a, i) => `${i + 1}. [${a.pageName}] ${a.title || ''} — ${a.body || ''}`).join('\n');
+  const prompt = `הנה מודעות Facebook/Instagram פעילות של מתחרים בענף ציוד אינסטלציה ואיתור נזילות בישראל:\n\n${adsText}\n\nנתח ותן לי:
+## 🎯 מסרים חוזרים
+אילו הבטחות/זוויות שיווקיות חוזרות אצל המתחרים?
+## 💰 הצעות ומבצעים
+אילו הצעות (מחיר, אחריות, ייעוץ חינם) הם מפרסמים?
+## 🧩 פערים והזדמנויות
+מה דנא יכולה לעשות אחרת/טוב יותר?
+## ✍️ 3 רעיונות למודעה לדנא
+שיתבדלו מהמתחרים`;
+  try {
+    const r = await callAI(prompt, false);
+    setOutput('adsOutput', outputCard('🧠 תובנות ממודעות המתחרים', renderAI(r) +
+      `<div class="gen-img-actions"><button class="comp-btn" onclick="renderAds('')">↩︎ חזרה לרשימת המודעות</button></div>`));
+    setStatus('הושלם', false);
+  } catch (e) {
+    setStatus('שגיאה', false); alert('שגיאה: ' + e.message);
+  }
+}
 
 async function setIdeogram() {
   const key = prompt('הדבק את מפתח ה-API של Ideogram:');
