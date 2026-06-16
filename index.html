@@ -596,8 +596,8 @@
     <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard')">
       <span class="nav-icon">📊</span><span>דשבורד</span>
     </button>
-    <button class="nav-btn" id="nav-products" onclick="showView('products')">
-      <span class="nav-icon">📦</span><span>מוצרים</span>
+    <button class="nav-btn" id="nav-customers" onclick="showView('customers'); loadCustomers()">
+      <span class="nav-icon">🤝</span><span>קשרי לקוחות</span>
     </button>
     <button class="nav-btn" id="nav-competitors" onclick="showView('competitors')">
       <span class="nav-icon">🔍</span><span>מתחרים</span>
@@ -662,9 +662,9 @@
           <span class="act-icon">🚀</span>
           <div><div>סריקה יומית מלאה</div><div class="act-desc">ניתוח אתר + שוק + מתחרים</div></div>
         </button>
-        <button class="act-btn" onclick="showView('products'); analyzeTopProducts()">
-          <span class="act-icon">🔥</span>
-          <div><div>מוצרי TOP לקידום</div><div class="act-desc">AI בוחר את המוצרים הטובים ביותר</div></div>
+        <button class="act-btn" onclick="showView('customers'); loadCustomers()">
+          <span class="act-icon">🤝</span>
+          <div><div>קשרי לקוחות</div><div class="act-desc">ניהול לקוחות, לידים ומעקב</div></div>
         </button>
         <button class="act-btn" onclick="showView('competitors'); scanAllCompetitors()">
           <span class="act-icon">👁️</span>
@@ -718,25 +718,27 @@
     </div>
 
     <!-- ── PRODUCTS ── -->
-    <div id="view-products" class="view">
+    <div id="view-customers" class="view">
       <div>
-        <div class="sec-title">📦 מודיעין מוצרים</div>
-        <div class="sec-sub">ניתוח עמוק — פוטנציאל, קהל יעד, אסטרטגיה, תוכן</div>
+        <div class="sec-title">🤝 קשרי לקוחות</div>
+        <div class="sec-sub">ניהול לקוחות ולידים — פרטי קשר, סטטוס, מעקב והודעות</div>
+      </div>
+      <div class="input-row" style="flex-wrap:wrap">
+        <input class="inp" id="custName" placeholder="שם הלקוח *" style="max-width:160px" />
+        <input class="inp" id="custCompany" placeholder="חברה" style="max-width:140px" />
+        <input class="inp" id="custPhone" placeholder="טלפון" style="max-width:120px" />
+        <input class="inp" id="custEmail" placeholder="אימייל" style="max-width:150px" />
+        <select class="inp" id="custStatus" style="max-width:120px">
+          <option value="ליד">ליד</option>
+          <option value="לקוח פעיל">לקוח פעיל</option>
+          <option value="לא פעיל">לא פעיל</option>
+        </select>
+        <button class="btn btn-blue" onclick="addCustomer()">➕ הוסף לקוח</button>
       </div>
       <div class="input-row">
-        <input class="inp" id="prodInp" placeholder="שם מוצר לניתוח (לדוגמה: מצלמה תרמית, שסתום, ברז אמן)" />
-        <button class="btn btn-blue" onclick="analyzeProduct()">נתח מוצר</button>
-        <button class="btn btn-green" onclick="analyzeTopProducts()">🔥 TOP מוצרים</button>
+        <input class="inp" id="custSearch" placeholder="🔎 חיפוש לפי שם / חברה / טלפון..." oninput="renderCustomers()" />
       </div>
-      <div id="prodOutput">
-        <div class="card"><div class="card-body">
-          <div class="card-empty">
-            <div class="card-empty-icon">📦</div>
-            <div class="card-empty-title">ניתוח מוצרים</div>
-            <div class="card-empty-desc">הכנס שם מוצר לניתוח עמוק, או לחץ "TOP מוצרים" להמלצות</div>
-          </div>
-        </div></div>
-      </div>
+      <div id="custOutput"></div>
     </div>
 
     <!-- ── COMPETITORS ── -->
@@ -3328,6 +3330,116 @@ function setMyPage() {
     if (v !== null) localStorage.setItem('dna_page_' + p.key, v.trim());
   }
   alert('הקישורים נשמרו ✓');
+}
+
+// ── קשרי לקוחות (CRM) ──
+let customers = [];
+const CUST_STATUSES = ['ליד', 'לקוח פעיל', 'לא פעיל'];
+
+function waNumber(phone) {
+  const p = (phone || '').replace(/[^\d]/g, '');
+  if (!p) return '';
+  return p.startsWith('972') ? p : '972' + p.replace(/^0/, '');
+}
+
+async function loadCustomers() {
+  const el = document.getElementById('custOutput');
+  if (el && !customers.length) el.innerHTML = loadingHtml('טוען לקוחות...');
+  try { const d = await compApi('/customers'); customers = d.customers || []; renderCustomers(); }
+  catch (e) { if (el) el.innerHTML = '<div class="page-empty" style="color:#f87171">שגיאה: ' + esc(e.message) + '</div>'; }
+}
+
+function renderCustomers() {
+  const el = document.getElementById('custOutput');
+  if (!el) return;
+  const q = (document.getElementById('custSearch') ? document.getElementById('custSearch').value : '').toLowerCase().trim();
+  let list = customers;
+  if (q) list = customers.filter(c => [c.name, c.company, c.phone, c.email].some(v => (v || '').toLowerCase().includes(q)));
+  if (!list.length) {
+    el.innerHTML = '<div class="card-empty" style="padding:30px"><div class="card-empty-icon">🤝</div><div class="card-empty-title">' +
+      (customers.length ? 'לא נמצאו לקוחות תואמים' : 'אין עדיין לקוחות') + '</div><div class="card-empty-desc">הוסף לקוח חדש מהשורה למעלה.</div></div>';
+    return;
+  }
+  el.innerHTML = '<div class="src-list">' + list.map(c => {
+    const wa = waNumber(c.phone);
+    return '<div class="src-row" style="align-items:flex-start;flex-wrap:wrap;gap:8px">' +
+      '<div class="src-info" style="flex:1;min-width:200px">' +
+        '<div class="src-name">' + esc(c.name || '') + (c.company ? ' · <span class="muted-sm">' + esc(c.company) + '</span>' : '') + '</div>' +
+        '<div class="muted-sm">' + (c.phone ? '📞 ' + esc(c.phone) + '   ' : '') + (c.email ? '✉️ ' + esc(c.email) : '') + '</div>' +
+        (c.notes ? '<div class="muted-sm" style="white-space:normal;margin-top:3px">📝 ' + esc(c.notes) + '</div>' : '') +
+      '</div>' +
+      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
+        '<select class="inp" style="max-width:120px;padding:4px 8px" onchange="updateCustomerField(\'' + c.id + '\',\'status\',this.value)">' +
+          CUST_STATUSES.map(s => '<option' + (c.status === s ? ' selected' : '') + '>' + s + '</option>').join('') +
+        '</select>' +
+        (wa ? '<a class="comp-btn" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">💬 וואטסאפ</a>' : '') +
+        '<button class="comp-btn" onclick="editCustomerNotes(\'' + c.id + '\')">📝 הערה</button>' +
+        '<button class="comp-btn" onclick="draftCustomerMsg(\'' + c.id + '\')">🤖 נסח הודעה</button>' +
+        '<button class="comp-btn" onclick="deleteCustomer(\'' + c.id + '\')">🗑️</button>' +
+      '</div>' +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+async function addCustomer() {
+  const name = document.getElementById('custName').value.trim();
+  if (!name) { alert('הזן שם לקוח'); return; }
+  const body = {
+    name,
+    company: document.getElementById('custCompany').value.trim(),
+    phone: document.getElementById('custPhone').value.trim(),
+    email: document.getElementById('custEmail').value.trim(),
+    status: document.getElementById('custStatus').value,
+  };
+  try {
+    await compApi('/customers', 'POST', body);
+    ['custName', 'custCompany', 'custPhone', 'custEmail'].forEach(id => document.getElementById(id).value = '');
+    await loadCustomers();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function updateCustomerField(id, field, value) {
+  try {
+    await compApi('/customers/' + id, 'PUT', { [field]: value });
+    const c = customers.find(x => x.id === id); if (c) c[field] = value;
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+function editCustomerNotes(id) {
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const v = prompt('הערות על הלקוח:', c.notes || '');
+  if (v === null) return;
+  updateCustomerField(id, 'notes', v.trim()).then(renderCustomers);
+}
+
+async function deleteCustomer(id) {
+  const c = customers.find(x => x.id === id);
+  if (!confirm('למחוק את הלקוח ' + ((c && c.name) || '') + '?')) return;
+  try { await compApi('/customers/' + id, 'DELETE'); customers = customers.filter(x => x.id !== id); renderCustomers(); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function draftCustomerMsg(id) {
+  if (!apiKey) { showApiModal(); return; }
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const what = prompt('על מה ההודעה? (לדוגמה: מעקב אחרי הצעת מחיר, מבצע חדש, חידוש קשר)', 'מעקב וחידוש קשר');
+  if (what === null) return;
+  setStatus('מנסח הודעה...', true);
+  const msgPrompt = 'נסח הודעת וואטסאפ קצרה, אישית ומקצועית בעברית מטעם דנא ציוד אינסטלציה אל לקוח B2B.\n' +
+    'לקוח: ' + (c.name || '') + (c.company ? ' (' + c.company + ')' : '') + '. סטטוס: ' + (c.status || '') + '.' + (c.notes ? ' הערות: ' + c.notes + '.' : '') +
+    '\nמטרת ההודעה: ' + what + '.\nההודעה: חמה, מקצועית, לא מכירתית-אגרסיבית, עד 3 משפטים, עם קריאה עדינה לפעולה. החזר רק את ההודעה עצמה.';
+  try {
+    const r = await callAI(msgPrompt, false);
+    setStatus('מוכן', false);
+    const wa = waNumber(c.phone);
+    if (wa) {
+      if (confirm('ההודעה שנוסחה:\n\n' + r + '\n\nלפתוח בוואטסאפ עם ההודעה?')) {
+        window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(r), '_blank', 'noopener');
+      }
+    } else {
+      alert('ההודעה שנוסחה:\n\n' + r + '\n\n(אין טלפון לשליחה בוואטסאפ — הוסף טלפון ללקוח.)');
+    }
+  } catch (e) { setStatus('שגיאה', false); alert('שגיאה: ' + e.message); }
 }
 
 // ── דוחות קמפיינים: פוסטים אורגניים + מודעות ממומנות + המלצות AI ──
