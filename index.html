@@ -844,6 +844,12 @@
         <button class="btn btn-green" onclick="publishToFb()">📤 פרסם בפייסבוק (אישור לפני)</button>
         <input type="file" id="fbImgInput" accept="image/*" style="display:none" onchange="onFbImgPick(event)">
       </div>
+      <div class="input-row" style="margin-top:8px">
+        <input class="inp" id="fbBuyLink" placeholder="🛒 לינק רכישה (יקוצר אוטומטית) — מתמלא לבד מהמוצר התואם">
+      </div>
+      <label class="muted-sm" style="display:block;margin-top:6px;cursor:pointer">
+        <input type="checkbox" id="fbInclExtras" checked style="vertical-align:middle"> צרף אוטומטית לפוסט: לינק רכישה מקוצר + תגיות SEO + האשטגים
+      </label>
       <div id="fbImgPreview" class="muted-sm" style="margin-top:8px"></div>
 
       <div style="margin-top:22px">
@@ -2601,9 +2607,27 @@ async function publishToFb() {
   let msg = f ? [f.headline, f.primaryText, f.cta].filter(Boolean).join('\n\n') : '';
   if (!msg) msg = prompt('טקסט הפוסט לפרסום בפייסבוק (אפשר להשאיר ריק אם יש תמונה):', document.getElementById('contInp').value.trim()) || '';
   if (!msg.trim() && !fbUploadImage) { alert('אין תוכן לפרסום — כתוב טקסט או צרף תמונה'); return; }
+
+  // צירוף אוטומטי לפוסט: לינק רכישה מקוצר + תגיות SEO + האשטגים
+  if (document.getElementById('fbInclExtras')?.checked) {
+    setStatus('מכין את הפוסט (מקצר לינק)...', true);
+    let buy = (document.getElementById('fbBuyLink')?.value || lastProductMatch?.url || '').trim();
+    if (buy) {
+      try { const s = await compApi('/shorten', 'POST', { url: buy }); if (s.short) buy = s.short; } catch (_) {}
+      msg += '\n\n🛒 לרכישה: ' + buy;
+    }
+    // האשטגים + תגיות SEO → שורת האשטגים אחת (רווחים→קו תחתון, ללא כפילויות)
+    const tags = [...(lastCampaign?.hashtags || []), ...(lastCampaign?.seoTags || [])];
+    const hashLine = tags
+      .map(t => '#' + String(t).replace(/^#/, '').trim().replace(/\s+/g, '_'))
+      .filter((v, i, a) => v.length > 1 && a.indexOf(v) === i)
+      .join(' ');
+    if (hashLine) msg += '\n\n' + hashLine;
+  }
+
   // שער אישור — תצוגה מקדימה ואישור מפורש לפני פרסום
   const note = fbUploadImage ? '\n\n[🖼️ + תמונה מצורפת]' : '';
-  if (!confirm('🔎 אישור פרסום — הפוסט הבא יתפרסם בדף הפייסבוק שלך:\n\n' + (msg || '(ללא טקסט)') + note + '\n\nלפרסם?')) return;
+  if (!confirm('🔎 אישור פרסום — הפוסט הבא יתפרסם בדף הפייסבוק שלך:\n\n' + (msg || '(ללא טקסט)') + note + '\n\nלפרסם?')) { setStatus('בוטל', false); return; }
   setStatus('מפרסם בפייסבוק...', true);
   try {
     const body = { message: msg };
@@ -2625,6 +2649,8 @@ async function generateCampaign() {
 
   const matches = findProducts(prod);
   lastProductMatch = matches[0] || null;
+  const buyEl = document.getElementById('fbBuyLink');
+  if (buyEl && lastProductMatch?.url) buyEl.value = lastProductMatch.url; // מילוי אוטומטי של לינק הרכישה לפרסום
   const grounding = matches.length
     ? `\nמוצרים תואמים מהקטלוג של dna-tools.co.il — בסס על דפי המוצר:\n` +
       matches.map(m => `• ${m.name}${m.price ? ` | ${m.price}` : ''}${m.url ? ` | ${m.url}` : ''}`).join('\n')

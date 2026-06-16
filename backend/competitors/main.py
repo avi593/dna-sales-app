@@ -559,6 +559,26 @@ def publish_facebook(data):
         return _json({"error": str(e)}, 500)
 
 
+def shorten_url(data):
+    """מקצר כתובת URL (TinyURL, עם נפילה ל-is.gd; אם נכשל — מחזיר את המקור)."""
+    data = data or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return _json({"error": "אין כתובת לקיצור"}, 400)
+    for endpoint, params in (
+        ("https://tinyurl.com/api-create.php", {"url": url}),
+        ("https://is.gd/create.php", {"format": "simple", "url": url}),
+    ):
+        try:
+            r = requests.get(endpoint, params=params, timeout=12)
+            short = (r.text or "").strip()
+            if r.status_code == 200 and short.startswith("http"):
+                return _json({"short": short})
+        except Exception:
+            continue
+    return _json({"short": url})  # נפילה: הכתובת המקורית
+
+
 def ads_library(data):
     """מושך מודעות מתחרים מספריית המודעות של Meta (Facebook/Instagram). קריאה בלבד."""
     data = data or {}
@@ -1196,6 +1216,10 @@ def competitors_api(request):
         elif resource == "publish-facebook":
             if method == "POST":
                 return publish_facebook(data)
+
+        elif resource == "shorten":
+            if method == "POST":
+                return shorten_url(data)
 
         elif resource == "catalog":
             if method == "GET":
