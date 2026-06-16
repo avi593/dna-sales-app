@@ -3471,6 +3471,7 @@ function crmListHtml() {
     '<input class="inp" id="custEmail" placeholder="אימייל" style="max-width:140px" />' +
     '<select class="inp" id="custStage" style="max-width:110px">' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select>' +
     '<select class="inp" id="custSource" style="max-width:110px">' + CRM_SOURCES.map(s => '<option>' + s + '</option>').join('') + '</select>' +
+    '<input class="inp" id="custInterestUrl" placeholder="🔗 לינק למוצר שמעניין (אופציונלי)" style="max-width:230px">' +
     '<button class="btn btn-blue" onclick="addCustomer()">➕ הוסף</button></div>' +
     '<div class="input-row"><input class="inp" id="custSearch" placeholder="🔎 חיפוש..." oninput="crmRenderListRows()" />' +
     '<select class="inp" id="custFilter" style="max-width:140px" onchange="crmRenderListRows()"><option value="">כל השלבים</option>' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
@@ -3552,6 +3553,13 @@ async function addCustomer() {
     stage: document.getElementById('custStage').value,
     source: document.getElementById('custSource').value,
   };
+  const iurl = (document.getElementById('custInterestUrl').value || '').trim();
+  if (iurl) {
+    setStatus('שולף מוצר מהלינק...', true);
+    try { const d = await compApi('/scrape-product', 'POST', { url: iurl }); body.interests = [{ name: d.name || 'מוצר', url: iurl, sell: d.price || '', cost: '' }]; }
+    catch (e) {}
+    setStatus('', false);
+  }
   try { await compApi('/customers', 'POST', body); await loadCustomers(); crmShow('list'); }
   catch (e) { alert('שגיאה: ' + e.message); }
 }
@@ -3622,6 +3630,58 @@ function crmSearchRun() {
   el.innerHTML = list.length ? '<div class="src-list">' + list.map(c => '<div class="src-row" style="cursor:pointer" onclick="open360(\'' + c.id + '\')"><div class="src-info"><div class="src-name">' + esc(c.name || '') + (c.company ? ' · ' + esc(c.company) : '') + '</div><div class="muted-sm">' + esc(stageOf(c)) + (c.phone ? ' · ' + esc(c.phone) : '') + '</div></div></div>').join('') + '</div>' : '<div class="muted-sm">לא נמצאו תוצאות.</div>';
 }
 
+// ===== מוצרים שמעניינים (תמחור VAT-מודע: עלות לפני מע״מ, מחיר מהאתר כולל מע״מ) =====
+const CRM_VAT = 1.18;
+function interestPct(it) {
+  const sell = parseFloat(it.sell) || 0;
+  const cost = parseFloat(it.cost) || 0;
+  const net = sell / CRM_VAT;        // מחיר מכירה ללא מע״מ
+  if (!net || !cost) return null;
+  return Math.round((net - cost) / net * 100);  // רווח מלמעלה למטה
+}
+function interestsTable(c) {
+  const its = c.interests || [];
+  if (!its.length) return '<div class="muted-sm">אין מוצרים. לחץ "➕ הוסף מוצר" והדבק לינק מהאתר.</div>';
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="text-align:right;color:var(--muted,#9aa4bf)">' +
+    '<th style="padding:4px 0">שם המוצר</th><th>עלות (לפני מע״מ)</th><th>מחיר מכירה (כולל מע״מ)</th><th>רווח %</th><th></th></tr></thead><tbody>';
+  its.forEach((it, i) => {
+    const pct = interestPct(it);
+    h += '<tr style="border-top:1px solid var(--border,#2a3550)">' +
+      '<td style="padding:5px 0">' + (it.url ? '<a class="src-link" href="' + esc(it.url) + '" target="_blank" rel="noopener">' + esc(it.name || 'מוצר') + '</a>' : esc(it.name || 'מוצר')) + '</td>' +
+      '<td><input class="inp" style="max-width:85px;padding:3px 6px" value="' + esc(it.cost || '') + '" onchange="updateInterest(\'' + c.id + '\',' + i + ',\'cost\',this.value)"></td>' +
+      '<td><input class="inp" style="max-width:85px;padding:3px 6px" value="' + esc(it.sell || '') + '" onchange="updateInterest(\'' + c.id + '\',' + i + ',\'sell\',this.value)"></td>' +
+      '<td style="font-weight:700;color:' + (pct === null ? 'inherit' : (pct >= 0 ? '#16a34a' : '#f87171')) + '">' + (pct === null ? '—' : pct + '%') + '</td>' +
+      '<td><button class="comp-btn" style="padding:3px 8px" onclick="removeInterest(\'' + c.id + '\',' + i + ')">✕</button></td></tr>';
+  });
+  return h + '</tbody></table>';
+}
+async function addInterest(id) {
+  const url = prompt('הדבק לינק למוצר מהאתר:');
+  if (url === null || !url.trim()) return;
+  const c = customers.find(x => x.id === id); if (!c) return;
+  setStatus('שולף מוצר...', true);
+  const it = { name: 'מוצר', url: url.trim(), sell: '', cost: '' };
+  try { const d = await compApi('/scrape-product', 'POST', { url: url.trim() }); it.name = d.name || 'מוצר'; it.sell = d.price || ''; } catch (e) {}
+  setStatus('', false);
+  await updateCustomerField(id, 'interests', (c.interests || []).concat([it]));
+  open360(id);
+}
+async function updateInterest(id, idx, field, value) {
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const arr = (c.interests || []).slice();
+  if (!arr[idx]) return;
+  arr[idx] = Object.assign({}, arr[idx], { [field]: value });
+  await updateCustomerField(id, 'interests', arr);
+  open360(id);
+}
+async function removeInterest(id, idx) {
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const arr = (c.interests || []).slice();
+  arr.splice(idx, 1);
+  await updateCustomerField(id, 'interests', arr);
+  open360(id);
+}
+
 // ===== כרטיס 360 =====
 function open360(id) {
   const c = customers.find(x => x.id === id); if (!c) return;
@@ -3636,6 +3696,7 @@ function open360(id) {
     CRM_STAGES.concat(['אבוד']).map(s => '<option' + (stageOf(c) === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></div>';
   h += '<div class="card" style="margin-top:12px"><div class="card-body">' +
     fld('טלפון', 'phone') + fld('אימייל', 'email') + fld('אתר', 'website') + fld('תחום', 'industry') + fld('גודל חברה', 'companySize') + fld('מקור', 'source') + fld('הערות', 'notes') + '</div></div>';
+  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🛒 מוצרים שמעניינים</span><button class="comp-btn" onclick="addInterest(\'' + id + '\')">➕ הוסף מוצר</button></div><div class="card-body">' + interestsTable(c) + '</div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🤖 מודיעין AI</span><button class="comp-btn" onclick="crmAiSummary(\'' + id + '\')">✨ צור סיכום</button></div>' +
     '<div class="card-body" id="crm360ai">' + (c.aiSummary ? renderAI(c.aiSummary) : '<div class="muted-sm">לחץ "צור סיכום" לסיכום, הזדמנויות וצרכים מבוססי AI.</div>') + '</div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>✅ משימות (' + myTasks.length + ')</span><button class="comp-btn" onclick="quickTask(\'' + id + '\')">➕ משימה</button></div><div class="card-body">' +

@@ -56,7 +56,7 @@ db = firestore.Client()
 COMPETITOR_FIELDS = {"name", "website", "category", "status", "notes"}
 CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact",
                    "stage", "source", "industry", "companySize", "website",
-                   "aiScore", "aiSummary", "nextAction"}
+                   "aiScore", "aiSummary", "nextAction", "interests"}
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
