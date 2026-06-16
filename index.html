@@ -566,6 +566,18 @@
       .comp-grid { grid-template-columns: 1fr; }
       .mkt-grid  { grid-template-columns: 1fr; }
     }
+
+    /* ── CRM (קשרי לקוחות) ── */
+    .crm-nav { display:flex; gap:6px; flex-wrap:wrap; margin:12px 0 16px; }
+    .crm-tab { background:var(--bg3,#1b2236); border:1px solid var(--border,#2a3550); color:var(--text,#e6e9f0); padding:7px 14px; border-radius:9px; cursor:pointer; font-size:13px; font-weight:600; }
+    .crm-tab.active { background:#5b7cfa; border-color:#5b7cfa; color:#fff; }
+    .crm-kan { display:flex; gap:10px; overflow-x:auto; padding-bottom:8px; align-items:flex-start; }
+    .crm-col { flex:1; min-width:185px; background:var(--bg2,#141a2b); border:1px solid var(--border,#2a3550); border-radius:12px; padding:10px; }
+    .crm-col-head { font-weight:700; font-size:13px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+    .crm-card { background:var(--bg3,#1b2236); border:1px solid var(--border,#2a3550); border-radius:9px; padding:9px; margin-bottom:8px; cursor:grab; }
+    .crm-card:hover { border-color:#5b7cfa; }
+    .crm-score { display:inline-block; min-width:28px; text-align:center; border-radius:7px; padding:1px 7px; font-weight:700; font-size:12px; }
+    .crm-badge { display:inline-block; border-radius:7px; padding:1px 8px; font-size:11px; font-weight:600; background:var(--bg3,#1b2236); border:1px solid var(--border,#2a3550); }
   </style>
 </head>
 <body>
@@ -721,24 +733,24 @@
     <div id="view-customers" class="view">
       <div>
         <div class="sec-title">🤝 קשרי לקוחות</div>
-        <div class="sec-sub">ניהול לקוחות ולידים — פרטי קשר, סטטוס, מעקב והודעות</div>
+        <div class="sec-sub">CRM — לידים, לקוחות, Pipeline, משימות והמלצות AI</div>
       </div>
-      <div class="input-row" style="flex-wrap:wrap">
-        <input class="inp" id="custName" placeholder="שם הלקוח *" style="max-width:160px" />
-        <input class="inp" id="custCompany" placeholder="חברה" style="max-width:140px" />
-        <input class="inp" id="custPhone" placeholder="טלפון" style="max-width:120px" />
-        <input class="inp" id="custEmail" placeholder="אימייל" style="max-width:150px" />
-        <select class="inp" id="custStatus" style="max-width:120px">
-          <option value="ליד">ליד</option>
-          <option value="לקוח פעיל">לקוח פעיל</option>
-          <option value="לא פעיל">לא פעיל</option>
-        </select>
-        <button class="btn btn-blue" onclick="addCustomer()">➕ הוסף לקוח</button>
+      <div class="crm-nav">
+        <button class="crm-tab active" id="crmtab-dashboard" onclick="crmShow('dashboard')">📊 דשבורד</button>
+        <button class="crm-tab" id="crmtab-pipeline" onclick="crmShow('pipeline')">🔀 Pipeline</button>
+        <button class="crm-tab" id="crmtab-list" onclick="crmShow('list')">👥 לקוחות</button>
+        <button class="crm-tab" id="crmtab-tasks" onclick="crmShow('tasks')">✅ משימות</button>
+        <button class="crm-tab" id="crmtab-search" onclick="crmShow('search')">🔎 חיפוש</button>
       </div>
-      <div class="input-row">
-        <input class="inp" id="custSearch" placeholder="🔎 חיפוש לפי שם / חברה / טלפון..." oninput="renderCustomers()" />
+      <div id="crmContent"></div>
+    </div>
+
+    <!-- כרטיס לקוח 360 -->
+    <div class="overlay hidden" id="crm360">
+      <div class="modal" style="max-width:680px;width:92%;text-align:right;max-height:88vh;overflow:auto">
+        <div id="crm360Body"></div>
+        <button class="comp-btn" style="margin-top:14px" onclick="closeCrm360()">סגור ✕</button>
       </div>
-      <div id="custOutput"></div>
     </div>
 
     <!-- ── COMPETITORS ── -->
@@ -3332,113 +3344,305 @@ function setMyPage() {
   alert('הקישורים נשמרו ✓');
 }
 
-// ── קשרי לקוחות (CRM) ──
+// ── קשרי לקוחות (CRM) — דשבורד · Pipeline · לקוחות · משימות · חיפוש ──
 let customers = [];
-const CUST_STATUSES = ['ליד', 'לקוח פעיל', 'לא פעיל'];
+let crmTasks = [];
+let crmScreen = 'dashboard';
+let crmDragId = '';
+const CRM_STAGES = ['ליד חדש', 'בטיפול', 'הצעה', 'סגירה'];
+const CRM_SOURCES = ['אתר', 'וואטסאפ', 'פייסבוק', 'אינסטגרם', 'Google Ads', 'דף נחיתה', 'הפניה', 'אחר'];
 
 function waNumber(phone) {
   const p = (phone || '').replace(/[^\d]/g, '');
   if (!p) return '';
   return p.startsWith('972') ? p : '972' + p.replace(/^0/, '');
 }
+function stageOf(c) { return c.stage || 'ליד חדש'; }
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+// דירוג דמו מיידי (heuristic) — יוחלף ב-AI אמיתי בשלב 2
+function leadScore(c) {
+  let s = 30;
+  const i = CRM_STAGES.indexOf(stageOf(c)); s += i >= 0 ? i * 14 : 0;
+  if (c.phone) s += 10; if (c.email) s += 8; if (c.company) s += 7;
+  if (c.industry) s += 5; if (c.notes) s += 5;
+  return Math.min(99, s);
+}
+function scoreColor(s) { return s >= 70 ? '#16a34a' : s >= 45 ? '#d97706' : '#6b7280'; }
 
 async function loadCustomers() {
-  const el = document.getElementById('custOutput');
-  if (el && !customers.length) el.innerHTML = loadingHtml('טוען לקוחות...');
-  try { const d = await compApi('/customers'); customers = d.customers || []; renderCustomers(); }
-  catch (e) { if (el) el.innerHTML = '<div class="page-empty" style="color:#f87171">שגיאה: ' + esc(e.message) + '</div>'; }
+  const el = document.getElementById('crmContent');
+  if (el && !customers.length) el.innerHTML = loadingHtml('טוען קשרי לקוחות...');
+  try {
+    const cd = await compApi('/customers');
+    const td = await compApi('/tasks').catch(() => ({ tasks: [] }));
+    customers = cd.customers || [];
+    crmTasks = td.tasks || [];
+    crmRender();
+  } catch (e) { if (el) el.innerHTML = '<div class="page-empty" style="color:#f87171">שגיאה: ' + esc(e.message) + '</div>'; }
 }
 
-function renderCustomers() {
-  const el = document.getElementById('custOutput');
-  if (!el) return;
-  const q = (document.getElementById('custSearch') ? document.getElementById('custSearch').value : '').toLowerCase().trim();
-  let list = customers;
-  if (q) list = customers.filter(c => [c.name, c.company, c.phone, c.email].some(v => (v || '').toLowerCase().includes(q)));
-  if (!list.length) {
-    el.innerHTML = '<div class="card-empty" style="padding:30px"><div class="card-empty-icon">🤝</div><div class="card-empty-title">' +
-      (customers.length ? 'לא נמצאו לקוחות תואמים' : 'אין עדיין לקוחות') + '</div><div class="card-empty-desc">הוסף לקוח חדש מהשורה למעלה.</div></div>';
-    return;
+function crmShow(screen) {
+  crmScreen = screen;
+  document.querySelectorAll('.crm-tab').forEach(b => b.classList.remove('active'));
+  const t = document.getElementById('crmtab-' + screen); if (t) t.classList.add('active');
+  crmRender();
+}
+
+function crmRender() {
+  const el = document.getElementById('crmContent'); if (!el) return;
+  if (crmScreen === 'pipeline') el.innerHTML = crmPipelineHtml();
+  else if (crmScreen === 'list') { el.innerHTML = crmListHtml(); crmRenderListRows(); }
+  else if (crmScreen === 'tasks') el.innerHTML = crmTasksHtml();
+  else if (crmScreen === 'search') el.innerHTML = crmSearchHtml();
+  else el.innerHTML = crmDashboardHtml();
+}
+
+// ===== דשבורד =====
+function crmDashboardHtml() {
+  const open = crmTasks.filter(t => t.status !== 'בוצע');
+  const today = open.filter(t => t.dueDate && t.dueDate <= todayISO());
+  const newLeads = customers.filter(c => stageOf(c) === 'ליד חדש').length;
+  const noTask = customers.filter(c => stageOf(c) !== 'סגירה' && stageOf(c) !== 'אבוד' && !crmTasks.some(t => t.customerId === c.id && t.status !== 'בוצע')).length;
+  const byStage = CRM_STAGES.map(s => ({ s, n: customers.filter(c => stageOf(c) === s).length }));
+  const maxN = Math.max(1, ...byStage.map(x => x.n));
+  let html = '<div class="kpi-grid" style="margin-bottom:14px">' +
+    '<div class="kpi"><div class="kpi-label">לקוחות/לידים</div><div class="kpi-val">' + customers.length + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">לידים חדשים</div><div class="kpi-val">' + newLeads + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">משימות פתוחות</div><div class="kpi-val">' + open.length + '</div></div>' +
+    '<div class="kpi"><div class="kpi-label">להיום/באיחור</div><div class="kpi-val" style="color:#f87171">' + today.length + '</div></div></div>';
+  const nowList = (today.length ? today : open).slice(0, 6);
+  html += '<div class="card" style="margin-bottom:14px"><div class="card-head"><span>⚡ מה לעשות עכשיו</span><button class="comp-btn" onclick="crmDailyAI()">🧠 המלצות AI</button></div><div class="card-body" id="crmNowBody">' +
+    (nowList.length ? nowList.map(crmTaskRow).join('') : '<div class="muted-sm">אין משימות פתוחות. הוסף במסך "משימות".</div>') + '</div></div>';
+  html += '<div class="card" style="margin-bottom:14px"><div class="card-head"><span>🔀 תמצית Pipeline</span></div><div class="card-body">' +
+    byStage.map(x => '<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><div style="width:80px;font-size:13px">' + x.s + '</div>' +
+      '<div style="flex:1;background:var(--bg3,#1b2236);border-radius:6px;overflow:hidden;height:18px"><div style="height:100%;width:' + Math.round(x.n / maxN * 100) + '%;background:#5b7cfa"></div></div>' +
+      '<div style="width:28px;text-align:left;font-weight:700">' + x.n + '</div></div>').join('') + '</div></div>';
+  const alerts = [];
+  if (today.length) alerts.push('🔴 ' + today.length + ' משימות להיום או באיחור');
+  if (noTask) alerts.push('🟠 ' + noTask + ' לקוחות פעילים ללא משימת המשך');
+  if (newLeads) alerts.push('🟢 ' + newLeads + ' לידים חדשים ממתינים לטיפול');
+  html += '<div class="card"><div class="card-head"><span>🔔 התראות</span></div><div class="card-body">' +
+    (alerts.length ? alerts.map(a => '<div class="muted-sm" style="margin:4px 0">' + a + '</div>').join('') : '<div class="muted-sm">אין התראות פתוחות 👌</div>') + '</div></div>';
+  return html;
+}
+
+async function crmDailyAI() {
+  if (!apiKey) { showApiModal(); return; }
+  const el = document.getElementById('crmNowBody'); if (el) el.innerHTML = loadingHtml('מנתח ובונה המלצות...');
+  const open = crmTasks.filter(t => t.status !== 'בוצע');
+  const data = 'לקוחות: ' + (customers.map(c => (c.name || '') + ' [' + stageOf(c) + (c.company ? ', ' + c.company : '') + ']').join('; ') || 'אין') +
+    '\nמשימות פתוחות: ' + (open.map(t => t.title + (t.dueDate ? ' (יעד ' + t.dueDate + ')' : '')).join('; ') || 'אין');
+  const p = 'אתה מנהל מכירות B2B בדנא ציוד אינסטלציה. לפי המצב הבא, תן 3-5 המלצות פעולה קונקרטיות וממוקדות להיום (מי הכי דחוף ולמה). קצר, בנקודות, בעברית.\n\n' + data;
+  try {
+    const r = await callAI(p, false);
+    if (el) el.innerHTML = renderAI(r) + '<div class="gen-img-actions" style="margin-top:8px"><button class="comp-btn" onclick="crmRender()">↩︎ חזרה</button></div>';
+  } catch (e) { if (el) el.innerHTML = '<span style="color:#f87171">שגיאה: ' + esc(e.message) + '</span>'; }
+}
+
+// ===== Pipeline (קנבן) =====
+function crmPipelineHtml() {
+  let html = '<div class="crm-kan">';
+  for (const stage of CRM_STAGES) {
+    const inStage = customers.filter(c => stageOf(c) === stage);
+    html += '<div class="crm-col" ondragover="event.preventDefault()" ondrop="crmDrop(event,\'' + stage + '\')">' +
+      '<div class="crm-col-head"><span>' + stage + '</span><span class="crm-badge">' + inStage.length + '</span></div>' +
+      inStage.map(c => {
+        const sc = leadScore(c);
+        return '<div class="crm-card" draggable="true" ondragstart="crmDragId=\'' + c.id + '\'" onclick="open360(\'' + c.id + '\')">' +
+          '<div style="display:flex;justify-content:space-between;gap:6px"><b>' + esc(c.name || '') + '</b>' +
+          '<span class="crm-score" style="background:' + scoreColor(sc) + '22;color:' + scoreColor(sc) + '">' + sc + '</span></div>' +
+          (c.company ? '<div class="muted-sm">' + esc(c.company) + '</div>' : '') + '</div>';
+      }).join('') + '</div>';
   }
+  return html + '</div><div class="muted-sm" style="margin-top:8px">גרור כרטיס בין העמודות לשינוי שלב · לחיצה פותחת כרטיס 360</div>';
+}
+function crmDrop(ev, stage) {
+  ev.preventDefault();
+  if (!crmDragId) return;
+  updateCustomerField(crmDragId, 'stage', stage).then(() => { crmDragId = ''; crmRender(); });
+}
+
+// ===== לקוחות (רשימה) =====
+function crmListHtml() {
+  return '<div class="input-row" style="flex-wrap:wrap">' +
+    '<input class="inp" id="custName" placeholder="שם *" style="max-width:150px" />' +
+    '<input class="inp" id="custCompany" placeholder="חברה" style="max-width:130px" />' +
+    '<input class="inp" id="custPhone" placeholder="טלפון" style="max-width:115px" />' +
+    '<input class="inp" id="custEmail" placeholder="אימייל" style="max-width:140px" />' +
+    '<select class="inp" id="custStage" style="max-width:110px">' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select>' +
+    '<select class="inp" id="custSource" style="max-width:110px">' + CRM_SOURCES.map(s => '<option>' + s + '</option>').join('') + '</select>' +
+    '<button class="btn btn-blue" onclick="addCustomer()">➕ הוסף</button></div>' +
+    '<div class="input-row"><input class="inp" id="custSearch" placeholder="🔎 חיפוש..." oninput="crmRenderListRows()" />' +
+    '<select class="inp" id="custFilter" style="max-width:140px" onchange="crmRenderListRows()"><option value="">כל השלבים</option>' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
+    '<div id="crmListRows"></div>';
+}
+function crmRenderListRows() {
+  const el = document.getElementById('crmListRows'); if (!el) return;
+  const q = (document.getElementById('custSearch') ? document.getElementById('custSearch').value : '').toLowerCase().trim();
+  const f = document.getElementById('custFilter') ? document.getElementById('custFilter').value : '';
+  let list = customers;
+  if (q) list = list.filter(c => [c.name, c.company, c.phone, c.email].some(v => (v || '').toLowerCase().includes(q)));
+  if (f) list = list.filter(c => stageOf(c) === f);
+  if (!list.length) { el.innerHTML = '<div class="card-empty" style="padding:24px"><div class="card-empty-icon">👥</div><div class="card-empty-title">' + (customers.length ? 'אין תוצאות' : 'אין עדיין לקוחות') + '</div></div>'; return; }
   el.innerHTML = '<div class="src-list">' + list.map(c => {
-    const wa = waNumber(c.phone);
-    return '<div class="src-row" style="align-items:flex-start;flex-wrap:wrap;gap:8px">' +
-      '<div class="src-info" style="flex:1;min-width:200px">' +
+    const sc = leadScore(c); const wa = waNumber(c.phone);
+    return '<div class="src-row" style="align-items:center;flex-wrap:wrap;gap:8px">' +
+      '<span class="crm-score" style="background:' + scoreColor(sc) + '22;color:' + scoreColor(sc) + '">' + sc + '</span>' +
+      '<div class="src-info" style="flex:1;min-width:160px;cursor:pointer" onclick="open360(\'' + c.id + '\')">' +
         '<div class="src-name">' + esc(c.name || '') + (c.company ? ' · <span class="muted-sm">' + esc(c.company) + '</span>' : '') + '</div>' +
-        '<div class="muted-sm">' + (c.phone ? '📞 ' + esc(c.phone) + '   ' : '') + (c.email ? '✉️ ' + esc(c.email) : '') + '</div>' +
-        (c.notes ? '<div class="muted-sm" style="white-space:normal;margin-top:3px">📝 ' + esc(c.notes) + '</div>' : '') +
-      '</div>' +
-      '<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">' +
-        '<select class="inp" style="max-width:120px;padding:4px 8px" onchange="updateCustomerField(\'' + c.id + '\',\'status\',this.value)">' +
-          CUST_STATUSES.map(s => '<option' + (c.status === s ? ' selected' : '') + '>' + s + '</option>').join('') +
-        '</select>' +
-        (wa ? '<a class="comp-btn" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">💬 וואטסאפ</a>' : '') +
-        '<button class="comp-btn" onclick="editCustomerNotes(\'' + c.id + '\')">📝 הערה</button>' +
-        '<button class="comp-btn" onclick="draftCustomerMsg(\'' + c.id + '\')">🤖 נסח הודעה</button>' +
-        '<button class="comp-btn" onclick="deleteCustomer(\'' + c.id + '\')">🗑️</button>' +
-      '</div>' +
-    '</div>';
+        '<div class="muted-sm">' + (c.phone ? '📞 ' + esc(c.phone) + '  ' : '') + (c.email ? '✉️ ' + esc(c.email) : '') + '</div></div>' +
+      '<span class="crm-badge">' + esc(stageOf(c)) + '</span>' +
+      (wa ? '<a class="comp-btn" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">💬</a>' : '') +
+      '<button class="comp-btn" onclick="open360(\'' + c.id + '\')">פתח</button></div>';
   }).join('') + '</div>';
 }
 
 async function addCustomer() {
   const name = document.getElementById('custName').value.trim();
-  if (!name) { alert('הזן שם לקוח'); return; }
+  if (!name) { alert('הזן שם'); return; }
   const body = {
     name,
     company: document.getElementById('custCompany').value.trim(),
     phone: document.getElementById('custPhone').value.trim(),
     email: document.getElementById('custEmail').value.trim(),
-    status: document.getElementById('custStatus').value,
+    stage: document.getElementById('custStage').value,
+    source: document.getElementById('custSource').value,
   };
-  try {
-    await compApi('/customers', 'POST', body);
-    ['custName', 'custCompany', 'custPhone', 'custEmail'].forEach(id => document.getElementById(id).value = '');
-    await loadCustomers();
-  } catch (e) { alert('שגיאה: ' + e.message); }
+  try { await compApi('/customers', 'POST', body); await loadCustomers(); crmShow('list'); }
+  catch (e) { alert('שגיאה: ' + e.message); }
 }
 
 async function updateCustomerField(id, field, value) {
-  try {
-    await compApi('/customers/' + id, 'PUT', { [field]: value });
-    const c = customers.find(x => x.id === id); if (c) c[field] = value;
-  } catch (e) { alert('שגיאה: ' + e.message); }
-}
-
-function editCustomerNotes(id) {
-  const c = customers.find(x => x.id === id); if (!c) return;
-  const v = prompt('הערות על הלקוח:', c.notes || '');
-  if (v === null) return;
-  updateCustomerField(id, 'notes', v.trim()).then(renderCustomers);
+  try { await compApi('/customers/' + id, 'PUT', { [field]: value }); const c = customers.find(x => x.id === id); if (c) c[field] = value; }
+  catch (e) { alert('שגיאה: ' + e.message); }
 }
 
 async function deleteCustomer(id) {
   const c = customers.find(x => x.id === id);
-  if (!confirm('למחוק את הלקוח ' + ((c && c.name) || '') + '?')) return;
-  try { await compApi('/customers/' + id, 'DELETE'); customers = customers.filter(x => x.id !== id); renderCustomers(); }
+  if (!confirm('למחוק את ' + ((c && c.name) || 'הלקוח') + '?')) return;
+  try { await compApi('/customers/' + id, 'DELETE'); customers = customers.filter(x => x.id !== id); closeCrm360(); crmRender(); }
   catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ===== משימות =====
+function crmTaskRow(t) {
+  const c = customers.find(x => x.id === t.customerId);
+  const overdue = t.dueDate && t.dueDate < todayISO() && t.status !== 'בוצע';
+  return '<div class="src-row" style="align-items:center;gap:8px">' +
+    '<input type="checkbox" ' + (t.status === 'בוצע' ? 'checked' : '') + ' onchange="toggleTask(\'' + t.id + '\',this.checked)" style="width:17px;height:17px;flex:none">' +
+    '<div class="src-info" style="flex:1"><div' + (t.status === 'בוצע' ? ' style="text-decoration:line-through;opacity:.6"' : '') + '>' + esc(t.title || '') + '</div>' +
+    '<div class="muted-sm">' + (c ? '👤 ' + esc(c.name) + '  ' : '') + (t.dueDate ? '<span style="color:' + (overdue ? '#f87171' : 'inherit') + '">📅 ' + esc(t.dueDate) + '</span>' : '') + (t.priority === 'דחוף' ? '  🔴 דחוף' : '') + '</div></div>' +
+    '<button class="comp-btn" onclick="deleteTask(\'' + t.id + '\')">🗑️</button></div>';
+}
+function crmTasksHtml() {
+  const opts = '<option value="">— ללא לקוח —</option>' + customers.map(c => '<option value="' + c.id + '">' + esc(c.name || '') + '</option>').join('');
+  const open = crmTasks.filter(t => t.status !== 'בוצע');
+  const done = crmTasks.filter(t => t.status === 'בוצע');
+  let html = '<div class="input-row" style="flex-wrap:wrap">' +
+    '<input class="inp" id="taskTitle" placeholder="משימה *" style="max-width:200px" />' +
+    '<select class="inp" id="taskCust" style="max-width:150px">' + opts + '</select>' +
+    '<input class="inp" id="taskDue" type="date" style="max-width:150px" />' +
+    '<select class="inp" id="taskPrio" style="max-width:110px"><option>רגיל</option><option>דחוף</option></select>' +
+    '<button class="btn btn-blue" onclick="addTask()">➕ משימה</button></div>';
+  html += '<div class="card" style="margin-top:8px"><div class="card-head"><span>פתוחות (' + open.length + ')</span></div><div class="card-body">' +
+    (open.length ? open.map(crmTaskRow).join('') : '<div class="muted-sm">אין משימות פתוחות</div>') + '</div></div>';
+  if (done.length) html += '<div class="card" style="margin-top:10px"><div class="card-head"><span>בוצעו (' + done.length + ')</span></div><div class="card-body">' + done.slice(0, 20).map(crmTaskRow).join('') + '</div></div>';
+  return html;
+}
+async function addTask() {
+  const title = document.getElementById('taskTitle').value.trim();
+  if (!title) { alert('הזן משימה'); return; }
+  const body = { title, customerId: document.getElementById('taskCust').value, dueDate: document.getElementById('taskDue').value, priority: document.getElementById('taskPrio').value };
+  try { await compApi('/tasks', 'POST', body); const d = await compApi('/tasks'); crmTasks = d.tasks || []; crmRender(); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
+async function toggleTask(id, done) {
+  try { await compApi('/tasks/' + id, 'PUT', { status: done ? 'בוצע' : 'פתוח' }); const t = crmTasks.find(x => x.id === id); if (t) t.status = done ? 'בוצע' : 'פתוח'; crmRender(); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
+async function deleteTask(id) {
+  try { await compApi('/tasks/' + id, 'DELETE'); crmTasks = crmTasks.filter(x => x.id !== id); crmRender(); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ===== חיפוש =====
+function crmSearchHtml() {
+  return '<div class="input-row"><input class="inp" id="crmSearchInp" placeholder="חפש לפי שם / חברה / טלפון / אימייל / תחום..." oninput="crmSearchRun()" /></div>' +
+    '<div class="muted-sm" style="margin-bottom:8px">חיפוש טקסט (חיפוש AI בשפה טבעית — בשלב 2)</div><div id="crmSearchRes"></div>';
+}
+function crmSearchRun() {
+  const q = (document.getElementById('crmSearchInp') ? document.getElementById('crmSearchInp').value : '').toLowerCase().trim();
+  const el = document.getElementById('crmSearchRes'); if (!el) return;
+  if (!q) { el.innerHTML = ''; return; }
+  const list = customers.filter(c => [c.name, c.company, c.phone, c.email, c.industry, c.notes].some(v => (v || '').toLowerCase().includes(q)));
+  el.innerHTML = list.length ? '<div class="src-list">' + list.map(c => '<div class="src-row" style="cursor:pointer" onclick="open360(\'' + c.id + '\')"><div class="src-info"><div class="src-name">' + esc(c.name || '') + (c.company ? ' · ' + esc(c.company) : '') + '</div><div class="muted-sm">' + esc(stageOf(c)) + (c.phone ? ' · ' + esc(c.phone) : '') + '</div></div></div>').join('') + '</div>' : '<div class="muted-sm">לא נמצאו תוצאות.</div>';
+}
+
+// ===== כרטיס 360 =====
+function open360(id) {
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const sc = leadScore(c); const wa = waNumber(c.phone);
+  const myTasks = crmTasks.filter(t => t.customerId === id);
+  const fld = (label, key) => '<div style="margin:4px 0"><span class="muted-sm" style="display:inline-block;width:90px">' + label + ':</span>' +
+    '<span style="cursor:pointer;border-bottom:1px dashed var(--border,#2a3550)" onclick="edit360(\'' + id + '\',\'' + key + '\')">' + (esc(c[key]) || '—') + '</span></div>';
+  let h = '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">' +
+    '<div><h3 style="margin:0">' + esc(c.name || '') + '</h3>' + (c.company ? '<div class="muted-sm">' + esc(c.company) + '</div>' : '') + '</div>' +
+    '<span class="crm-score" style="font-size:15px;background:' + scoreColor(sc) + '22;color:' + scoreColor(sc) + '">דירוג ' + sc + '</span></div>';
+  h += '<div style="margin-top:12px"><b>שלב:</b> <select class="inp" style="max-width:150px" onchange="updateCustomerField(\'' + id + '\',\'stage\',this.value)">' +
+    CRM_STAGES.concat(['אבוד']).map(s => '<option' + (stageOf(c) === s ? ' selected' : '') + '>' + s + '</option>').join('') + '</select></div>';
+  h += '<div class="card" style="margin-top:12px"><div class="card-body">' +
+    fld('טלפון', 'phone') + fld('אימייל', 'email') + fld('אתר', 'website') + fld('תחום', 'industry') + fld('גודל חברה', 'companySize') + fld('מקור', 'source') + fld('הערות', 'notes') + '</div></div>';
+  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🤖 מודיעין AI</span><button class="comp-btn" onclick="crmAiSummary(\'' + id + '\')">✨ צור סיכום</button></div>' +
+    '<div class="card-body" id="crm360ai">' + (c.aiSummary ? renderAI(c.aiSummary) : '<div class="muted-sm">לחץ "צור סיכום" לסיכום, הזדמנויות וצרכים מבוססי AI.</div>') + '</div></div>';
+  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>✅ משימות (' + myTasks.length + ')</span><button class="comp-btn" onclick="quickTask(\'' + id + '\')">➕ משימה</button></div><div class="card-body">' +
+    (myTasks.length ? myTasks.map(crmTaskRow).join('') : '<div class="muted-sm">אין משימות ללקוח</div>') + '</div></div>';
+  h += '<div class="gen-img-actions" style="margin-top:12px">' +
+    (wa ? '<a class="btn btn-green" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">💬 וואטסאפ</a>' : '') +
+    (c.email ? '<a class="comp-btn" href="mailto:' + esc(c.email) + '">✉️ אימייל</a>' : '') +
+    '<button class="comp-btn" onclick="draftCustomerMsg(\'' + id + '\')">🤖 נסח הודעה</button>' +
+    '<button class="comp-btn" onclick="deleteCustomer(\'' + id + '\')">🗑️ מחק</button></div>';
+  document.getElementById('crm360Body').innerHTML = h;
+  document.getElementById('crm360').classList.remove('hidden');
+}
+function closeCrm360() { document.getElementById('crm360').classList.add('hidden'); }
+function edit360(id, key) {
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const v = prompt('עדכן ' + key + ':', c[key] || '');
+  if (v === null) return;
+  updateCustomerField(id, key, v.trim()).then(() => open360(id));
+}
+async function crmAiSummary(id) {
+  if (!apiKey) { showApiModal(); return; }
+  const c = customers.find(x => x.id === id); if (!c) return;
+  const el = document.getElementById('crm360ai'); if (el) el.innerHTML = loadingHtml('מנתח...');
+  const p = 'אתה אנליסט מכירות B2B בדנא ציוד אינסטלציה. נתח את הלקוח ותן בעברית: סיכום קצר, הזדמנויות מכירה, צרכים אפשריים, והמלצת פעולה אחת.\n' +
+    'שם: ' + (c.name || '') + '. חברה: ' + (c.company || '') + '. תחום: ' + (c.industry || 'לא ידוע') + '. שלב: ' + stageOf(c) + '. הערות: ' + (c.notes || 'אין') + '.';
+  try { const r = await callAI(p, false); if (el) el.innerHTML = renderAI(r); updateCustomerField(id, 'aiSummary', r); }
+  catch (e) { if (el) el.innerHTML = '<span style="color:#f87171">שגיאה: ' + esc(e.message) + '</span>'; }
+}
+function quickTask(id) {
+  const title = prompt('משימה חדשה ללקוח:');
+  if (title === null || !title.trim()) return;
+  compApi('/tasks', 'POST', { title: title.trim(), customerId: id })
+    .then(async () => { const d = await compApi('/tasks'); crmTasks = d.tasks || []; open360(id); })
+    .catch(e => alert('שגיאה: ' + e.message));
 }
 
 async function draftCustomerMsg(id) {
   if (!apiKey) { showApiModal(); return; }
   const c = customers.find(x => x.id === id); if (!c) return;
-  const what = prompt('על מה ההודעה? (לדוגמה: מעקב אחרי הצעת מחיר, מבצע חדש, חידוש קשר)', 'מעקב וחידוש קשר');
+  const what = prompt('על מה ההודעה? (מעקב, מבצע, חידוש קשר)', 'מעקב וחידוש קשר');
   if (what === null) return;
   setStatus('מנסח הודעה...', true);
   const msgPrompt = 'נסח הודעת וואטסאפ קצרה, אישית ומקצועית בעברית מטעם דנא ציוד אינסטלציה אל לקוח B2B.\n' +
-    'לקוח: ' + (c.name || '') + (c.company ? ' (' + c.company + ')' : '') + '. סטטוס: ' + (c.status || '') + '.' + (c.notes ? ' הערות: ' + c.notes + '.' : '') +
-    '\nמטרת ההודעה: ' + what + '.\nההודעה: חמה, מקצועית, לא מכירתית-אגרסיבית, עד 3 משפטים, עם קריאה עדינה לפעולה. החזר רק את ההודעה עצמה.';
+    'לקוח: ' + (c.name || '') + (c.company ? ' (' + c.company + ')' : '') + '. שלב: ' + stageOf(c) + '.' + (c.notes ? ' הערות: ' + c.notes + '.' : '') +
+    '\nמטרת ההודעה: ' + what + '.\nההודעה: חמה, מקצועית, לא מכירתית-אגרסיבית, עד 3 משפטים, עם קריאה עדינה לפעולה. החזר רק את ההודעה.';
   try {
     const r = await callAI(msgPrompt, false);
     setStatus('מוכן', false);
     const wa = waNumber(c.phone);
-    if (wa) {
-      if (confirm('ההודעה שנוסחה:\n\n' + r + '\n\nלפתוח בוואטסאפ עם ההודעה?')) {
-        window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(r), '_blank', 'noopener');
-      }
-    } else {
-      alert('ההודעה שנוסחה:\n\n' + r + '\n\n(אין טלפון לשליחה בוואטסאפ — הוסף טלפון ללקוח.)');
-    }
+    if (wa && confirm('ההודעה:\n\n' + r + '\n\nלפתוח בוואטסאפ?')) window.open('https://wa.me/' + wa + '?text=' + encodeURIComponent(r), '_blank', 'noopener');
+    else if (!wa) alert('ההודעה:\n\n' + r + '\n\n(אין טלפון.)');
   } catch (e) { setStatus('שגיאה', false); alert('שגיאה: ' + e.message); }
 }
 
