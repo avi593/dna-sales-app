@@ -3073,7 +3073,7 @@ const AD_CAMPAIGN_PROMPT = `אתה אסטרטג מדיה ממומנת בכיר (
 - הצג 3–4 אפשרויות תשובה ממוספרות בדיוק כך: "1) ...", "2) ...", "3) ..." — קונקרטיות ומותאמות לדנא ולשוק B2B הישראלי. האפשרות האחרונה תמיד: "אחר (כתוב חופשי)".
 - בשורה נפרדת בסוף כתוב בדיוק: "✅ ההמלצה שלי: מספר X — [נימוק קצר במשפט]".
 - אל תשאל יותר משאלה אחת בהודעה, ואל תניח הנחות.
-המשתמש יענה במספר או בכתיבה חופשית. אחרי שהוא עונה — עבור לשאלה הבאה. אל תעבור לשלב 2 לפני שכל השאלות נענו.
+המשתמש יכול לסמן מספר תשובות (אחת או יותר) או לכתוב חופשי — קבל זאת בברכה. אחרי שהוא עונה — עבור לשאלה הבאה. אל תעבור לשלב 2 לפני שכל השאלות נענו.
 
 ▶ שלב 2 — תוכנית הקמפיין המלאה:
 1. אסטרטגיה ויעד — יעד הקמפיין (Objective) המתאים ב-Meta ושלב במשפך השיווקי
@@ -3105,9 +3105,14 @@ function adcAppend(role, text) {
     const recM = text.match(/ההמלצה שלי[^\d]*(\d)/);
     const rec = recM ? recM[1] : '';
     if (opts.length >= 2) {
-      inner += '<div class="gen-img-actions" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
-        opts.map(o => '<button class="' + (o.n === rec ? 'btn btn-purple' : 'comp-btn') + '" onclick="adcPick(\'' + o.n + '\')">' +
-          (o.n === rec ? '✅ ' : '') + esc(o.n + '. ' + o.label.slice(0, 42)) + '</button>').join('') +
+      inner += '<div class="adc-opts" style="margin-top:8px;display:flex;flex-direction:column;gap:6px">' +
+        opts.map(o =>
+          '<label style="display:flex;align-items:center;gap:8px;cursor:pointer' + (o.n === rec ? ';font-weight:700;color:#b9a3ff' : '') + '">' +
+            '<input type="checkbox" class="adc-opt" value="' + o.n + '" style="width:16px;height:16px;cursor:pointer;flex:none">' +
+            '<span>' + (o.n === rec ? '✅ ' : '') + esc(o.n + '. ' + o.label) + '</span>' +
+          '</label>'
+        ).join('') +
+        '<button class="btn btn-purple" style="margin-top:6px;align-self:flex-start" onclick="adcSubmitChoices(this)">שלח בחירה ✓</button>' +
         '</div>';
     }
   }
@@ -3116,9 +3121,16 @@ function adcAppend(role, text) {
   area.scrollTop = area.scrollHeight;
 }
 
-function adcPick(n) {
+function adcSubmitChoices(btn) {
+  const box = btn.parentElement;
+  const checked = [...box.querySelectorAll('.adc-opt:checked')];
+  if (!checked.length) { alert('סמן לפחות תשובה אחת (אפשר לסמן כמה)'); return; }
+  const answer = checked.map(cb => {
+    const l = cb.closest('label');
+    return (l ? l.innerText : cb.value).trim().replace(/^✅\s*/, '');
+  }).join(' + ');
   const ta = document.getElementById('adcTa');
-  if (ta) ta.value = n;
+  if (ta) ta.value = answer;
   sendAdc();
 }
 
