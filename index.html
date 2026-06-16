@@ -3162,7 +3162,7 @@ async function scanMyProduct() {
     if (d.error) throw new Error(d.error);
     scannedProduct = d;
     el.innerHTML = '✅ נסרק: <b>' + esc(d.name || '(ללא שם)') + '</b>' +
-      (d.price ? ' · ' + esc(d.price) : '') +
+      (d.price ? ' · ₪' + Number(d.price).toLocaleString('he-IL') : '') +
       (d.image ? '<br><img src="' + esc(d.image) + '" style="max-height:90px;border-radius:8px;margin-top:6px">' : '') +
       (d.description ? '<br><span class="muted-sm">' + esc((d.description || '').slice(0, 160)) + '</span>' : '') +
       '<br><span class="muted-sm">המידע יוזן אוטומטית לבניית הקמפיין.</span>';
@@ -3284,7 +3284,7 @@ function inlineMd(t) {
 }
 
 function esc(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(t ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
 function copyWA(btn, key) {
