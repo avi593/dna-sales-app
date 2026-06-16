@@ -611,9 +611,6 @@
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
       <span class="nav-icon">📣</span><span>פרסום וקידום</span>
     </button>
-    <button class="nav-btn" id="nav-adcampaign" onclick="showView('adcampaign')">
-      <span class="nav-icon">🚀</span><span>קמפיין ממומן</span>
-    </button>
     <button class="nav-btn" id="nav-market" onclick="showView('market')">
       <span class="nav-icon">📈</span><span>שוק</span>
     </button>
@@ -813,7 +810,52 @@
     <div id="view-content" class="view">
       <div>
         <div class="sec-title">📣 פרסום וקידום</div>
-        <div class="sec-sub">חבילת קמפיין מלאה: אסטרטגיה, מודעות, תגיות SEO, קהל יעד ובריף ויזואלי לעיצוב חיצוני — ופלט JSON</div>
+        <div class="sec-sub">בניית קמפיין ממומן · מעקב מתחרים · סריקת מוצר מהאתר · פרסום בפייסבוק</div>
+      </div>
+
+      <!-- 🚀 בניית קמפיין ממומן -->
+      <div style="margin-top:10px">
+        <div class="sec-title">🚀 בניית קמפיין ממומן</div>
+        <div class="sec-sub">סיעור מוחות מודרך עם אסטרטג מדיה, ובסופו תוכנית מלאה ל-Meta Ads. מסתמך על המוצר שתסרוק ועל המתחרים שאתה עוקב אחריהם.</div>
+      </div>
+      <div class="add-model-box">
+        <div class="muted-sm">🔗 סריקת מוצר מהאתר שלך (יעזור לבונה לכתוב מודעה מדויקת — שם, מחיר, תיאור, תמונה):</div>
+        <div class="disc-manual">
+          <input class="inp" id="scanProdInp" placeholder="הדבק קישור למוצר מ-dna-tools.co.il" onkeydown="if(event.key==='Enter')scanMyProduct()" />
+          <button class="add-plus" title="סרוק מוצר" onclick="scanMyProduct()">🔍</button>
+        </div>
+        <div id="scanProdResult" class="muted-sm" style="margin-top:8px"></div>
+      </div>
+      <div class="add-model-box">
+        <div class="muted-sm">🎯 מעקב מתחרים (שם + קישור לדף הפייסבוק שלהם — צפה במודעות הפעילות שלהם):</div>
+        <div id="adCompList" class="known-list"></div>
+        <div class="disc-manual">
+          <input class="inp" id="adCompName" placeholder="שם המתחרה" style="max-width:190px" />
+          <input class="inp" id="adCompUrl" placeholder="קישור לדף הפייסבוק של המתחרה" onkeydown="if(event.key==='Enter')addAdCompetitor()" />
+          <button class="add-plus" title="הוסף מתחרה" onclick="addAdCompetitor()">+</button>
+        </div>
+      </div>
+      <div class="chat-wrap" style="margin-top:14px;height:480px;border:1px solid var(--border);border-radius:12px">
+        <div class="chat-area" id="adcArea">
+          <div class="card-empty" style="padding:36px 20px">
+            <div class="card-empty-icon">🚀</div>
+            <div class="card-empty-title">בניית קמפיין ממומן</div>
+            <div class="card-empty-desc">לחץ להתחלה — האסטרטג ישאל שאלות מיקוד ואז יבנה תוכנית מלאה. סרוק מוצר והוסף מתחרים למעלה כדי שהתוכנית תהיה מדויקת יותר.</div>
+            <button class="btn btn-purple" style="margin-top:16px" onclick="startAdCampaign()">🚀 התחל בניית קמפיין</button>
+          </div>
+        </div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-ta" id="adcTa" rows="1" placeholder="כתוב את התשובה שלך..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAdc()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+          <button class="send-btn" id="adcSendBtn" onclick="sendAdc()">➤</button>
+        </div>
+      </div>
+
+      <!-- 📝 מנוע קמפיין מהיר (אורגני) -->
+      <div style="margin-top:26px">
+        <div class="sec-title">📝 מנוע קמפיין מהיר (אורגני)</div>
+        <div class="sec-sub">חבילת פוסט מהירה: אסטרטגיה, מודעות, תגיות SEO ובריף ויזואלי — ופלט JSON</div>
       </div>
       <div class="input-row">
         <input class="inp" id="contInp" placeholder="מוצר / מבצע / מטרת קמפיין" />
@@ -930,29 +972,6 @@
     </div>
 
     <!-- ── CHAT ── -->
-    <div id="view-adcampaign" class="view">
-      <div>
-        <div class="sec-title">🚀 קמפיין ממומן</div>
-        <div class="sec-sub">סיעור מוחות מודרך עם אסטרטג מדיה ממומנת, ובסופו תוכנית קמפיין מלאה ל-Meta Ads: יעד, קהלים, תקציב, קריאייטיב ומדדים</div>
-      </div>
-      <div class="chat-wrap" style="margin-top:14px">
-        <div class="chat-area" id="adcArea">
-          <div class="card-empty" style="padding:40px 20px">
-            <div class="card-empty-icon">🚀</div>
-            <div class="card-empty-title">בניית קמפיין ממומן</div>
-            <div class="card-empty-desc">לחץ להתחלה — האסטרטג ישאל אותך כמה שאלות מיקוד, ואז יבנה תוכנית קמפיין מלאה ומקצועית (יעד, קהלים, תקציב, קריאייטיב ומדדי הצלחה).</div>
-            <button class="btn btn-purple" style="margin-top:16px" onclick="startAdCampaign()">🚀 התחל בניית קמפיין</button>
-          </div>
-        </div>
-        <div class="chat-input-wrap">
-          <textarea class="chat-ta" id="adcTa" rows="1" placeholder="כתוב את התשובה שלך..."
-            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAdc()}"
-            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
-          <button class="send-btn" id="adcSendBtn" onclick="sendAdc()">➤</button>
-        </div>
-      </div>
-    </div>
-
     <div id="view-chat" class="view">
       <div class="chat-wrap">
         <div class="chat-area" id="chatArea">
@@ -1075,6 +1094,7 @@ async function init() {
   renderSavedReports();
   updateKPIs();
   loadCompetitors();   // אסינכרוני — נטען מה-API ברקע
+  renderAdCompetitors();
 }
 
 async function loadProducts() {
@@ -3083,7 +3103,7 @@ async function startAdCampaign() {
   if (!apiKey) { showApiModal(); return; }
   adMsgs = [];
   document.getElementById('adcArea').innerHTML = '';
-  adMsgs.push({ role: 'user', parts: [{ text: 'אני רוצה לבנות קמפיין ממומן חדש לדנא. התחל בשלב סיעור המוחות: הצג פתיח קצר ושאל אותי את שאלות המיקוד הראשונות.' }] });
+  adMsgs.push({ role: 'user', parts: [{ text: 'אני רוצה לבנות קמפיין ממומן חדש לדנא. התחל בשלב סיעור המוחות: הצג פתיח קצר ושאל אותי את שאלות המיקוד הראשונות.' + adcContext() }] });
   document.getElementById('adcSendBtn').disabled = true;
   const tid = adcTyping();
   try {
@@ -3111,6 +3131,83 @@ async function sendAdc() {
     adcAppend('ai', reply);
   } catch (e) { adMsgs.pop(); removeEl(tid); adcAppend('ai', `⚠️ שגיאה: ${e.message}`); }
   finally { document.getElementById('adcSendBtn').disabled = false; }
+}
+
+// — סריקת מוצר מהאתר + מעקב מתחרים (לבונה הקמפיין) —
+let scannedProduct = null;
+let adCompetitors = JSON.parse(localStorage.getItem('dna_ad_competitors') || '[]');
+
+function adcContext() {
+  let ctx = '';
+  if (scannedProduct && scannedProduct.name) {
+    ctx += '\n\nמוצר שסרקתי מאתר דנא (בסס עליו את המודעה):\n• שם: ' + scannedProduct.name +
+      (scannedProduct.price ? '\n• מחיר: ' + scannedProduct.price : '') +
+      (scannedProduct.description ? '\n• תיאור: ' + scannedProduct.description : '') +
+      (scannedProduct.url ? '\n• קישור: ' + scannedProduct.url : '');
+  }
+  if (adCompetitors.length) {
+    ctx += '\n\nמתחרים שאני עוקב אחריהם (התייחס למסרים שלהם והבדל את דנא מהם):\n' +
+      adCompetitors.map(c => '• ' + c.name + (c.url ? ' (' + c.url + ')' : '')).join('\n');
+  }
+  return ctx;
+}
+
+async function scanMyProduct() {
+  const url = document.getElementById('scanProdInp').value.trim();
+  if (!url) { alert('הדבק קישור למוצר מהאתר'); return; }
+  const el = document.getElementById('scanProdResult');
+  el.innerHTML = '⏳ סורק את המוצר...';
+  try {
+    const d = await compApi('/scrape-product', 'POST', { url });
+    if (d.error) throw new Error(d.error);
+    scannedProduct = d;
+    el.innerHTML = '✅ נסרק: <b>' + esc(d.name || '(ללא שם)') + '</b>' +
+      (d.price ? ' · ' + esc(d.price) : '') +
+      (d.image ? '<br><img src="' + esc(d.image) + '" style="max-height:90px;border-radius:8px;margin-top:6px">' : '') +
+      (d.description ? '<br><span class="muted-sm">' + esc((d.description || '').slice(0, 160)) + '</span>' : '') +
+      '<br><span class="muted-sm">המידע יוזן אוטומטית לבניית הקמפיין.</span>';
+  } catch (e) { el.innerHTML = '<span style="color:#f87171">שגיאה בסריקה: ' + esc(e.message) + '</span>'; }
+}
+
+function saveAdCompetitors() { localStorage.setItem('dna_ad_competitors', JSON.stringify(adCompetitors)); }
+
+function renderAdCompetitors() {
+  const el = document.getElementById('adCompList');
+  if (!el) return;
+  if (!adCompetitors.length) { el.innerHTML = '<span class="muted-sm">עדיין לא הוספת מתחרים למעקב.</span>'; return; }
+  el.innerHTML = adCompetitors.map((c, i) =>
+    '<span class="known-chip">' + esc(c.name) +
+    ' <a href="#" onclick="openCompetitorAds(' + i + ');return false" title="צפה במודעות פעילות">📢 מודעות</a>' +
+    ' <a href="#" onclick="removeAdCompetitor(' + i + ');return false" title="הסר">✕</a></span>'
+  ).join(' ');
+}
+
+function addAdCompetitor() {
+  const name = document.getElementById('adCompName').value.trim();
+  const url = document.getElementById('adCompUrl').value.trim();
+  if (!name) { alert('הזן שם מתחרה'); return; }
+  adCompetitors.push({ name, url });
+  saveAdCompetitors();
+  document.getElementById('adCompName').value = '';
+  document.getElementById('adCompUrl').value = '';
+  renderAdCompetitors();
+}
+
+function removeAdCompetitor(i) { adCompetitors.splice(i, 1); saveAdCompetitors(); renderAdCompetitors(); }
+
+function fbPageIdFromUrl(url) {
+  if (!url) return '';
+  const m = url.match(/[?&]id=(\d{5,})/) || url.match(/\/(\d{6,})(?:\/|$|\?)/) || url.match(/-(\d{6,})(?:\/|$|\?)/);
+  return m ? m[1] : '';
+}
+
+function openCompetitorAds(i) {
+  const c = adCompetitors[i]; if (!c) return;
+  const pid = fbPageIdFromUrl(c.url);
+  const base = 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IL';
+  const lib = pid ? base + '&view_all_page_id=' + pid
+                  : base + '&search_type=keyword_unordered&q=' + encodeURIComponent(c.name);
+  window.open(lib, '_blank', 'noopener');
 }
 
 // ═══════════════════════════════════

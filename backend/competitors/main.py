@@ -559,6 +559,40 @@ def publish_facebook(data):
         return _json({"error": str(e)}, 500)
 
 
+def scrape_product(data):
+    """סורק דף מוצר מאתר המשתמש ומחזיר שם, מחיר, תיאור ותמונה — לשימוש בבניית מודעה."""
+    data = data or {}
+    url = (data.get("url") or "").strip()
+    if not url:
+        return _json({"error": "אין כתובת לסריקה"}, 400)
+    try:
+        r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
+        if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = r.apparent_encoding or "utf-8"
+        soup = BeautifulSoup(r.text, "html.parser")
+
+        def meta(*keys):
+            for k in keys:
+                t = soup.find("meta", property=k) or soup.find("meta", attrs={"name": k})
+                if t and t.get("content"):
+                    return t["content"].strip()
+            return ""
+
+        name = meta("og:title")
+        if not name:
+            h1 = soup.find("h1")
+            if h1:
+                name = h1.get_text(strip=True)
+            elif soup.title and soup.title.string:
+                name = soup.title.string.strip()
+        desc = meta("og:description", "description", "twitter:description")
+        image = meta("og:image", "twitter:image")
+        price = extract_price(r.text)
+        return _json({"name": name, "price": price, "description": desc, "image": image, "url": url})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def shorten_url(data):
     """מקצר כתובת URL (TinyURL, עם נפילה ל-is.gd; אם נכשל — מחזיר את המקור)."""
     data = data or {}
@@ -1220,6 +1254,10 @@ def competitors_api(request):
         elif resource == "shorten":
             if method == "POST":
                 return shorten_url(data)
+
+        elif resource == "scrape-product":
+            if method == "POST":
+                return scrape_product(data)
 
         elif resource == "catalog":
             if method == "GET":
