@@ -831,9 +831,13 @@
         <div class="sec-sub">בניית קמפיין ממומן · מעקב מתחרים · סריקת מוצר מהאתר · פרסום בפייסבוק</div>
       </div>
 
-      <div class="input-row" style="margin-top:6px">
-        <button class="comp-btn" onclick="openMyPage('fb')">📘 דף הפייסבוק שלי</button>
-        <button class="comp-btn" onclick="openMyPage('ig')">📸 האינסטגרם שלי</button>
+      <div class="input-row" style="margin-top:6px;flex-wrap:wrap">
+        <button class="comp-btn" onclick="openMyPage('fb')">📘 פייסבוק</button>
+        <button class="comp-btn" onclick="openMyPage('ig')">📸 אינסטגרם</button>
+        <button class="comp-btn" onclick="openMyPage('yt')">▶️ יוטיוב</button>
+        <button class="comp-btn" onclick="openMyPage('gbp')">🌐 דף עסקי גוגל</button>
+        <button class="comp-btn" onclick="openMyPage('tiktok')">🎵 טיקטוק</button>
+        <button class="comp-btn" onclick="openMyPage('site')">🛒 אתר המכירות</button>
         <button class="comp-btn" onclick="setMyPage()">✏️ ערוך קישורים</button>
       </div>
 
@@ -3262,25 +3266,41 @@ function openCompetitorAds(i) {
   window.open(lib, '_blank', 'noopener');
 }
 
-// ── הדפים שלי (פייסבוק + אינסטגרם) ──
-function openMyPage(which) {
-  const key = which === 'ig' ? 'dna_ig_url' : 'dna_fb_url';
-  let url = (localStorage.getItem(key) || '').trim();
-  if (!url && which === 'fb') url = 'https://www.facebook.com/960789637114465';
+// ── הדפים שלי (רשתות חברתיות + אתר) ──
+const MY_PAGES = [
+  { key: 'fb',     ask: 'קישור לדף הפייסבוק שלך:',                  def: 'https://www.facebook.com/960789637114465' },
+  { key: 'ig',     ask: 'קישור לעמוד האינסטגרם שלך:',              def: '' },
+  { key: 'yt',     ask: 'קישור לערוץ היוטיוב שלך:',                def: '' },
+  { key: 'gbp',    ask: 'קישור לדף העסקי בגוגל (Google Business):', def: '' },
+  { key: 'tiktok', ask: 'קישור לעמוד הטיקטוק שלך:',                def: '' },
+  { key: 'site',   ask: 'קישור לאתר המכירות שלך:',                  def: 'https://www.dna-tools.co.il' },
+];
+
+function myPageUrl(key) {
+  const p = MY_PAGES.find(x => x.key === key) || {};
+  let v = localStorage.getItem('dna_page_' + key);
+  if (!v && key === 'fb') v = localStorage.getItem('dna_fb_url');   // תאימות לאחור
+  if (!v && key === 'ig') v = localStorage.getItem('dna_ig_url');
+  return (v || p.def || '').trim();
+}
+
+function openMyPage(key) {
+  let url = myPageUrl(key);
   if (!url) {
-    const v = prompt(which === 'ig' ? 'הדבק קישור לעמוד האינסטגרם שלך:' : 'הדבק קישור לדף הפייסבוק שלך:');
+    const p = MY_PAGES.find(x => x.key === key) || {};
+    const v = prompt(p.ask || 'הדבק קישור:');
     if (v === null || !v.trim()) return;
     url = v.trim();
-    localStorage.setItem(key, url);
+    localStorage.setItem('dna_page_' + key, url);
   }
   window.open(url, '_blank', 'noopener');
 }
 
 function setMyPage() {
-  const fb = prompt('קישור לדף הפייסבוק שלך:', localStorage.getItem('dna_fb_url') || 'https://www.facebook.com/960789637114465');
-  if (fb !== null) localStorage.setItem('dna_fb_url', fb.trim());
-  const ig = prompt('קישור לעמוד האינסטגרם שלך:', localStorage.getItem('dna_ig_url') || '');
-  if (ig !== null) localStorage.setItem('dna_ig_url', ig.trim());
+  for (const p of MY_PAGES) {
+    const v = prompt(p.ask, myPageUrl(p.key));
+    if (v !== null) localStorage.setItem('dna_page_' + p.key, v.trim());
+  }
   alert('הקישורים נשמרו ✓');
 }
 
