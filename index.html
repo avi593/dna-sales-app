@@ -831,6 +831,12 @@
         <div class="sec-sub">בניית קמפיין ממומן · מעקב מתחרים · סריקת מוצר מהאתר · פרסום בפייסבוק</div>
       </div>
 
+      <div class="input-row" style="margin-top:6px">
+        <button class="comp-btn" onclick="openMyPage('fb')">📘 דף הפייסבוק שלי</button>
+        <button class="comp-btn" onclick="openMyPage('ig')">📸 האינסטגרם שלי</button>
+        <button class="comp-btn" onclick="setMyPage()">✏️ ערוך קישורים</button>
+      </div>
+
       <!-- 🚀 בניית קמפיין ממומן -->
       <div style="margin-top:10px">
         <div class="sec-title">🚀 בניית קמפיין ממומן</div>
@@ -3056,16 +3062,14 @@ const AD_CAMPAIGN_PROMPT = `אתה אסטרטג מדיה ממומנת בכיר (
 
 המשימה: לבנות יחד עם בעל העסק (דנא ציוד אינסטלציה) קמפיין ממומן אחד — מדויק, ריאלי ומנצח. עבוד בשני שלבים:
 
-▶ שלב 1 — סיעור מוחות (Discovery):
-לפני כל המלצה, שאל 5–7 שאלות ממוקדות בגובה העיניים. כסה:
-• מטרת הקמפיין (לידים / מכירות / חשיפה / טראפיק לאתר)
-• המוצר או המבצע, ומהי ההצעה הקונקרטית (Offer)
-• תקציב חודשי משוער (₪)
-• קהל היעד המדויק והאזור הגאוגרפי
-• הבידול מול המתחרים (USP) — למה לקנות דווקא מדנא
-• נכסים קיימים (תמונות, וידאו, ביקורות, דף נחיתה)
-• ניסיון קודם בפרסום ממומן ותוצאות
-אל תניח הנחות. אם חסר מידע — שאל. אל תעבור לשלב 2 לפני שיש בסיס מספיק.
+▶ שלב 1 — סיעור מוחות בפורמט "מבחן אמריקאי" (שאלה + אפשרויות תשובה):
+שאל שאלה אחת בכל הודעה (5–7 שאלות בסך הכול), וכסה בהדרגה: מטרת הקמפיין, המוצר/ההצעה, תקציב חודשי (₪), קהל ואזור, בידול (USP), נכסים קיימים, ניסיון קודם.
+חוקי פורמט מחייבים לכל שאלה:
+- נסח שאלה אחת ברורה.
+- הצג 3–4 אפשרויות תשובה ממוספרות בדיוק כך: "1) ...", "2) ...", "3) ..." — קונקרטיות ומותאמות לדנא ולשוק B2B הישראלי. האפשרות האחרונה תמיד: "אחר (כתוב חופשי)".
+- בשורה נפרדת בסוף כתוב בדיוק: "✅ ההמלצה שלי: מספר X — [נימוק קצר במשפט]".
+- אל תשאל יותר משאלה אחת בהודעה, ואל תניח הנחות.
+המשתמש יענה במספר או בכתיבה חופשית. אחרי שהוא עונה — עבור לשאלה הבאה. אל תעבור לשלב 2 לפני שכל השאלות נענו.
 
 ▶ שלב 2 — תוכנית הקמפיין המלאה:
 1. אסטרטגיה ויעד — יעד הקמפיין (Objective) המתאים ב-Meta ושלב במשפך השיווקי
@@ -3083,16 +3087,35 @@ const AD_CAMPAIGN_PROMPT = `אתה אסטרטג מדיה ממומנת בכיר (
 • בסס המלצות על ההצעה האמיתית ועל מה שהמתחרים עושים בפועל.
 • היה כן לגבי ציפיות ותוצאות ריאליות.
 
-ניהול השיחה: דבר עברית טבעית. שאל שאלות בקבוצות קטנות (2–3 בכל פעם) כדי לא להציף. כשיש מספיק מידע — הכרז שאתה עובר לשלב 2 ובנה את התוכנית המלאה.`;
+ניהול השיחה: דבר עברית טבעית, שאלה אחת בכל פעם בפורמט מבחן אמריקאי עם המלצה. כשכל השאלות נענו — הכרז שאתה עובר לשלב 2 ובנה את התוכנית המלאה.`;
 let adMsgs = [];
 
 function adcAppend(role, text) {
   const area = document.getElementById('adcArea');
   const d = document.createElement('div');
   d.className = 'msg ' + role;
-  d.innerHTML = `<div class="msg-av">${role === 'ai' ? '🤖' : '👤'}</div><div class="msg-bub">${renderAI(text)}</div>`;
+  let inner = renderAI(text);
+  if (role === 'ai') {
+    // פורמט "מבחן אמריקאי" — הופך שורות ממוספרות לכפתורים, ומדגיש את ההמלצה
+    const opts = [...text.matchAll(/^\s*(\d)[\)\.]\s+(.+)$/gm)].map(m => ({ n: m[1], label: m[2].trim() }));
+    const recM = text.match(/ההמלצה שלי[^\d]*(\d)/);
+    const rec = recM ? recM[1] : '';
+    if (opts.length >= 2) {
+      inner += '<div class="gen-img-actions" style="margin-top:8px;flex-wrap:wrap;gap:6px">' +
+        opts.map(o => '<button class="' + (o.n === rec ? 'btn btn-purple' : 'comp-btn') + '" onclick="adcPick(\'' + o.n + '\')">' +
+          (o.n === rec ? '✅ ' : '') + esc(o.n + '. ' + o.label.slice(0, 42)) + '</button>').join('') +
+        '</div>';
+    }
+  }
+  d.innerHTML = `<div class="msg-av">${role === 'ai' ? '🤖' : '👤'}</div><div class="msg-bub">${inner}</div>`;
   area.appendChild(d);
   area.scrollTop = area.scrollHeight;
+}
+
+function adcPick(n) {
+  const ta = document.getElementById('adcTa');
+  if (ta) ta.value = n;
+  sendAdc();
 }
 
 function adcTyping() {
@@ -3237,6 +3260,28 @@ function openCompetitorAds(i) {
   const lib = pid ? base + '&view_all_page_id=' + pid
                   : base + '&search_type=keyword_unordered&q=' + encodeURIComponent(c.name);
   window.open(lib, '_blank', 'noopener');
+}
+
+// ── הדפים שלי (פייסבוק + אינסטגרם) ──
+function openMyPage(which) {
+  const key = which === 'ig' ? 'dna_ig_url' : 'dna_fb_url';
+  let url = (localStorage.getItem(key) || '').trim();
+  if (!url && which === 'fb') url = 'https://www.facebook.com/960789637114465';
+  if (!url) {
+    const v = prompt(which === 'ig' ? 'הדבק קישור לעמוד האינסטגרם שלך:' : 'הדבק קישור לדף הפייסבוק שלך:');
+    if (v === null || !v.trim()) return;
+    url = v.trim();
+    localStorage.setItem(key, url);
+  }
+  window.open(url, '_blank', 'noopener');
+}
+
+function setMyPage() {
+  const fb = prompt('קישור לדף הפייסבוק שלך:', localStorage.getItem('dna_fb_url') || 'https://www.facebook.com/960789637114465');
+  if (fb !== null) localStorage.setItem('dna_fb_url', fb.trim());
+  const ig = prompt('קישור לעמוד האינסטגרם שלך:', localStorage.getItem('dna_ig_url') || '');
+  if (ig !== null) localStorage.setItem('dna_ig_url', ig.trim());
+  alert('הקישורים נשמרו ✓');
 }
 
 // ── דוחות קמפיינים: פוסטים אורגניים + מודעות ממומנות + המלצות AI ──
