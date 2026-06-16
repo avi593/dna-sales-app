@@ -3489,25 +3489,34 @@ async function crmWebhookSetup() {
   prompt('✅ זו הכתובת לחיבור האתר.\nב-WooCommerce: הגדרות → מתקדם → Webhooks → הוסף → Topic "Order created" → הדבק כאן ב-Delivery URL:', url);
 }
 
-async function crmWcImport() {
-  let s = {};
-  try { s = await compApi('/config'); } catch (e) {}
-  if (!s.wcConfigured) {
-    const base = prompt('כתובת האתר:', 'https://www.dna-tools.co.il');
-    if (base === null || !base.trim()) return;
-    const ck = prompt('Consumer Key (ck_...):'); if (ck === null || !ck.trim()) return;
-    const cs = prompt('Consumer Secret (cs_...):'); if (cs === null || !cs.trim()) return;
-    try { await compApi('/config', 'POST', { wcApiBase: base.trim(), wcKey: ck.trim(), wcSecret: cs.trim() }); }
-    catch (e) { alert('שגיאה בשמירה: ' + e.message); return; }
-  }
+function crmWcImport() {
+  document.getElementById('crm360Body').innerHTML =
+    '<h3 style="margin-top:0">📥 ייבוא לקוחות מהאתר (WooCommerce API)</h3>' +
+    '<div class="muted-sm" style="margin-bottom:10px">הדבק את הפרטים מ-WooCommerce → Advanced → REST API. אפשר לעבור בין הטאבים להעתיק — הטופס לא ייעלם.</div>' +
+    '<div style="display:flex;flex-direction:column;gap:8px">' +
+    '<input class="inp" id="wcBase" placeholder="כתובת האתר" value="https://www.dna-tools.co.il">' +
+    '<input class="inp" id="wcCk" placeholder="Consumer Key (ck_...)">' +
+    '<input class="inp" id="wcCs" placeholder="Consumer Secret (cs_...)">' +
+    '</div>' +
+    '<div class="gen-img-actions" style="margin-top:12px"><button class="btn btn-blue" onclick="crmWcRun()">📥 ייבא עכשיו</button></div>';
+  document.getElementById('crm360').classList.remove('hidden');
+}
+
+async function crmWcRun() {
+  const base = document.getElementById('wcBase').value.trim();
+  const ck = document.getElementById('wcCk').value.trim();
+  const cs = document.getElementById('wcCs').value.trim();
+  if (!base || !ck || !cs) { alert('מלא את כל שלושת השדות'); return; }
   setStatus('מייבא לקוחות מהאתר...', true);
   try {
+    await compApi('/config', 'POST', { wcApiBase: base, wcKey: ck, wcSecret: cs });
     const d = await compApi('/wc-sync', 'POST', {});
     if (d.error) throw new Error(d.error);
     setStatus('יובאו ' + (d.imported || 0) + ' לידים', false);
+    closeCrm360();
     alert('✅ סנכרון הושלם:\n• ' + (d.imported || 0) + ' לידים חדשים יובאו\n• ' + (d.matched || 0) + ' כבר היו קיימים\n(מתוך ' + (d.total || 0) + ' הזמנות אחרונות)');
     await loadCustomers();
-  } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא שה-Key/Secret נכונים והרשאת קריאה.)'); }
+  } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא ש-Key/Secret נכונים והרשאת קריאה.)'); }
 }
 function crmRenderListRows() {
   const el = document.getElementById('crmListRows'); if (!el) return;
