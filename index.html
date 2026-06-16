@@ -859,6 +859,7 @@
       <div class="input-row">
         <input class="inp" id="adsQuery" placeholder="מילת חיפוש / שם מתחרה (לדוגמה: איתור נזילות)" onkeydown="if(event.key==='Enter')searchCompetitorAds()" />
         <button class="btn btn-blue" onclick="searchCompetitorAds()">🔎 חפש מודעות</button>
+        <button class="comp-btn" onclick="openAdLibrary()">🌐 ספריית המודעות (Meta)</button>
         <button class="comp-btn" onclick="setMetaToken()">⚙️ הגדרות Meta</button>
       </div>
       <div id="adsOutput"></div>
@@ -2407,9 +2408,22 @@ async function searchCompetitorAds() {
     renderAds(q);
     setStatus(`נמצאו ${lastAds.length} מודעות`, false);
   } catch (e) {
-    setOutput('adsOutput', outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`));
-    setStatus('שגיאה', false);
+    const perm = /permission|הרשאה/i.test(e.message);
+    setOutput('adsOutput', outputCard(perm ? '🌐 ספריית המודעות הציבורית' : 'שגיאה',
+      `<div class="muted-sm" style="line-height:1.7">${perm
+        ? 'גישת ה-API חסומה על ידי Meta (נדרש אימות זהות חד-פעמי דרך facebook.com/id). בינתיים אפשר לראות בדיוק את אותן מודעות מתחרים מיד — בספרייה הציבורית של Meta, בלי טוקן ובלי אימות:'
+        : esc(e.message)}</div>
+       <div class="gen-img-actions" style="margin-top:12px"><button class="btn btn-blue" onclick="openAdLibrary()">🌐 פתח מודעות מתחרים בספריית Meta</button></div>`));
+    setStatus(perm ? 'נדרשת ספרייה ציבורית' : 'שגיאה', false);
   }
+}
+
+// פתיחת ספריית המודעות הציבורית של Meta (ללא טוקן/אימות) — מסונן לפי מילת חיפוש + ישראל
+function openAdLibrary() {
+  const q = document.getElementById('adsQuery').value.trim();
+  if (!q) { alert('הזן מילת חיפוש או שם מתחרה'); return; }
+  const url = 'https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=IL&media_type=all&search_type=keyword_unordered&q=' + encodeURIComponent(q);
+  window.open(url, '_blank', 'noopener');
 }
 
 function renderAds(q) {
