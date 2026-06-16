@@ -863,9 +863,9 @@
           <button class="add-plus" title="הוסף מתחרה" onclick="addAdCompetitor()">+</button>
         </div>
       </div>
-      <div class="input-row" style="margin-top:12px">
+      <div class="input-row" style="margin-top:12px;flex-wrap:wrap">
         <button class="btn btn-purple" onclick="startAdCampaign()">🚀 התחל בניית קמפיין</button>
-        <span class="muted-sm" style="align-self:center">לחץ כדי שהאסטרטג יתחיל לשאול שאלות ולבנות את הקמפיין</span>
+        <button class="comp-btn" onclick="adcBuildNow()">✅ אין לי עוד שאלות — בנה קמפיין</button>
       </div>
       <div class="chat-wrap" style="margin-top:10px;height:440px;flex:none;border:1px solid var(--border);border-radius:12px">
         <div class="chat-area" id="adcArea">
@@ -3073,7 +3073,7 @@ const AD_CAMPAIGN_PROMPT = `אתה אסטרטג מדיה ממומנת בכיר (
 - הצג 3–4 אפשרויות תשובה ממוספרות בדיוק כך: "1) ...", "2) ...", "3) ..." — קונקרטיות ומותאמות לדנא ולשוק B2B הישראלי. האפשרות האחרונה תמיד: "אחר (כתוב חופשי)".
 - בשורה נפרדת בסוף כתוב בדיוק: "✅ ההמלצה שלי: מספר X — [נימוק קצר במשפט]".
 - אל תשאל יותר משאלה אחת בהודעה, ואל תניח הנחות.
-המשתמש יכול לסמן מספר תשובות (אחת או יותר) או לכתוב חופשי — קבל זאת בברכה. אחרי שהוא עונה — עבור לשאלה הבאה. אל תעבור לשלב 2 לפני שכל השאלות נענו.
+המשתמש יכול לסמן מספר תשובות (אחת או יותר) או לכתוב חופשי — קבל זאת בברכה. אחרי שהוא עונה — עבור לשאלה הבאה. אם המשתמש אומר שאין לו עוד שאלות / מבקש להמשיך / לחץ "בנה קמפיין" — עבור מיד לשלב 2 ובנה את התוכנית המלאה, בלי לשאול עוד. אל תעבור לשלב 2 מיוזמתך לפני שכיסית את עיקר השאלות.
 
 ▶ שלב 2 — תוכנית הקמפיין המלאה:
 1. אסטרטגיה ויעד — יעד הקמפיין (Objective) המתאים ב-Meta ושלב במשפך השיווקי
@@ -3134,6 +3134,13 @@ function adcSubmitChoices(btn) {
   sendAdc();
 }
 
+function adcBuildNow() {
+  if (!adMsgs.length) { alert('קודם התחל את הסיעור מוחות (🚀 התחל בניית קמפיין)'); return; }
+  const ta = document.getElementById('adcTa');
+  if (ta) ta.value = 'אין לי עוד שאלות. עבור עכשיו לשלב 2 ובנה את תוכנית הקמפיין הממומן המלאה לפי כל מה שאמרתי.';
+  sendAdc();
+}
+
 function adcTyping() {
   const area = document.getElementById('adcArea');
   const id = 'adcty' + Date.now();
@@ -3145,19 +3152,26 @@ function adcTyping() {
 }
 
 async function adcCall() {
-  const r = await fetch(EP(apiKey), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: SYS + '\n\n' + AD_CAMPAIGN_PROMPT }] },
-      contents: adMsgs,
-      generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
-    })
-  });
-  const d = await r.json();
-  if (d.error) throw new Error(d.error.message);
-  const parts = d.candidates?.[0]?.content?.parts || [];
-  return parts.filter(p => p.text).map(p => p.text).join('\n') || '(אין תשובה)';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const r = await fetch(EP(apiKey), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: SYS + '\n\n' + AD_CAMPAIGN_PROMPT }] },
+        contents: adMsgs,
+        generationConfig: { temperature: 0.8, maxOutputTokens: 8192 }
+      })
+    });
+    const d = await r.json();
+    if (d.error) {
+      const msg = d.error.message || 'שגיאה';
+      const retryable = [429, 503].includes(d.error.code) || /high demand|overloaded|temporarily|try again|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(msg);
+      if (retryable && attempt < 2) { await new Promise(res => setTimeout(res, 1500 * (attempt + 1))); continue; }
+      throw new Error(msg);
+    }
+    const parts = d.candidates?.[0]?.content?.parts || [];
+    return parts.filter(p => p.text).map(p => p.text).join('\n') || '(אין תשובה)';
+  }
 }
 
 async function startAdCampaign() {
