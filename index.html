@@ -697,6 +697,24 @@
           </div>
         </div>
       </div>
+
+      <!-- 📈 דוחות קמפיינים -->
+      <div class="card" style="margin-top:14px">
+        <div class="card-head">
+          <span>📈 דוחות קמפיינים</span>
+          <span style="display:flex;gap:8px">
+            <button class="comp-btn" onclick="refreshPostReports()">🔄 רענן ביצועים</button>
+            <button class="comp-btn" onclick="loadAdInsights()">💰 מודעות ממומנות</button>
+          </span>
+        </div>
+        <div class="card-body" id="campReports">
+          <div class="card-empty">
+            <div class="card-empty-icon">📈</div>
+            <div class="card-empty-title">אין עדיין נתוני קמפיינים</div>
+            <div class="card-empty-desc">פרסם פוסטים דרך "פרסום וקידום", ואז לחץ "🔄 רענן ביצועים" כדי לראות מעורבות אמיתית — וקבל המלצות AI לפוסטים הבאים.</div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- ── PRODUCTS ── -->
@@ -1098,6 +1116,7 @@ async function init() {
   updateKPIs();
   loadCompetitors();   // אסינכרוני — נטען מה-API ברקע
   renderAdCompetitors();
+  loadPostReports();   // דוחות קמפיינים — נטען מה-API ברקע
 }
 
 async function loadProducts() {
@@ -3152,6 +3171,11 @@ function adcContext() {
     ctx += '\n\nמתחרים שאני עוקב אחריהם (התייחס למסרים שלהם והבדל את דנא מהם):\n' +
       adCompetitors.map(c => '• ' + c.name + (c.url ? ' (' + c.url + ')' : '')).join('\n');
   }
+  if (typeof campPosts !== 'undefined' && campPosts.length) {
+    const top = [...campPosts].sort((a, b) => postEng(b) - postEng(a)).slice(0, 3).filter(p => postEng(p) > 0);
+    if (top.length) ctx += '\n\nהפוסטים שעבדו לי הכי טוב בעבר (לְמַד מהם — חזור על מה שהצליח):\n' +
+      top.map(p => '• מעורבות ' + postEng(p) + ': ' + (p.message || '').slice(0, 100)).join('\n');
+  }
   return ctx;
 }
 
@@ -3211,6 +3235,98 @@ function openCompetitorAds(i) {
   const lib = pid ? base + '&view_all_page_id=' + pid
                   : base + '&search_type=keyword_unordered&q=' + encodeURIComponent(c.name);
   window.open(lib, '_blank', 'noopener');
+}
+
+// ── דוחות קמפיינים: פוסטים אורגניים + מודעות ממומנות + המלצות AI ──
+let campPosts = [];
+function postEng(p) { return (p.likes || 0) + (p.comments || 0) + (p.shares || 0) + (p.reactions || 0); }
+
+async function loadPostReports() {
+  try { const d = await compApi('/posts'); campPosts = d.posts || []; renderPostReports(); } catch (e) {}
+}
+
+async function refreshPostReports() {
+  const el = document.getElementById('campReports');
+  if (el) el.innerHTML = loadingHtml('מושך ביצועים מהפייסבוק...');
+  try {
+    const d = await compApi('/posts/refresh', 'POST', {});
+    campPosts = d.posts || [];
+    renderPostReports();
+  } catch (e) { if (el) el.innerHTML = '<div class="page-empty" style="color:#f87171">שגיאה: ' + esc(e.message) + '</div>'; }
+}
+
+function renderPostReports() {
+  const el = document.getElementById('campReports');
+  if (!el) return;
+  if (!campPosts.length) {
+    el.innerHTML = '<div class="card-empty"><div class="card-empty-icon">📈</div><div class="card-empty-title">אין עדיין פוסטים</div><div class="card-empty-desc">פרסם דרך "פרסום וקידום", ואז לחץ "🔄 רענן ביצועים".</div></div>';
+    return;
+  }
+  const totalEng = campPosts.reduce((s, p) => s + postEng(p), 0);
+  const top = [...campPosts].sort((a, b) => postEng(b) - postEng(a))[0];
+  const rows = campPosts.map(p =>
+    '<div class="src-row" style="align-items:flex-start">' +
+      '<div class="src-info">' +
+        '<div class="muted-sm" style="white-space:normal">' + esc((p.message || '(ללא טקסט)').slice(0, 120)) + '</div>' +
+        '<div style="font-size:12px;margin-top:3px">👍 ' + (p.likes || 0) + ' · 💬 ' + (p.comments || 0) + ' · 🔁 ' + (p.shares || 0) + ' · ❤️ ' + (p.reactions || 0) +
+          (p.postId ? ' · <a class="src-link" href="https://www.facebook.com/' + esc(p.postId) + '" target="_blank" rel="noopener">צפה ↗</a>' : '') + '</div>' +
+      '</div>' +
+      '<div style="font-weight:700;color:#7c9cff;font-size:15px">' + postEng(p) + '</div>' +
+    '</div>'
+  ).join('');
+  el.innerHTML =
+    '<div class="kpi-grid" style="margin-bottom:12px">' +
+      '<div class="kpi"><div class="kpi-label">פוסטים</div><div class="kpi-val">' + campPosts.length + '</div></div>' +
+      '<div class="kpi"><div class="kpi-label">סך מעורבות</div><div class="kpi-val">' + totalEng + '</div></div>' +
+      '<div class="kpi"><div class="kpi-label">פוסט מוביל</div><div class="kpi-val">' + (top ? postEng(top) : 0) + '</div><div class="kpi-note">' + esc(((top && top.message) || '').slice(0, 26)) + '</div></div>' +
+    '</div>' +
+    '<div class="gen-img-actions" style="margin-bottom:10px"><button class="btn btn-purple" onclick="campaignRecommendations()">🧠 המלצות AI מהביצועים</button></div>' +
+    '<div class="src-list">' + rows + '</div>';
+}
+
+async function campaignRecommendations() {
+  if (!apiKey) { showApiModal(); return; }
+  if (!campPosts.length) { alert('אין עדיין נתוני פוסטים — לחץ "רענן ביצועים" קודם'); return; }
+  const el = document.getElementById('campReports');
+  el.innerHTML = loadingHtml('מנתח ביצועים ובונה המלצות...');
+  const data = campPosts.map(p => 'מעורבות ' + postEng(p) + ' (👍' + (p.likes || 0) + ' 💬' + (p.comments || 0) + ' 🔁' + (p.shares || 0) + '): ' + (p.message || '').slice(0, 150)).join('\n');
+  const prompt = 'הנה הפוסטים שדנא ציוד אינסטלציה פרסמה בפייסבוק והמעורבות שלהם:\n\n' + data +
+    '\n\nנתח בעברית ותן:\n## 🏆 מה עבד\nאילו נושאים/זוויות/אורכים קיבלו הכי הרבה מעורבות\n## 📉 מה פחות עבד\n## 💡 3 המלצות קונקרטיות לפוסטים הבאים\n## 🎯 רעיון לקמפיין ממומן הבא לפי מה שעבד';
+  try {
+    const r = await callAI(prompt, false);
+    el.innerHTML = renderAI(r) + '<div class="gen-img-actions" style="margin-top:10px"><button class="comp-btn" onclick="renderPostReports()">↩︎ חזרה לדוח</button></div>';
+  } catch (e) { renderPostReports(); alert('שגיאה: ' + e.message); }
+}
+
+async function ensureAdAccount() {
+  try { const s = await compApi('/config'); if (s.adsConfigured) return true; } catch (e) {}
+  const id = prompt('הזן Ad Account ID (מספר חשבון המודעות — עם או בלי act_):');
+  if (id === null || !id.trim()) return false;
+  try { await compApi('/config', 'POST', { adAccountId: id.trim() }); return true; }
+  catch (e) { alert('שגיאה: ' + e.message); return false; }
+}
+
+async function loadAdInsights() {
+  if (!(await ensureAdAccount())) return;
+  const el = document.getElementById('campReports');
+  const prev = el.innerHTML;
+  el.innerHTML = loadingHtml('מושך ביצועי מודעות ממומנות...');
+  try {
+    const d = await compApi('/ad-insights', 'POST', {});
+    const ins = (d.insights && d.insights[0]) || null;
+    if (!ins) { el.innerHTML = prev; alert('לא חזרו נתוני מודעות (אולי אין קמפיינים פעילים ב-30 הימים האחרונים).'); return; }
+    el.innerHTML =
+      '<div class="kpi-grid">' +
+        '<div class="kpi"><div class="kpi-label">הוצאה (₪)</div><div class="kpi-val">' + (ins.spend || 0) + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">חשיפות</div><div class="kpi-val">' + Number(ins.impressions || 0).toLocaleString('he-IL') + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">קליקים</div><div class="kpi-val">' + (ins.clicks || 0) + '</div></div>' +
+        '<div class="kpi"><div class="kpi-label">CTR</div><div class="kpi-val">' + (ins.ctr ? Number(ins.ctr).toFixed(2) + '%' : '—') + '</div></div>' +
+      '</div>' +
+      '<div class="gen-img-actions" style="margin-top:10px"><button class="comp-btn" onclick="renderPostReports()">↩︎ חזרה לפוסטים</button></div>';
+  } catch (e) {
+    el.innerHTML = prev;
+    alert('שגיאה במשיכת מודעות: ' + e.message + '\n\n(ודא שהשלמת חיבור ads_read + שהחשבון משויך למשתמש המערכת.)');
+  }
 }
 
 // ═══════════════════════════════════
