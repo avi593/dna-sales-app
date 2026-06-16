@@ -3125,6 +3125,7 @@ async function startAdCampaign() {
   if (!apiKey) { showApiModal(); return; }
   adMsgs = [];
   document.getElementById('adcArea').innerHTML = '';
+  await ensureAnalytics();
   adMsgs.push({ role: 'user', parts: [{ text: 'אני רוצה לבנות קמפיין ממומן חדש לדנא. התחל בשלב סיעור המוחות: הצג פתיח קצר ושאל אותי את שאלות המיקוד הראשונות.' + adcContext() }] });
   document.getElementById('adcSendBtn').disabled = true;
   const tid = adcTyping();
@@ -3176,6 +3177,7 @@ function adcContext() {
     if (top.length) ctx += '\n\nהפוסטים שעבדו לי הכי טוב בעבר (לְמַד מהם — חזור על מה שהצליח):\n' +
       top.map(p => '• מעורבות ' + postEng(p) + ': ' + (p.message || '').slice(0, 100)).join('\n');
   }
+  ctx += gaContext();  // נתוני התנועה וההמרות מ-Google Analytics
   return ctx;
 }
 
@@ -3288,10 +3290,11 @@ async function campaignRecommendations() {
   if (!apiKey) { showApiModal(); return; }
   if (!campPosts.length) { alert('אין עדיין נתוני פוסטים — לחץ "רענן ביצועים" קודם'); return; }
   const el = document.getElementById('campReports');
-  el.innerHTML = loadingHtml('מנתח ביצועים ובונה המלצות...');
+  el.innerHTML = loadingHtml('מנתח ביצועים (פייסבוק + Analytics) ובונה המלצות...');
+  await ensureAnalytics();
   const data = campPosts.map(p => 'מעורבות ' + postEng(p) + ' (👍' + (p.likes || 0) + ' 💬' + (p.comments || 0) + ' 🔁' + (p.shares || 0) + '): ' + (p.message || '').slice(0, 150)).join('\n');
-  const prompt = 'הנה הפוסטים שדנא ציוד אינסטלציה פרסמה בפייסבוק והמעורבות שלהם:\n\n' + data +
-    '\n\nנתח בעברית ותן:\n## 🏆 מה עבד\nאילו נושאים/זוויות/אורכים קיבלו הכי הרבה מעורבות\n## 📉 מה פחות עבד\n## 💡 3 המלצות קונקרטיות לפוסטים הבאים\n## 🎯 רעיון לקמפיין ממומן הבא לפי מה שעבד';
+  const prompt = 'הנה הפוסטים שדנא ציוד אינסטלציה פרסמה בפייסבוק והמעורבות שלהם:\n\n' + data + gaContext() +
+    '\n\nשלב בין מעורבות הפוסטים לבין נתוני התנועה וההמרות באתר, ונתח בעברית:\n## 🏆 מה עבד\nאילו נושאים/זוויות/אורכים קיבלו הכי הרבה מעורבות, והאם זה תרגם לתנועה/המרות באתר\n## 📉 מה פחות עבד\n## 💡 3 המלצות קונקרטיות לפוסטים הבאים\n## 🎯 רעיון לקמפיין ממומן הבא לפי מה שעבד';
   try {
     const r = await callAI(prompt, false);
     el.innerHTML = renderAI(r) + '<div class="gen-img-actions" style="margin-top:10px"><button class="comp-btn" onclick="renderPostReports()">↩︎ חזרה לדוח</button></div>';
@@ -3327,6 +3330,24 @@ async function loadAdInsights() {
     el.innerHTML = prev;
     alert('שגיאה במשיכת מודעות: ' + e.message + '\n\n(ודא שהשלמת חיבור ads_read + שהחשבון משויך למשתמש המערכת.)');
   }
+}
+
+// ── נתוני Google Analytics (כבר מחובר ב"ביצועים") — להעשרת ההמלצות והבונה ──
+async function ensureAnalytics() {
+  if (lastAnalytics || !backendUrl) return;
+  try { const r = await fetch(backendUrl, { cache: 'no-store' }); const d = await r.json(); if (d && !d.error) lastAnalytics = d; } catch (e) {}
+}
+
+function gaContext() {
+  const d = lastAnalytics;
+  if (!d || !d.summary || d.summary.error) return '';
+  const s = d.summary;
+  let ctx = '\n\nנתוני Google Analytics של האתר dna-tools.co.il (' + (d.range || '') + '):\n' +
+    '• משתמשים: ' + (s.users || 0) + ' · סשנים: ' + (s.sessions || 0) + ' · המרות: ' + (s.conversions || 0) + ' · הכנסות: ₪' + (s.revenue || 0);
+  if (Array.isArray(d.channels) && d.channels.length) {
+    ctx += '\n• מקורות תנועה מובילים: ' + d.channels.slice(0, 5).map(c => c.name + ' (' + (c.sessions || 0) + ' סשנים)').join(', ');
+  }
+  return ctx;
 }
 
 // ═══════════════════════════════════
