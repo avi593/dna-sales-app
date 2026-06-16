@@ -503,16 +503,28 @@ def publish_facebook(data):
     if not token or not page:
         return _json({"error": "לא הוגדרו Page Token + Page ID של פייסבוק"}, 400)
     if data.get("test"):
+        result = {"ok": False}
+        # אילו דפים האסימון בכלל יכול לגשת אליהם — לאבחון מזהה/הרשאות
+        try:
+            ra = requests.get("https://graph.facebook.com/v21.0/me/accounts",
+                              params={"fields": "name,id", "access_token": token, "limit": 50}, timeout=20)
+            result["accessiblePages"] = [{"name": p.get("name"), "id": p.get("id")}
+                                         for p in (ra.json() or {}).get("data", [])]
+        except Exception:
+            result["accessiblePages"] = []
+        # בדיקת הדף הספציפי שהוזן
         pt = _resolve_page_token(token, page)
         try:
             r = requests.get(f"https://graph.facebook.com/v21.0/{page}",
                              params={"fields": "name,id", "access_token": pt}, timeout=20)
             d = r.json()
             if "error" in d:
-                return _json({"error": d["error"].get("message", "שגיאת פייסבוק"), "raw": d["error"]}, 502)
-            return _json({"ok": True, "page": d.get("name"), "pageId": d.get("id")})
+                result["error"] = d["error"].get("message", "שגיאת פייסבוק")
+            else:
+                result.update({"ok": True, "page": d.get("name"), "pageId": d.get("id")})
         except Exception as e:
-            return _json({"error": str(e)}, 500)
+            result["error"] = str(e)
+        return _json(result, 200)
     message = (data.get("message") or "").strip()
     image = (data.get("imageUrl") or "").strip()
     if not message and not image:

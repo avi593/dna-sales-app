@@ -2539,12 +2539,24 @@ async function setFbPage() {
   setStatus('בודק חיבור לפייסבוק...', true);
   try {
     const t = await compApi('/publish-facebook', 'POST', { test: true });
-    setStatus('מחובר לפייסבוק ✓', false);
-    alert('✅ מחובר בהצלחה לדף: ' + (t.page || '(ללא שם)'));
+    if (t.ok) {
+      setStatus('מחובר לפייסבוק ✓', false);
+      alert('✅ מחובר בהצלחה לדף: ' + (t.page || '(ללא שם)'));
+      return;
+    }
+    let m = '⚠️ האסימון נשמר, אך בדיקת החיבור נכשלה:\n\n' + (t.error || 'שגיאה לא ידועה');
+    if (t.accessiblePages && t.accessiblePages.length) {
+      m += '\n\n📋 הדפים שהאסימון שלך יכול לגשת אליהם:\n' +
+           t.accessiblePages.map(p => '• ' + (p.name || '(ללא שם)') + '  →  ID: ' + p.id).join('\n') +
+           '\n\nהעתק את ה-ID הנכון מהרשימה והזן שוב דרך "⚙️ חיבור פייסבוק".';
+    } else {
+      m += '\n\n(האסימון לא רואה אף דף — צריך להפעיל את הרשאת "תוכן" לדף עבור משתמש המערכת, ואז ליצור אסימון מחדש.)';
+    }
+    setStatus('בדיקה נכשלה', false);
+    alert(m);
   } catch (e) {
-    setStatus('האסימון נשמר', false);
-    alert('⚠️ האסימון נשמר, אך בדיקת החיבור נכשלה:\n\n' + e.message +
-          '\n\nכנראה צריך להפעיל את הרשאת "תוכן" לדף עבור משתמש המערכת.');
+    setStatus('שגיאה', false);
+    alert('שגיאה בבדיקה: ' + e.message);
   }
 }
 
