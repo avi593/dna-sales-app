@@ -800,8 +800,20 @@ def lead_intake(data, args):
     return _json({"ok": True, "id": ref.id}, 201)
 
 
+WC_STATUS_STAGE = {
+    "pending": "ליד חדש", "on-hold": "ליד חדש", "checkout-draft": "ליד חדש",
+    "processing": "בטיפול", "completed": "סגירה",
+    "cancelled": "אבוד", "refunded": "אבוד", "failed": "אבוד",
+}
+WC_STATUS_HE = {
+    "pending": "ממתין לתשלום", "on-hold": "בהמתנה", "processing": "בעיבוד",
+    "completed": "הושלם", "cancelled": "בוטל", "refunded": "זוכה",
+    "failed": "נכשל", "checkout-draft": "טיוטה",
+}
+
+
 def wc_sync(data):
-    """מושך הזמנות מ-WooCommerce REST API ומוסיף אותן כלידים ב-CRM (ייבוא/סנכרון)."""
+    """מושך את ההזמנות האחרונות מ-WooCommerce, ממפה סטטוס→שלב, ומייבא/מעדכן לידים ב-CRM."""
     data = data or {}
     base = (_get_config("wcApiBase") or "").rstrip("/")
     ck = _get_config("wcKey")
@@ -810,12 +822,12 @@ def wc_sync(data):
         return _json({"error": "לא הוגדרו פרטי WooCommerce API (כתובת, Key, Secret)"}, 400)
     if not base.startswith("http"):
         base = "https://" + base
-    imported, matched = 0, 0
+    per_page = min(max(int(data.get("perPage") or 10), 1), 100)
+    imported, updated = 0, 0
     try:
         r = requests.get(base + "/wp-json/wc/v3/orders",
                          params={"consumer_key": ck, "consumer_secret": cs,
-                                 "per_page": min(int(data.get("perPage") or 50), 100),
-                                 "orderby": "date", "order": "desc"}, timeout=45)
+                                 "per_page": per_page, "orderby": "date", "order": "desc"}, timeout=45)
         orders = r.json()
         if isinstance(orders, dict):
             return _json({"error": orders.get("message", "שגיאת WooCommerce")}, 502)
@@ -826,6 +838,11 @@ def wc_sync(data):
             name = ((b.get("first_name") or "") + " " + (b.get("last_name") or "")).strip() or email or "ליד מהאתר"
             if not (phone or email):
                 continue
+            status = (o.get("status") or "").lower()
+            stage = WC_STATUS_STAGE.get(status, "ליד חדש")
+            note = "הזמנה #" + str(o.get("number") or o.get("id")) + " · סטטוס: " + WC_STATUS_HE.get(status, status or "—")
+            if o.get("total"):
+                note += " · ₪" + str(o.get("total"))
             existing = None
             if phone:
                 for d in db.collection("customers").where("phone", "==", phone).limit(1).stream():
@@ -834,18 +851,21 @@ def wc_sync(data):
                 for d in db.collection("customers").where("email", "==", email).limit(1).stream():
                     existing = d
             if existing:
-                matched += 1
-                continue
-            note = "הזמנה #" + str(o.get("number") or o.get("id"))
-            if o.get("total"):
-                note += " · ₪" + str(o.get("total"))
-            db.collection("customers").document().set({
-                "name": name, "phone": phone, "email": email, "company": (b.get("company") or "").strip(),
-                "stage": "ליד חדש", "source": "אתר", "notes": note,
-                "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
-            })
-            imported += 1
-        return _json({"ok": True, "imported": imported, "matched": matched, "total": len(orders)})
+                prev = (existing.to_dict() or {}).get("notes") or ""
+                db.collection("customers").document(existing.id).update({
+                    "notes": (prev + "\n" if prev else "") + note,
+                    "stage": stage,
+                    "updatedAt": firestore.SERVER_TIMESTAMP,
+                })
+                updated += 1
+            else:
+                db.collection("customers").document().set({
+                    "name": name, "phone": phone, "email": email, "company": (b.get("company") or "").strip(),
+                    "stage": stage, "source": "אתר", "notes": note,
+                    "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
+                })
+                imported += 1
+        return _json({"ok": True, "imported": imported, "updated": updated, "total": len(orders)})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 

@@ -3497,7 +3497,9 @@ function crmWcImport() {
     '<input class="inp" id="wcBase" placeholder="כתובת האתר" value="https://www.dna-tools.co.il">' +
     '<input class="inp" id="wcCk" placeholder="Consumer Key (ck_...)">' +
     '<input class="inp" id="wcCs" placeholder="Consumer Secret (cs_...)">' +
+    '<input class="inp" id="wcCount" type="number" min="1" max="100" placeholder="כמה הזמנות אחרונות למשוך" value="10">' +
     '</div>' +
+    '<div class="muted-sm" style="margin-top:8px">הסטטוס של כל הזמנה ימופה אוטומטית לשלב: בעיבוד→בטיפול · הושלם→סגירה · בוטל→אבוד.<br>אם כבר חיברת קודם — אפשר להשאיר Key/Secret ריקים וללחוץ "ייבא".</div>' +
     '<div class="gen-img-actions" style="margin-top:12px"><button class="btn btn-blue" onclick="crmWcRun()">📥 ייבא עכשיו</button></div>';
   document.getElementById('crm360').classList.remove('hidden');
 }
@@ -3506,15 +3508,15 @@ async function crmWcRun() {
   const base = document.getElementById('wcBase').value.trim();
   const ck = document.getElementById('wcCk').value.trim();
   const cs = document.getElementById('wcCs').value.trim();
-  if (!base || !ck || !cs) { alert('מלא את כל שלושת השדות'); return; }
+  const count = parseInt(document.getElementById('wcCount').value) || 10;
   setStatus('מייבא לקוחות מהאתר...', true);
   try {
-    await compApi('/config', 'POST', { wcApiBase: base, wcKey: ck, wcSecret: cs });
-    const d = await compApi('/wc-sync', 'POST', {});
+    if (base && ck && cs) await compApi('/config', 'POST', { wcApiBase: base, wcKey: ck, wcSecret: cs });
+    const d = await compApi('/wc-sync', 'POST', { perPage: count });
     if (d.error) throw new Error(d.error);
-    setStatus('יובאו ' + (d.imported || 0) + ' לידים', false);
+    setStatus('סנכרון הושלם', false);
     closeCrm360();
-    alert('✅ סנכרון הושלם:\n• ' + (d.imported || 0) + ' לידים חדשים יובאו\n• ' + (d.matched || 0) + ' כבר היו קיימים\n(מתוך ' + (d.total || 0) + ' הזמנות אחרונות)');
+    alert('✅ סנכרון הושלם (' + (d.total || 0) + ' הזמנות אחרונות):\n• ' + (d.imported || 0) + ' לידים חדשים\n• ' + (d.updated || 0) + ' עודכנו (כולל שלב לפי סטטוס)');
     await loadCustomers();
   } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא ש-Key/Secret נכונים והרשאת קריאה.)'); }
 }
