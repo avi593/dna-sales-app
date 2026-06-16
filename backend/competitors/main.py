@@ -467,7 +467,7 @@ def _get_config(key, default=None):
 def set_config(data):
     fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
                           "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken",
-                          "leadIntakeKey"})
+                          "leadIntakeKey", "wcApiBase", "wcKey", "wcSecret"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
@@ -485,7 +485,8 @@ def config_status():
                   "metaConfigured": bool(_get_config("metaToken")),
                   "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId")),
                   "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId")),
-                  "adsConfigured": bool(_get_config("adAccountId"))})
+                  "adsConfigured": bool(_get_config("adAccountId")),
+                  "wcConfigured": bool(_get_config("wcApiBase") and _get_config("wcKey"))})
 
 
 def _resolve_page_token(token, page):
@@ -797,6 +798,56 @@ def lead_intake(data, args):
     ref = db.collection("customers").document()
     ref.set(fields)
     return _json({"ok": True, "id": ref.id}, 201)
+
+
+def wc_sync(data):
+    """מושך הזמנות מ-WooCommerce REST API ומוסיף אותן כלידים ב-CRM (ייבוא/סנכרון)."""
+    data = data or {}
+    base = (_get_config("wcApiBase") or "").rstrip("/")
+    ck = _get_config("wcKey")
+    cs = _get_config("wcSecret")
+    if not (base and ck and cs):
+        return _json({"error": "לא הוגדרו פרטי WooCommerce API (כתובת, Key, Secret)"}, 400)
+    if not base.startswith("http"):
+        base = "https://" + base
+    imported, matched = 0, 0
+    try:
+        r = requests.get(base + "/wp-json/wc/v3/orders",
+                         params={"consumer_key": ck, "consumer_secret": cs,
+                                 "per_page": min(int(data.get("perPage") or 50), 100),
+                                 "orderby": "date", "order": "desc"}, timeout=45)
+        orders = r.json()
+        if isinstance(orders, dict):
+            return _json({"error": orders.get("message", "שגיאת WooCommerce")}, 502)
+        for o in orders:
+            b = o.get("billing") or {}
+            phone = (b.get("phone") or "").strip()
+            email = (b.get("email") or "").strip()
+            name = ((b.get("first_name") or "") + " " + (b.get("last_name") or "")).strip() or email or "ליד מהאתר"
+            if not (phone or email):
+                continue
+            existing = None
+            if phone:
+                for d in db.collection("customers").where("phone", "==", phone).limit(1).stream():
+                    existing = d
+            if not existing and email:
+                for d in db.collection("customers").where("email", "==", email).limit(1).stream():
+                    existing = d
+            if existing:
+                matched += 1
+                continue
+            note = "הזמנה #" + str(o.get("number") or o.get("id"))
+            if o.get("total"):
+                note += " · ₪" + str(o.get("total"))
+            db.collection("customers").document().set({
+                "name": name, "phone": phone, "email": email, "company": (b.get("company") or "").strip(),
+                "stage": "ליד חדש", "source": "אתר", "notes": note,
+                "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
+            })
+            imported += 1
+        return _json({"ok": True, "imported": imported, "matched": matched, "total": len(orders)})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
 
 
 def shorten_url(data):
@@ -1468,6 +1519,10 @@ def competitors_api(request):
         elif resource == "lead-intake":
             if method == "POST":
                 return lead_intake(data, args)
+
+        elif resource == "wc-sync":
+            if method == "POST":
+                return wc_sync(data)
 
         elif resource == "customers":
             if method == "GET":

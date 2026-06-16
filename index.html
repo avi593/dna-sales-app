@@ -3474,7 +3474,7 @@ function crmListHtml() {
     '<button class="btn btn-blue" onclick="addCustomer()">➕ הוסף</button></div>' +
     '<div class="input-row"><input class="inp" id="custSearch" placeholder="🔎 חיפוש..." oninput="crmRenderListRows()" />' +
     '<select class="inp" id="custFilter" style="max-width:140px" onchange="crmRenderListRows()"><option value="">כל השלבים</option>' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
-    '<div style="margin:4px 0 8px"><button class="comp-btn" onclick="crmWebhookSetup()">🔌 חבר את האתר (לידים אוטומטיים)</button></div>' +
+    '<div style="margin:4px 0 8px"><button class="comp-btn" onclick="crmWebhookSetup()">🔌 חבר את האתר (Webhook)</button> <button class="comp-btn" onclick="crmWcImport()">📥 ייבא מהאתר (API)</button></div>' +
     '<div id="crmListRows"></div>';
 }
 
@@ -3487,6 +3487,27 @@ async function crmWebhookSetup() {
   }
   const url = compApiBase() + '/lead-intake?key=' + key;
   prompt('✅ זו הכתובת לחיבור האתר.\nב-WooCommerce: הגדרות → מתקדם → Webhooks → הוסף → Topic "Order created" → הדבק כאן ב-Delivery URL:', url);
+}
+
+async function crmWcImport() {
+  let s = {};
+  try { s = await compApi('/config'); } catch (e) {}
+  if (!s.wcConfigured) {
+    const base = prompt('כתובת האתר:', 'https://www.dna-tools.co.il');
+    if (base === null || !base.trim()) return;
+    const ck = prompt('Consumer Key (ck_...):'); if (ck === null || !ck.trim()) return;
+    const cs = prompt('Consumer Secret (cs_...):'); if (cs === null || !cs.trim()) return;
+    try { await compApi('/config', 'POST', { wcApiBase: base.trim(), wcKey: ck.trim(), wcSecret: cs.trim() }); }
+    catch (e) { alert('שגיאה בשמירה: ' + e.message); return; }
+  }
+  setStatus('מייבא לקוחות מהאתר...', true);
+  try {
+    const d = await compApi('/wc-sync', 'POST', {});
+    if (d.error) throw new Error(d.error);
+    setStatus('יובאו ' + (d.imported || 0) + ' לידים', false);
+    alert('✅ סנכרון הושלם:\n• ' + (d.imported || 0) + ' לידים חדשים יובאו\n• ' + (d.matched || 0) + ' כבר היו קיימים\n(מתוך ' + (d.total || 0) + ' הזמנות אחרונות)');
+    await loadCustomers();
+  } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא שה-Key/Secret נכונים והרשאת קריאה.)'); }
 }
 function crmRenderListRows() {
   const el = document.getElementById('crmListRows'); if (!el) return;
