@@ -466,7 +466,8 @@ def _get_config(key, default=None):
 
 def set_config(data):
     fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
-                          "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken"})
+                          "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken",
+                          "leadIntakeKey"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
@@ -745,6 +746,57 @@ def scrape_product(data):
         return _json({"name": name, "price": price, "description": desc, "image": image, "url": url})
     except Exception as e:
         return _json({"error": str(e)}, 500)
+
+
+def lead_intake(data, args):
+    """שער קליטת לידים — מקבל Webhook (למשל הזמנה/לקוח מ-WooCommerce) ויוצר 'ליד חדש' ב-CRM."""
+    key = _get_config("leadIntakeKey")
+    if key and (args.get("key") or "") != key:
+        return _json({"error": "unauthorized"}, 401)
+    data = data or {}
+    billing = data.get("billing") or {}
+    first = (data.get("first_name") or billing.get("first_name") or "").strip()
+    last = (data.get("last_name") or billing.get("last_name") or "").strip()
+    name = (first + " " + last).strip() or (data.get("name") or "").strip() or billing.get("email") or "ליד מהאתר"
+    phone = (billing.get("phone") or data.get("phone") or "").strip()
+    email = (data.get("email") or billing.get("email") or "").strip()
+    company = (billing.get("company") or data.get("company") or "").strip()
+    note_parts = []
+    if data.get("id"):
+        note_parts.append("הזמנה #" + str(data.get("number") or data.get("id")))
+    if data.get("total"):
+        note_parts.append("סכום: " + str(data.get("total")))
+    items = data.get("line_items") or []
+    if items:
+        note_parts.append("מוצרים: " + ", ".join((i.get("name") or "") for i in items[:5]))
+    if data.get("customer_note"):
+        note_parts.append("הערה: " + str(data.get("customer_note")))
+    note = " · ".join([p for p in note_parts if p])
+    if not (phone or email or first or data.get("name")):
+        return _json({"error": "no lead data"}, 400)
+    # דדופ לפי טלפון/אימייל
+    existing = None
+    if phone:
+        for d in db.collection("customers").where("phone", "==", phone).limit(1).stream():
+            existing = d
+    if not existing and email:
+        for d in db.collection("customers").where("email", "==", email).limit(1).stream():
+            existing = d
+    if existing:
+        upd = {"updatedAt": firestore.SERVER_TIMESTAMP}
+        if note:
+            prev = (existing.to_dict() or {}).get("notes") or ""
+            upd["notes"] = (prev + "\n" if prev else "") + note
+        db.collection("customers").document(existing.id).update(upd)
+        return _json({"ok": True, "matched": existing.id})
+    fields = {
+        "name": name, "phone": phone, "email": email, "company": company,
+        "stage": "ליד חדש", "source": "אתר", "notes": note,
+        "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    ref = db.collection("customers").document()
+    ref.set(fields)
+    return _json({"ok": True, "id": ref.id}, 201)
 
 
 def shorten_url(data):
@@ -1412,6 +1464,10 @@ def competitors_api(request):
         elif resource == "scrape-product":
             if method == "POST":
                 return scrape_product(data)
+
+        elif resource == "lead-intake":
+            if method == "POST":
+                return lead_intake(data, args)
 
         elif resource == "customers":
             if method == "GET":

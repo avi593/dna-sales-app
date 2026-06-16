@@ -3474,7 +3474,19 @@ function crmListHtml() {
     '<button class="btn btn-blue" onclick="addCustomer()">➕ הוסף</button></div>' +
     '<div class="input-row"><input class="inp" id="custSearch" placeholder="🔎 חיפוש..." oninput="crmRenderListRows()" />' +
     '<select class="inp" id="custFilter" style="max-width:140px" onchange="crmRenderListRows()"><option value="">כל השלבים</option>' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
+    '<div style="margin:4px 0 8px"><button class="comp-btn" onclick="crmWebhookSetup()">🔌 חבר את האתר (לידים אוטומטיים)</button></div>' +
     '<div id="crmListRows"></div>';
+}
+
+async function crmWebhookSetup() {
+  let key = localStorage.getItem('dna_intake_key');
+  if (!key) {
+    key = 'dna' + Math.random().toString(36).slice(2, 10) + Math.random().toString(36).slice(2, 6);
+    try { await compApi('/config', 'POST', { leadIntakeKey: key }); localStorage.setItem('dna_intake_key', key); }
+    catch (e) { alert('שגיאה בשמירת המפתח: ' + e.message); return; }
+  }
+  const url = compApiBase() + '/lead-intake?key=' + key;
+  prompt('✅ זו הכתובת לחיבור האתר.\nב-WooCommerce: הגדרות → מתקדם → Webhooks → הוסף → Topic "Order created" → הדבק כאן ב-Delivery URL:', url);
 }
 function crmRenderListRows() {
   const el = document.getElementById('crmListRows'); if (!el) return;
