@@ -462,7 +462,7 @@ def _get_config(key, default=None):
 
 def set_config(data):
     fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
-                          "fbPageToken", "fbPageId", "igUserId"})
+                          "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
@@ -479,7 +479,8 @@ def config_status():
                   "ideogramConfigured": bool(_get_config("ideogramKey")),
                   "metaConfigured": bool(_get_config("metaToken")),
                   "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId")),
-                  "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId"))})
+                  "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId")),
+                  "adsConfigured": bool(_get_config("adAccountId"))})
 
 
 def _resolve_page_token(token, page):
@@ -553,8 +554,79 @@ def publish_facebook(data):
         if "error" in d:
             return _json({"error": d["error"].get("message", "שגיאת פייסבוק"), "raw": d["error"]}, 502)
         post_id = d.get("post_id") or d.get("id")
+        if post_id:  # שומר את הפוסט לדוחות וללמידה
+            try:
+                db.collection("posts").document(str(post_id)).set({
+                    "postId": str(post_id),
+                    "message": (message or "")[:500],
+                    "hasImage": bool(image or image_b64),
+                    "createdAt": firestore.SERVER_TIMESTAMP,
+                    "likes": 0, "comments": 0, "shares": 0, "reactions": 0,
+                }, merge=True)
+            except Exception:
+                pass
         return _json({"ok": True, "postId": post_id,
                       "url": f"https://www.facebook.com/{post_id}" if post_id else None})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
+def list_posts():
+    """כל הפוסטים שפורסמו דרך האפליקציה + המדדים השמורים שלהם (לדוחות/למידה)."""
+    docs = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+    return _json({"posts": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+
+
+def refresh_posts(data):
+    """מושך מהפייסבוק מדדי מעורבות (לייקים/תגובות/שיתופים/ריאקציות) לכל פוסט שמור."""
+    token = _resolve_page_token(_get_config("fbPageToken"), _get_config("fbPageId"))
+    if not token:
+        return _json({"error": "לא הוגדר חיבור פייסבוק"}, 400)
+    updated = 0
+    for d in db.collection("posts").stream():
+        pid = d.id
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v21.0/{pid}",
+                params={"fields": "likes.summary(true),comments.summary(true),shares,reactions.summary(true)",
+                        "access_token": token}, timeout=20)
+            j = r.json()
+            if "error" in j:
+                continue
+            db.collection("posts").document(pid).update({
+                "likes": ((j.get("likes") or {}).get("summary") or {}).get("total_count", 0),
+                "comments": ((j.get("comments") or {}).get("summary") or {}).get("total_count", 0),
+                "shares": (j.get("shares") or {}).get("count", 0),
+                "reactions": ((j.get("reactions") or {}).get("summary") or {}).get("total_count", 0),
+                "metricsAt": firestore.SERVER_TIMESTAMP,
+            })
+            updated += 1
+        except Exception:
+            continue
+    docs = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+    return _json({"refreshed": updated, "posts": [_ts_to_iso(_doc_to_dict(x)) for x in docs]})
+
+
+def ad_account_insights(data):
+    """ביצועי קמפיינים ממומנים (הוצאה, חשיפות, קליקים, CTR) דרך Marketing API. דורש ads_read."""
+    data = data or {}
+    acct = (data.get("adAccountId") or _get_config("adAccountId") or "").strip()
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not acct:
+        return _json({"error": "לא הוגדר מזהה חשבון מודעות (Ad Account ID)"}, 400)
+    if not token:
+        return _json({"error": "לא הוגדר טוקן"}, 400)
+    acct = acct if acct.startswith("act_") else "act_" + acct
+    try:
+        r = requests.get(
+            f"https://graph.facebook.com/v21.0/{acct}/insights",
+            params={"fields": "spend,impressions,clicks,ctr,cpc,reach,actions,cost_per_action_type",
+                    "date_preset": data.get("datePreset") or "last_30d",
+                    "level": "account", "access_token": token}, timeout=30)
+        j = r.json()
+        if "error" in j:
+            return _json({"error": j["error"].get("message", "שגיאת Meta"), "raw": j["error"]}, 502)
+        return _json({"insights": j.get("data", [])})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 
@@ -1258,6 +1330,16 @@ def competitors_api(request):
         elif resource == "scrape-product":
             if method == "POST":
                 return scrape_product(data)
+
+        elif resource == "posts":
+            if method == "GET":
+                return list_posts()
+            if method == "POST" and item_id == "refresh":
+                return refresh_posts(data)
+
+        elif resource == "ad-insights":
+            if method == "POST":
+                return ad_account_insights(data)
 
         elif resource == "catalog":
             if method == "GET":
