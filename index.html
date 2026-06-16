@@ -2602,6 +2602,14 @@ function clearFbImg() {
   const el = document.getElementById('fbImgPreview'); if (el) el.innerHTML = '';
 }
 
+// הופך לינק יחסי לכתובת מלאה של האתר (כדי שניתן יהיה לקצר וללחוץ עליו)
+function absUrl(u) {
+  u = (u || '').trim();
+  if (!u) return '';
+  if (/^https?:\/\//i.test(u)) return u;
+  return 'https://www.dna-tools.co.il' + (u.startsWith('/') ? '' : '/') + u;
+}
+
 async function publishToFb() {
   const f = lastCampaign?.platforms?.facebook;
   let msg = f ? [f.headline, f.primaryText, f.cta].filter(Boolean).join('\n\n') : '';
@@ -2612,6 +2620,8 @@ async function publishToFb() {
   if (document.getElementById('fbInclExtras')?.checked) {
     setStatus('מכין את הפוסט (מקצר לינק)...', true);
     let buy = (document.getElementById('fbBuyLink')?.value || lastProductMatch?.url || '').trim();
+    if (!buy) { const pm = findProducts(document.getElementById('contInp').value.trim())[0]; if (pm?.url) buy = pm.url; }
+    buy = absUrl(buy); // לינק יחסי (/product/..) → כתובת מלאה, אחרת אי אפשר לקצר/ללחוץ
     if (buy) {
       try { const s = await compApi('/shorten', 'POST', { url: buy }); if (s.short) buy = s.short; } catch (_) {}
       msg += '\n\n🛒 לרכישה: ' + buy;
@@ -2650,7 +2660,7 @@ async function generateCampaign() {
   const matches = findProducts(prod);
   lastProductMatch = matches[0] || null;
   const buyEl = document.getElementById('fbBuyLink');
-  if (buyEl && lastProductMatch?.url) buyEl.value = lastProductMatch.url; // מילוי אוטומטי של לינק הרכישה לפרסום
+  if (buyEl && lastProductMatch?.url) buyEl.value = absUrl(lastProductMatch.url); // מילוי אוטומטי של לינק הרכישה לפרסום (כתובת מלאה)
   const grounding = matches.length
     ? `\nמוצרים תואמים מהקטלוג של dna-tools.co.il — בסס על דפי המוצר:\n` +
       matches.map(m => `• ${m.name}${m.price ? ` | ${m.price}` : ''}${m.url ? ` | ${m.url}` : ''}`).join('\n')
