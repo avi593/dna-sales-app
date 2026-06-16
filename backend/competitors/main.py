@@ -54,7 +54,10 @@ db = firestore.Client()
 
 # ── שדות מותרים לכל ישות (whitelist — מונע כתיבת שדות זרים) ──
 COMPETITOR_FIELDS = {"name", "website", "category", "status", "notes"}
-CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact"}
+CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact",
+                   "stage", "source", "industry", "companySize", "website",
+                   "aiScore", "aiSummary", "nextAction"}
+TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
     "priceSelector", "renderMode", "crawlFrequency",
@@ -607,6 +610,47 @@ def delete_customer(cid):
         return _json({"error": "לקוח לא נמצא"}, 404)
     ref.delete()
     return _json({"deleted": cid})
+
+
+def list_tasks(customer_id=None):
+    if customer_id:
+        docs = db.collection("tasks").where("customerId", "==", customer_id).stream()
+    else:
+        docs = db.collection("tasks").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+    return _json({"tasks": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+
+
+def create_task(data):
+    fields = _pick(data, TASK_FIELDS)
+    if not fields.get("title"):
+        return _json({"error": "שדה 'title' הוא חובה"}, 400)
+    fields.setdefault("status", "פתוח")
+    fields.setdefault("priority", "רגיל")
+    fields["createdAt"] = firestore.SERVER_TIMESTAMP
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("tasks").document()
+    ref.set(fields)
+    return _json({"id": ref.id, **_ts_to_iso(_doc_to_dict(ref.get()))}, 201)
+
+
+def update_task(tid, data):
+    fields = _pick(data, TASK_FIELDS)
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("tasks").document(tid)
+    if not ref.get().exists:
+        return _json({"error": "משימה לא נמצאה"}, 404)
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
+def delete_task(tid):
+    ref = db.collection("tasks").document(tid)
+    if not ref.get().exists:
+        return _json({"error": "משימה לא נמצאה"}, 404)
+    ref.delete()
+    return _json({"deleted": tid})
 
 
 def list_posts():
@@ -1378,6 +1422,16 @@ def competitors_api(request):
                 return update_customer(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_customer(item_id)
+
+        elif resource == "tasks":
+            if method == "GET":
+                return list_tasks(args.get("customerId"))
+            if method == "POST":
+                return create_task(data)
+            if method == "PUT" and item_id:
+                return update_task(item_id, data)
+            if method == "DELETE" and item_id:
+                return delete_task(item_id)
 
         elif resource == "posts":
             if method == "GET":
