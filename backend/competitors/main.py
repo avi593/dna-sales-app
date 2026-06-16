@@ -527,11 +527,23 @@ def publish_facebook(data):
         return _json(result, 200)
     message = (data.get("message") or "").strip()
     image = (data.get("imageUrl") or "").strip()
-    if not message and not image:
+    image_b64 = (data.get("imageBase64") or "").strip()
+    if not message and not image and not image_b64:
         return _json({"error": "אין תוכן לפרסום"}, 400)
     token = _resolve_page_token(token, page)
     try:
-        if image:
+        if image_b64:
+            # תמונה שהועלתה מהמחשב (data URL / base64) — מעלה כקובץ לדף
+            if "," in image_b64:
+                image_b64 = image_b64.split(",", 1)[1]
+            try:
+                img_bytes = base64.b64decode(image_b64)
+            except Exception:
+                return _json({"error": "תמונה לא תקינה"}, 400)
+            r = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",
+                              data={"caption": message, "access_token": token},
+                              files={"source": ("image.jpg", img_bytes, "image/jpeg")}, timeout=60)
+        elif image:
             r = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",
                               data={"url": image, "caption": message, "access_token": token}, timeout=30)
         else:

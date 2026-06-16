@@ -836,12 +836,15 @@
 
       <div style="margin-top:22px">
         <div class="sec-title">📤 פרסום בפייסבוק</div>
-        <div class="sec-sub">חבר את דף הפייסבוק שלך, ופרסם (עם אישור מפורש לפני כל פרסום)</div>
+        <div class="sec-sub">חבר את דף הפייסבוק שלך, צרף תמונה שעיצבת בתוכנה אחרת, ופרסם (עם אישור מפורש לפני כל פרסום)</div>
       </div>
       <div class="input-row">
         <button class="comp-btn" onclick="setFbPage()">⚙️ חיבור פייסבוק</button>
+        <button class="comp-btn" onclick="document.getElementById('fbImgInput').click()">🖼️ צרף תמונה</button>
         <button class="btn btn-green" onclick="publishToFb()">📤 פרסם בפייסבוק (אישור לפני)</button>
+        <input type="file" id="fbImgInput" accept="image/*" style="display:none" onchange="onFbImgPick(event)">
       </div>
+      <div id="fbImgPreview" class="muted-sm" style="margin-top:8px"></div>
 
       <div style="margin-top:22px">
         <div class="sec-title">🔎 מודעות מתחרים (ספריית Meta)</div>
@@ -2560,19 +2563,56 @@ async function setFbPage() {
   }
 }
 
+let fbUploadImage = null; // data URL של תמונה לפרסום (אם צורפה)
+
+function onFbImgPick(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      // הקטנה למקסימום 1920px — איכות גבוהה לפייסבוק, גודל העלאה סביר
+      const max = 1920;
+      let w = img.width, h = img.height;
+      if (w > max || h > max) { const s = max / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      fbUploadImage = c.toDataURL('image/jpeg', 0.92);
+      const el = document.getElementById('fbImgPreview');
+      if (el) el.innerHTML = '🖼️ תמונה מצורפת: ' + esc(file.name) +
+        ' <button class="comp-btn" onclick="clearFbImg()">הסר ×</button>' +
+        '<br><img src="' + fbUploadImage + '" style="max-width:200px;max-height:200px;border-radius:8px;margin-top:6px;border:1px solid #2a3550">';
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function clearFbImg() {
+  fbUploadImage = null;
+  const inp = document.getElementById('fbImgInput'); if (inp) inp.value = '';
+  const el = document.getElementById('fbImgPreview'); if (el) el.innerHTML = '';
+}
+
 async function publishToFb() {
   const f = lastCampaign?.platforms?.facebook;
   let msg = f ? [f.headline, f.primaryText, f.cta].filter(Boolean).join('\n\n') : '';
-  if (!msg) msg = prompt('טקסט הפוסט לפרסום בפייסבוק:', document.getElementById('contInp').value.trim()) || '';
-  if (!msg.trim()) return;
+  if (!msg) msg = prompt('טקסט הפוסט לפרסום בפייסבוק (אפשר להשאיר ריק אם יש תמונה):', document.getElementById('contInp').value.trim()) || '';
+  if (!msg.trim() && !fbUploadImage) { alert('אין תוכן לפרסום — כתוב טקסט או צרף תמונה'); return; }
   // שער אישור — תצוגה מקדימה ואישור מפורש לפני פרסום
-  if (!confirm('🔎 אישור פרסום — הפוסט הבא יתפרסם בדף הפייסבוק שלך:\n\n' + msg + '\n\nלפרסם?')) return;
+  const note = fbUploadImage ? '\n\n[🖼️ + תמונה מצורפת]' : '';
+  if (!confirm('🔎 אישור פרסום — הפוסט הבא יתפרסם בדף הפייסבוק שלך:\n\n' + (msg || '(ללא טקסט)') + note + '\n\nלפרסם?')) return;
   setStatus('מפרסם בפייסבוק...', true);
   try {
-    const d = await compApi('/publish-facebook', 'POST', { message: msg });
+    const body = { message: msg };
+    if (fbUploadImage) body.imageBase64 = fbUploadImage;
+    const d = await compApi('/publish-facebook', 'POST', body);
     if (!d.ok) throw new Error(d.error || 'הפרסום נכשל');
     setStatus('פורסם בפייסבוק ✓', false);
     alert('✅ הפוסט פורסם בדף הפייסבוק' + (d.url ? '\n' + d.url : ''));
+    clearFbImg();
   } catch (e) { alert('שגיאה בפרסום: ' + e.message); setStatus('שגיאה', false); }
 }
 
