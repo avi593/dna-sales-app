@@ -482,6 +482,19 @@ def config_status():
                   "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId"))})
 
 
+def _resolve_page_token(token, page):
+    """ממיר אסימון משתמש / משתמש-מערכת לאסימון דף. אם כבר אסימון דף — מחזיר כפי שהוא."""
+    try:
+        r = requests.get(f"https://graph.facebook.com/v21.0/{page}",
+                         params={"fields": "access_token", "access_token": token}, timeout=20)
+        pt = (r.json() or {}).get("access_token")
+        if pt:
+            return pt
+    except Exception:
+        pass
+    return token
+
+
 def publish_facebook(data):
     """מפרסם פוסט לדף פייסבוק (טקסט, ותמונה אם סופקה כ-URL ציבורי). פרסום מאושר בלבד."""
     data = data or {}
@@ -489,10 +502,22 @@ def publish_facebook(data):
     page = _get_config("fbPageId")
     if not token or not page:
         return _json({"error": "לא הוגדרו Page Token + Page ID של פייסבוק"}, 400)
+    if data.get("test"):
+        pt = _resolve_page_token(token, page)
+        try:
+            r = requests.get(f"https://graph.facebook.com/v21.0/{page}",
+                             params={"fields": "name,id", "access_token": pt}, timeout=20)
+            d = r.json()
+            if "error" in d:
+                return _json({"error": d["error"].get("message", "שגיאת פייסבוק"), "raw": d["error"]}, 502)
+            return _json({"ok": True, "page": d.get("name"), "pageId": d.get("id")})
+        except Exception as e:
+            return _json({"error": str(e)}, 500)
     message = (data.get("message") or "").strip()
     image = (data.get("imageUrl") or "").strip()
     if not message and not image:
         return _json({"error": "אין תוכן לפרסום"}, 400)
+    token = _resolve_page_token(token, page)
     try:
         if image:
             r = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",

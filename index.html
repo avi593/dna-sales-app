@@ -2525,8 +2525,18 @@ async function setFbPage() {
   if (pageId === null || !pageId.trim()) return;
   try {
     await compApi('/config', 'POST', { fbPageToken: token.trim(), fbPageId: pageId.trim() });
-    alert('חיבור פייסבוק נשמר ✓');
-  } catch (e) { alert('שגיאה: ' + e.message); }
+  } catch (e) { alert('שגיאה בשמירה: ' + e.message); return; }
+  // בדיקת חיבור לא-הרסנית — לא מפרסם, רק מאמת שיש גישה לדף
+  setStatus('בודק חיבור לפייסבוק...', true);
+  try {
+    const t = await compApi('/publish-facebook', 'POST', { test: true });
+    setStatus('מחובר לפייסבוק ✓', false);
+    alert('✅ מחובר בהצלחה לדף: ' + (t.page || '(ללא שם)'));
+  } catch (e) {
+    setStatus('האסימון נשמר', false);
+    alert('⚠️ האסימון נשמר, אך בדיקת החיבור נכשלה:\n\n' + e.message +
+          '\n\nכנראה צריך להפעיל את הרשאת "תוכן" לדף עבור משתמש המערכת.');
+  }
 }
 
 async function publishToFb() {
