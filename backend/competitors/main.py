@@ -788,6 +788,11 @@ def lead_intake(data, args):
     if data.get("customer_note"):
         note_parts.append("הערה: " + str(data.get("customer_note")))
     note = " · ".join([p for p in note_parts if p])
+    status = (data.get("status") or "").lower()
+    stage = WC_STATUS_STAGE.get(status, "ליד חדש")
+    order_date = data.get("date_created") or data.get("date_created_gmt") or ""
+    if status:
+        note = (note + " · " if note else "") + "סטטוס: " + WC_STATUS_HE.get(status, status)
     if not (phone or email or first or data.get("name")):
         return _json({"error": "no lead data"}, 400)
     # דדופ לפי טלפון/אימייל
@@ -799,15 +804,21 @@ def lead_intake(data, args):
         for d in db.collection("customers").where("email", "==", email).limit(1).stream():
             existing = d
     if existing:
+        ex = existing.to_dict() or {}
         upd = {"updatedAt": firestore.SERVER_TIMESTAMP}
         if note:
-            prev = (existing.to_dict() or {}).get("notes") or ""
+            prev = ex.get("notes") or ""
             upd["notes"] = (prev + "\n" if prev else "") + note
+        # עדכון שלב לפי סטטוס — אם זו ההזמנה האחרונה/החדשה ביותר (כולל עדכון לאותה הזמנה)
+        if status and (not order_date or order_date >= (ex.get("lastOrderAt") or "")):
+            upd["stage"] = stage
+            if order_date:
+                upd["lastOrderAt"] = order_date
         db.collection("customers").document(existing.id).update(upd)
         return _json({"ok": True, "matched": existing.id})
     fields = {
         "name": name, "phone": phone, "email": email, "company": company,
-        "stage": "ליד חדש", "source": "אתר", "notes": note,
+        "stage": stage, "source": "אתר", "notes": note, "lastOrderAt": order_date,
         "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
     }
     ref = db.collection("customers").document()
