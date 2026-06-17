@@ -3518,8 +3518,10 @@ async function crmWcRun() {
     if (d.error) throw new Error(d.error);
     setStatus('סנכרון הושלם', false);
     closeCrm360();
-    const seenStr = d.seen ? Object.keys(d.seen).map(k => '• ' + k + ' (' + d.seen[k] + ')').join('\n') : '—';
-    alert('✅ סנכרון הושלם (' + (d.total || 0) + ' הזמנות):\n• ' + (d.imported || 0) + ' לידים חדשים\n• ' + (d.updated || 0) + ' עודכנו\n\n📋 קודי הסטטוס שנמצאו (שלח לי אותם כדי לנעול מיפוי מדויק):\n' + seenStr);
+    const statusStr = (d.statusList && d.statusList.length)
+      ? d.statusList.map(s => '• ' + s.slug + ' → ' + s.name + ' (' + s.total + ')').join('\n')
+      : (d.seen ? Object.keys(d.seen).map(k => '• ' + k + ' (' + d.seen[k] + ')').join('\n') : '—');
+    alert('✅ סנכרון הושלם (' + (d.total || 0) + ' הזמנות):\n• ' + (d.imported || 0) + ' חדשים · ' + (d.updated || 0) + ' עודכנו\n\n📋 קוד → שם הסטטוס (שלח לי את הרשימה הזו):\n' + statusStr);
     await loadCustomers();
   } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא ש-Key/Secret נכונים והרשאת קריאה.)'); }
 }

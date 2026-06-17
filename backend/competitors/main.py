@@ -854,9 +854,10 @@ def lead_intake(data, args):
         if note:
             prev = ex.get("notes") or ""
             upd["notes"] = (prev + "\n" if prev else "") + note
-        # עדכון שלב לפי סטטוס — אם זו ההזמנה האחרונה/החדשה ביותר (כולל עדכון לאותה הזמנה)
+        # עדכון שלב לפי סטטוס — אם זו ההזמנה האחרונה/עדכון לאותה הזמנה, ורק אם הסטטוס ממופה
         if status and (not order_date or order_date >= (ex.get("lastOrderAt") or "")):
-            upd["stage"] = stage
+            if status in WC_STATUS_STAGE:
+                upd["stage"] = stage
             if order_date:
                 upd["lastOrderAt"] = order_date
         db.collection("customers").document(existing.id).update(upd)
@@ -936,8 +937,10 @@ def wc_sync(data):
                 ex = existing.to_dict() or {}
                 prev = ex.get("notes") or ""
                 upd = {"notes": (prev + "\n" if prev else "") + note, "updatedAt": firestore.SERVER_TIMESTAMP}
-                if order_date and order_date > (ex.get("lastOrderAt") or ""):  # רק אם זו הזמנה חדשה יותר
-                    upd["stage"] = stage
+                # עדכון שלב אם זו ההזמנה האחרונה או עדכון לאותה הזמנה (>=) — ורק אם הסטטוס ממופה
+                if order_date and order_date >= (ex.get("lastOrderAt") or ""):
+                    if status in WC_STATUS_STAGE:
+                        upd["stage"] = WC_STATUS_STAGE[status]
                     upd["lastOrderAt"] = order_date
                 db.collection("customers").document(existing.id).update(upd)
                 updated += 1
@@ -948,7 +951,20 @@ def wc_sync(data):
                     "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
                 })
                 imported += 1
-        return _json({"ok": True, "imported": imported, "updated": updated, "total": len(orders), "seen": seen})
+        # רשימת כל סטטוסי ההזמנות באתר (קוד → שם בעברית) — לאבחון מיפוי
+        status_list = []
+        try:
+            rs = requests.get(base + "/wp-json/wc/v3/reports/orders/totals",
+                              params={"consumer_key": ck, "consumer_secret": cs}, timeout=20)
+            js = rs.json()
+            if isinstance(js, list):
+                for s in js:
+                    status_list.append({"slug": (s.get("slug") or "").replace("wc-", ""),
+                                        "name": s.get("name") or "", "total": s.get("total") or 0})
+        except Exception:
+            pass
+        return _json({"ok": True, "imported": imported, "updated": updated,
+                      "total": len(orders), "seen": seen, "statusList": status_list})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 
