@@ -801,12 +801,20 @@ def lead_intake(data, args):
 
 
 WC_STATUS_STAGE = {
+    # סטנדרטיים
     "pending": "ליד חדש", "on-hold": "ליד חדש", "checkout-draft": "ליד חדש",
-    "processing": "בטיפול", "completed": "סגירה",
+    "processing": "בטיפול",
+    "completed": "סופק",
     "cancelled": "אבוד", "refunded": "אבוד", "failed": "אבוד",
+    # ניחושים לסטטוסים מותאמים (משלוח/הצעות) — יעודכן לפי הסלאגים האמיתיים מ-seen
+    "shipping": "משלוח", "delivered": "סופק", "ready-pickup": "סופק", "ready-for-pickup": "סופק",
+    "quote-request": "ליד חדש", "new-quote": "ליד חדש", "request-quote": "ליד חדש",
+    "quote-pending": "הצעה ממתינה", "pending-quote": "הצעה ממתינה", "quote-sent": "הצעה ממתינה",
+    "quote-accepted": "הצעה ממתינה", "quote-approved": "הצעה ממתינה",
+    "quote-rejected": "אבוד", "quote-expired": "אבוד", "expired": "אבוד",
 }
 WC_STATUS_HE = {
-    "pending": "ממתין לתשלום", "on-hold": "בהמתנה", "processing": "בעיבוד",
+    "pending": "ממתין לתשלום", "on-hold": "בהמתנה", "processing": "בטיפול",
     "completed": "הושלם", "cancelled": "בוטל", "refunded": "זוכה",
     "failed": "נכשל", "checkout-draft": "טיוטה",
 }
@@ -824,6 +832,7 @@ def wc_sync(data):
         base = "https://" + base
     per_page = min(max(int(data.get("perPage") or 10), 1), 100)
     imported, updated = 0, 0
+    seen = {}
     try:
         r = requests.get(base + "/wp-json/wc/v3/orders",
                          params={"consumer_key": ck, "consumer_secret": cs,
@@ -832,13 +841,14 @@ def wc_sync(data):
         if isinstance(orders, dict):
             return _json({"error": orders.get("message", "שגיאת WooCommerce")}, 502)
         for o in orders:
+            status = (o.get("status") or "").lower()
+            seen[status] = seen.get(status, 0) + 1
             b = o.get("billing") or {}
             phone = (b.get("phone") or "").strip()
             email = (b.get("email") or "").strip()
             name = ((b.get("first_name") or "") + " " + (b.get("last_name") or "")).strip() or email or "ליד מהאתר"
             if not (phone or email):
                 continue
-            status = (o.get("status") or "").lower()
             stage = WC_STATUS_STAGE.get(status, "ליד חדש")
             note = "הזמנה #" + str(o.get("number") or o.get("id")) + " · סטטוס: " + WC_STATUS_HE.get(status, status or "—")
             if o.get("total"):
@@ -865,7 +875,7 @@ def wc_sync(data):
                     "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
                 })
                 imported += 1
-        return _json({"ok": True, "imported": imported, "updated": updated, "total": len(orders)})
+        return _json({"ok": True, "imported": imported, "updated": updated, "total": len(orders), "seen": seen})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 

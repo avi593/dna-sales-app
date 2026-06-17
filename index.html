@@ -3349,7 +3349,7 @@ let customers = [];
 let crmTasks = [];
 let crmScreen = 'dashboard';
 let crmDragId = '';
-const CRM_STAGES = ['ליד חדש', 'בטיפול', 'הצעה', 'סגירה'];
+const CRM_STAGES = ['ליד חדש', 'הצעה ממתינה', 'בטיפול', 'משלוח', 'סופק'];
 const CRM_SOURCES = ['אתר', 'וואטסאפ', 'פייסבוק', 'אינסטגרם', 'Google Ads', 'דף נחיתה', 'הפניה', 'אחר'];
 
 function waNumber(phone) {
@@ -3517,7 +3517,8 @@ async function crmWcRun() {
     if (d.error) throw new Error(d.error);
     setStatus('סנכרון הושלם', false);
     closeCrm360();
-    alert('✅ סנכרון הושלם (' + (d.total || 0) + ' הזמנות אחרונות):\n• ' + (d.imported || 0) + ' לידים חדשים\n• ' + (d.updated || 0) + ' עודכנו (כולל שלב לפי סטטוס)');
+    const seenStr = d.seen ? Object.keys(d.seen).map(k => '• ' + k + ' (' + d.seen[k] + ')').join('\n') : '—';
+    alert('✅ סנכרון הושלם (' + (d.total || 0) + ' הזמנות):\n• ' + (d.imported || 0) + ' לידים חדשים\n• ' + (d.updated || 0) + ' עודכנו\n\n📋 קודי הסטטוס שנמצאו (שלח לי אותם כדי לנעול מיפוי מדויק):\n' + seenStr);
     await loadCustomers();
   } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא ש-Key/Secret נכונים והרשאת קריאה.)'); }
 }
