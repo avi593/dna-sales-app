@@ -3736,6 +3736,10 @@ function open360(id) {
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🛒 מוצרים שמעניינים</span><button class="comp-btn" onclick="addInterest(\'' + id + '\')">➕ הוסף מוצר</button></div><div class="card-body">' + interestsTable(c) + '</div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>📝 תוכן / מודיעין</span><button class="comp-btn" onclick="crmAiSummary(\'' + id + '\')">🤖 סריקת AI</button></div>' +
     '<div class="card-body"><textarea class="inp" id="crm360content" style="width:100%;min-height:90px;direction:rtl;text-align:right;resize:vertical" placeholder="כתוב כאן תוכן/הערות ידנית — או לחץ \'סריקת AI\' לניתוח אוטומטי" onchange="updateCustomerField(\'' + id + '\',\'content\',this.value)">' + esc(c.content || c.aiSummary || '') + '</textarea></div></div>';
+  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>📎 מסמכים</span>' +
+    '<button class="comp-btn" onclick="document.getElementById(\'crmDocInput\').click()">⬆️ העלה</button>' +
+    '<input type="file" id="crmDocInput" style="display:none" onchange="uploadDoc(\'' + id + '\',event)"></div>' +
+    '<div class="card-body" id="crm360docs"><div class="muted-sm">טוען...</div></div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>✅ משימות (' + myTasks.length + ')</span><button class="comp-btn" onclick="quickTask(\'' + id + '\')">➕ משימה</button></div><div class="card-body">' +
     (myTasks.length ? myTasks.map(crmTaskRow).join('') : '<div class="muted-sm">אין משימות ללקוח</div>') + '</div></div>';
   h += '<div class="gen-img-actions" style="margin-top:12px">' +
@@ -3745,8 +3749,42 @@ function open360(id) {
     '<button class="comp-btn" onclick="deleteCustomer(\'' + id + '\')">🗑️ מחק</button></div>';
   document.getElementById('crm360Body').innerHTML = h;
   document.getElementById('crm360').classList.remove('hidden');
+  loadDocs(id);
 }
 function closeCrm360() { document.getElementById('crm360').classList.add('hidden'); }
+
+async function loadDocs(id) {
+  const el = document.getElementById('crm360docs'); if (!el) return;
+  try { const d = await compApi('/documents?customerId=' + id); renderDocs(id, d.documents || []); }
+  catch (e) { el.innerHTML = '<span class="muted-sm">—</span>'; }
+}
+function renderDocs(id, docs) {
+  const el = document.getElementById('crm360docs'); if (!el) return;
+  if (!docs.length) { el.innerHTML = '<div class="muted-sm">אין מסמכים. לחץ "⬆️ העלה".</div>'; return; }
+  el.innerHTML = docs.map(doc => '<div class="src-row" style="align-items:center;gap:8px">' +
+    '<a class="src-link" href="' + (doc.data || '#') + '" download="' + esc(doc.name || 'file') + '">📄 ' + esc(doc.name || 'מסמך') + '</a>' +
+    '<button class="comp-btn" style="padding:3px 8px" onclick="deleteDoc(\'' + id + '\',\'' + doc.id + '\')">✕</button></div>').join('');
+}
+function uploadDoc(id, ev) {
+  const file = ev.target.files && ev.target.files[0];
+  if (!file) return;
+  if (file.size > 740000) { alert('הקובץ גדול מדי (מקסימום ~720KB). דחס/הקטן ונסה שוב.'); ev.target.value = ''; return; }
+  setStatus('מעלה מסמך...', true);
+  const reader = new FileReader();
+  reader.onload = async () => {
+    try {
+      await compApi('/documents', 'POST', { customerId: id, name: file.name, type: file.type, data: reader.result });
+      setStatus('הועלה ✓', false);
+      loadDocs(id);
+    } catch (e) { setStatus('שגיאה', false); alert('שגיאה בהעלאה: ' + e.message); }
+  };
+  reader.readAsDataURL(file);
+}
+async function deleteDoc(custId, docId) {
+  if (!confirm('למחוק את המסמך?')) return;
+  try { await compApi('/documents/' + docId, 'DELETE'); loadDocs(custId); }
+  catch (e) { alert('שגיאה: ' + e.message); }
+}
 function edit360(id, key) {
   const c = customers.find(x => x.id === id); if (!c) return;
   const v = prompt('עדכן ' + key + ':', c[key] || '');

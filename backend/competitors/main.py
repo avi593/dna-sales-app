@@ -58,6 +58,7 @@ CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "last
                    "stage", "source", "industry", "companySize", "website",
                    "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt", "content"}
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
+DOCUMENT_FIELDS = {"customerId", "name", "type", "data"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
     "priceSelector", "renderMode", "crawlFrequency",
@@ -627,6 +628,36 @@ def delete_all_customers():
     if n % 400 != 0:
         batch.commit()
     return _json({"deleted": n})
+
+
+def list_documents(customer_id):
+    if not customer_id:
+        return _json({"documents": []})
+    docs = db.collection("documents").where("customerId", "==", customer_id).stream()
+    out = []
+    for d in docs:
+        out.append(_ts_to_iso(_doc_to_dict(d)))
+    return _json({"documents": out})
+
+
+def create_document(data):
+    fields = _pick(data, DOCUMENT_FIELDS)
+    if not fields.get("customerId") or not fields.get("data"):
+        return _json({"error": "חסר customerId או קובץ"}, 400)
+    if len(fields.get("data") or "") > 1_400_000:
+        return _json({"error": "הקובץ גדול מדי (מקסימום ~720KB)"}, 400)
+    fields["createdAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("documents").document()
+    ref.set(fields)
+    return _json({"id": ref.id}, 201)
+
+
+def delete_document(did):
+    ref = db.collection("documents").document(did)
+    if not ref.get().exists:
+        return _json({"error": "מסמך לא נמצא"}, 404)
+    ref.delete()
+    return _json({"deleted": did})
 
 
 def list_tasks(customer_id=None):
@@ -1607,6 +1638,14 @@ def competitors_api(request):
                 return delete_customer(item_id)
             if method == "DELETE" and not item_id:
                 return delete_all_customers()
+
+        elif resource == "documents":
+            if method == "GET":
+                return list_documents(args.get("customerId"))
+            if method == "POST":
+                return create_document(data)
+            if method == "DELETE" and item_id:
+                return delete_document(item_id)
 
         elif resource == "tasks":
             if method == "GET":
