@@ -56,7 +56,7 @@ db = firestore.Client()
 COMPETITOR_FIELDS = {"name", "website", "category", "status", "notes"}
 CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact",
                    "stage", "source", "industry", "companySize", "website",
-                   "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt"}
+                   "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt", "content"}
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
@@ -759,7 +759,21 @@ def scrape_product(data):
         desc = meta("og:description", "description", "twitter:description")
         image = meta("og:image", "twitter:image")
         price = extract_price(r.text)
-        return _json({"name": name, "price": price, "description": desc, "image": image, "url": url})
+        sku = ""
+        sku_el = soup.find(class_="sku")
+        if sku_el:
+            sku = sku_el.get_text(strip=True)
+        if not sku:
+            for tag in soup.find_all("script", type="application/ld+json"):
+                try:
+                    j = _jsonlib.loads(tag.string or "")
+                except Exception:
+                    continue
+                cand = j[0] if isinstance(j, list) and j else j
+                if isinstance(cand, dict) and cand.get("sku"):
+                    sku = str(cand["sku"])
+                    break
+        return _json({"name": name, "price": price, "description": desc, "image": image, "sku": sku, "url": url})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 

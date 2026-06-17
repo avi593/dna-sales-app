@@ -3558,8 +3558,14 @@ async function addCustomer() {
   const iurl = (document.getElementById('custInterestUrl').value || '').trim();
   if (iurl) {
     setStatus('שולף מוצר מהלינק...', true);
-    try { const d = await compApi('/scrape-product', 'POST', { url: iurl }); body.interests = [{ name: d.name || 'מוצר', url: iurl, sell: d.price || '', cost: '' }]; }
-    catch (e) {}
+    try {
+      const d = await compApi('/scrape-product', 'POST', { url: iurl });
+      const it = { name: d.name || 'מוצר', url: iurl, sell: d.price || '', cost: '', sku: d.sku || '' };
+      await ensureCatalog();
+      const cost = catalogCostBySku(it.sku);
+      if (cost != null) it.cost = cost;
+      body.interests = [it];
+    } catch (e) {}
     setStatus('', false);
   }
   try { await compApi('/customers', 'POST', body); await loadCustomers(); crmShow('list'); }
@@ -3642,6 +3648,21 @@ function crmSearchRun() {
 
 // ===== מוצרים שמעניינים (תמחור VAT-מודע: עלות לפני מע״מ, מחיר מהאתר כולל מע״מ) =====
 const CRM_VAT = 1.18;
+async function ensureCatalog() {
+  if (catalog && catalog.length) return;
+  try {
+    if (fxRate == null) { const f = await compApi('/fx'); fxRate = f.rate; }
+    const d = await compApi('/catalog'); catalog = d.items || [];
+  } catch (e) {}
+}
+function catalogCostBySku(sku) {  // עלות (afterShip, לפני מע״מ) מהקטלוג לפי מק"ט
+  if (!sku || !catalog || !catalog.length) return null;
+  const s = String(sku).trim().toLowerCase();
+  const it = catalog.find(x => String(x.sku || '').trim().toLowerCase() === s);
+  if (!it) return null;
+  const c = catCompute(it);
+  return c.afterShip != null ? Math.round(c.afterShip) : null;
+}
 function interestPct(it) {
   const sell = parseFloat(it.sell) || 0;
   const cost = parseFloat(it.cost) || 0;
@@ -3670,8 +3691,14 @@ async function addInterest(id) {
   if (url === null || !url.trim()) return;
   const c = customers.find(x => x.id === id); if (!c) return;
   setStatus('שולף מוצר...', true);
-  const it = { name: 'מוצר', url: url.trim(), sell: '', cost: '' };
-  try { const d = await compApi('/scrape-product', 'POST', { url: url.trim() }); it.name = d.name || 'מוצר'; it.sell = d.price || ''; } catch (e) {}
+  const it = { name: 'מוצר', url: url.trim(), sell: '', cost: '', sku: '' };
+  try {
+    const d = await compApi('/scrape-product', 'POST', { url: url.trim() });
+    it.name = d.name || 'מוצר'; it.sell = d.price || ''; it.sku = d.sku || '';
+    await ensureCatalog();
+    const cost = catalogCostBySku(it.sku);
+    if (cost != null) it.cost = cost;  // עלות סופית מהקטלוג לפי מק"ט
+  } catch (e) {}
   setStatus('', false);
   await updateCustomerField(id, 'interests', (c.interests || []).concat([it]));
   open360(id);
@@ -3707,8 +3734,8 @@ function open360(id) {
   h += '<div class="card" style="margin-top:12px"><div class="card-body">' +
     fld('טלפון', 'phone') + fld('אימייל', 'email') + fld('אתר', 'website') + fld('תחום', 'industry') + fld('גודל חברה', 'companySize') + fld('מקור', 'source') + fld('הערות', 'notes') + '</div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🛒 מוצרים שמעניינים</span><button class="comp-btn" onclick="addInterest(\'' + id + '\')">➕ הוסף מוצר</button></div><div class="card-body">' + interestsTable(c) + '</div></div>';
-  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>🤖 מודיעין AI</span><button class="comp-btn" onclick="crmAiSummary(\'' + id + '\')">✨ צור סיכום</button></div>' +
-    '<div class="card-body" id="crm360ai">' + (c.aiSummary ? renderAI(c.aiSummary) : '<div class="muted-sm">לחץ "צור סיכום" לסיכום, הזדמנויות וצרכים מבוססי AI.</div>') + '</div></div>';
+  h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>📝 תוכן / מודיעין</span><button class="comp-btn" onclick="crmAiSummary(\'' + id + '\')">🤖 סריקת AI</button></div>' +
+    '<div class="card-body"><textarea class="inp" id="crm360content" style="width:100%;min-height:90px;direction:rtl;text-align:right;resize:vertical" placeholder="כתוב כאן תוכן/הערות ידנית — או לחץ \'סריקת AI\' לניתוח אוטומטי" onchange="updateCustomerField(\'' + id + '\',\'content\',this.value)">' + esc(c.content || c.aiSummary || '') + '</textarea></div></div>';
   h += '<div class="card" style="margin-top:10px"><div class="card-head"><span>✅ משימות (' + myTasks.length + ')</span><button class="comp-btn" onclick="quickTask(\'' + id + '\')">➕ משימה</button></div><div class="card-body">' +
     (myTasks.length ? myTasks.map(crmTaskRow).join('') : '<div class="muted-sm">אין משימות ללקוח</div>') + '</div></div>';
   h += '<div class="gen-img-actions" style="margin-top:12px">' +
@@ -3729,11 +3756,18 @@ function edit360(id, key) {
 async function crmAiSummary(id) {
   if (!apiKey) { showApiModal(); return; }
   const c = customers.find(x => x.id === id); if (!c) return;
-  const el = document.getElementById('crm360ai'); if (el) el.innerHTML = loadingHtml('מנתח...');
+  const ta = document.getElementById('crm360content');
+  setStatus('סריקת AI...', true);
   const p = 'אתה אנליסט מכירות B2B בדנא ציוד אינסטלציה. נתח את הלקוח ותן בעברית: סיכום קצר, הזדמנויות מכירה, צרכים אפשריים, והמלצת פעולה אחת.\n' +
-    'שם: ' + (c.name || '') + '. חברה: ' + (c.company || '') + '. תחום: ' + (c.industry || 'לא ידוע') + '. שלב: ' + stageOf(c) + '. הערות: ' + (c.notes || 'אין') + '.';
-  try { const r = await callAI(p, false); if (el) el.innerHTML = renderAI(r); updateCustomerField(id, 'aiSummary', r); }
-  catch (e) { if (el) el.innerHTML = '<span style="color:#f87171">שגיאה: ' + esc(e.message) + '</span>'; }
+    'שם: ' + (c.name || '') + '. חברה: ' + (c.company || '') + '. תחום: ' + (c.industry || 'לא ידוע') + '. שלב: ' + stageOf(c) + '. הערות: ' + (c.notes || 'אין') + '.' +
+    ((c.interests && c.interests.length) ? ' מוצרים שמעניינים: ' + c.interests.map(x => x.name).join(', ') + '.' : '');
+  try {
+    const r = await callAI(p, false);
+    setStatus('מוכן', false);
+    const combined = (ta && ta.value.trim() ? ta.value.trim() + '\n\n' : '') + r;
+    if (ta) ta.value = combined;
+    updateCustomerField(id, 'content', combined);
+  } catch (e) { setStatus('שגיאה', false); alert('שגיאה: ' + e.message); }
 }
 function quickTask(id) {
   const title = prompt('משימה חדשה ללקוח:');
