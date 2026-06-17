@@ -3375,7 +3375,8 @@ async function loadCustomers() {
   try {
     const cd = await compApi('/customers');
     const td = await compApi('/tasks').catch(() => ({ tasks: [] }));
-    customers = cd.customers || [];
+    const rkey = c => '' + (c.lastOrderAt || c.createdAt || '');  // החדש ביותר למעלה (כמו באתר)
+    customers = (cd.customers || []).sort((a, b) => rkey(b).localeCompare(rkey(a)));
     crmTasks = td.tasks || [];
     crmRender();
   } catch (e) { if (el) el.innerHTML = '<div class="page-empty" style="color:#f87171">שגיאה: ' + esc(e.message) + '</div>'; }
@@ -3475,7 +3476,7 @@ function crmListHtml() {
     '<button class="btn btn-blue" onclick="addCustomer()">➕ הוסף</button></div>' +
     '<div class="input-row"><input class="inp" id="custSearch" placeholder="🔎 חיפוש..." oninput="crmRenderListRows()" />' +
     '<select class="inp" id="custFilter" style="max-width:140px" onchange="crmRenderListRows()"><option value="">כל השלבים</option>' + CRM_STAGES.map(s => '<option>' + s + '</option>').join('') + '</select></div>' +
-    '<div style="margin:4px 0 8px"><button class="comp-btn" onclick="crmWebhookSetup()">🔌 חבר את האתר (Webhook)</button> <button class="comp-btn" onclick="crmWcImport()">📥 ייבא מהאתר (API)</button></div>' +
+    '<div style="margin:4px 0 8px"><button class="comp-btn" onclick="crmWebhookSetup()">🔌 חבר את האתר (Webhook)</button> <button class="comp-btn" onclick="crmWcImport()">📥 ייבא מהאתר (API)</button> <button class="comp-btn" onclick="crmDeleteAll()" style="color:#f87171">🗑️ מחק הכל</button></div>' +
     '<div id="crmListRows"></div>';
 }
 
@@ -3575,6 +3576,14 @@ async function deleteCustomer(id) {
   if (!confirm('למחוק את ' + ((c && c.name) || 'הלקוח') + '?')) return;
   try { await compApi('/customers/' + id, 'DELETE'); customers = customers.filter(x => x.id !== id); closeCrm360(); crmRender(); }
   catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function crmDeleteAll() {
+  if (!confirm('⚠️ למחוק את כל הלקוחות מה-CRM? פעולה זו אינה הפיכה.')) return;
+  if (!confirm('בטוח לגמרי? כל הלקוחות יימחקו לצמיתות.')) return;
+  setStatus('מוחק את כל הלקוחות...', true);
+  try { const d = await compApi('/customers', 'DELETE'); setStatus('נמחקו ' + (d.deleted || 0) + ' לקוחות', false); await loadCustomers(); }
+  catch (e) { setStatus('שגיאה', false); alert('שגיאה: ' + e.message); }
 }
 
 // ===== משימות =====

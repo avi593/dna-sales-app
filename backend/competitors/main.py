@@ -56,7 +56,7 @@ db = firestore.Client()
 COMPETITOR_FIELDS = {"name", "website", "category", "status", "notes"}
 CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact",
                    "stage", "source", "industry", "companySize", "website",
-                   "aiScore", "aiSummary", "nextAction", "interests"}
+                   "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt"}
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
@@ -614,6 +614,21 @@ def delete_customer(cid):
     return _json({"deleted": cid})
 
 
+def delete_all_customers():
+    docs = list(db.collection("customers").stream())
+    batch = db.batch()
+    n = 0
+    for d in docs:
+        batch.delete(d.reference)
+        n += 1
+        if n % 400 == 0:
+            batch.commit()
+            batch = db.batch()
+    if n % 400 != 0:
+        batch.commit()
+    return _json({"deleted": n})
+
+
 def list_tasks(customer_id=None):
     if customer_id:
         docs = db.collection("tasks").where("customerId", "==", customer_id).stream()
@@ -860,18 +875,20 @@ def wc_sync(data):
             if not existing and email:
                 for d in db.collection("customers").where("email", "==", email).limit(1).stream():
                     existing = d
+            order_date = o.get("date_created") or o.get("date_created_gmt") or ""
             if existing:
-                prev = (existing.to_dict() or {}).get("notes") or ""
-                db.collection("customers").document(existing.id).update({
-                    "notes": (prev + "\n" if prev else "") + note,
-                    "stage": stage,
-                    "updatedAt": firestore.SERVER_TIMESTAMP,
-                })
+                ex = existing.to_dict() or {}
+                prev = ex.get("notes") or ""
+                upd = {"notes": (prev + "\n" if prev else "") + note, "updatedAt": firestore.SERVER_TIMESTAMP}
+                if order_date and order_date > (ex.get("lastOrderAt") or ""):  # רק אם זו הזמנה חדשה יותר
+                    upd["stage"] = stage
+                    upd["lastOrderAt"] = order_date
+                db.collection("customers").document(existing.id).update(upd)
                 updated += 1
             else:
                 db.collection("customers").document().set({
                     "name": name, "phone": phone, "email": email, "company": (b.get("company") or "").strip(),
-                    "stage": stage, "source": "אתר", "notes": note,
+                    "stage": stage, "source": "אתר", "notes": note, "lastOrderAt": order_date,
                     "createdAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
                 })
                 imported += 1
@@ -1563,6 +1580,8 @@ def competitors_api(request):
                 return update_customer(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_customer(item_id)
+            if method == "DELETE" and not item_id:
+                return delete_all_customers()
 
         elif resource == "tasks":
             if method == "GET":
