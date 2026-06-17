@@ -3525,6 +3525,17 @@ async function crmWcRun() {
     await loadCustomers();
   } catch (e) { setStatus('שגיאה', false); alert('שגיאה בייבוא: ' + e.message + '\n\n(ודא ש-Key/Secret נכונים והרשאת קריאה.)'); }
 }
+function fmtDate(iso) {
+  if (!iso) return '';
+  try { const d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }); }
+  catch (e) { return ''; }
+}
+function nextTaskFor(custId) {
+  const open = crmTasks.filter(t => t.customerId === custId && t.status !== 'בוצע');
+  if (!open.length) return null;
+  open.sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+  return open[0];
+}
 function crmRenderListRows() {
   const el = document.getElementById('crmListRows'); if (!el) return;
   const q = (document.getElementById('custSearch') ? document.getElementById('custSearch').value : '').toLowerCase().trim();
@@ -3535,13 +3546,19 @@ function crmRenderListRows() {
   if (!list.length) { el.innerHTML = '<div class="card-empty" style="padding:24px"><div class="card-empty-icon">👥</div><div class="card-empty-title">' + (customers.length ? 'אין תוצאות' : 'אין עדיין לקוחות') + '</div></div>'; return; }
   el.innerHTML = '<div class="src-list">' + list.map(c => {
     const sc = leadScore(c); const wa = waNumber(c.phone);
+    const upd = fmtDate(c.updatedAt || c.lastOrderAt);
+    const content = (c.content || c.aiSummary || '').trim();
+    const nt = nextTaskFor(c.id);
     return '<div class="src-row" style="align-items:center;flex-wrap:wrap;gap:8px">' +
       '<span class="crm-score" style="background:' + scoreColor(sc) + '22;color:' + scoreColor(sc) + '">' + sc + '</span>' +
-      '<div class="src-info" style="flex:1;min-width:160px;cursor:pointer" onclick="open360(\'' + c.id + '\')">' +
+      '<div class="src-info" style="flex:1;min-width:200px;cursor:pointer" onclick="open360(\'' + c.id + '\')">' +
         '<div class="src-name">' + esc(c.name || '') + (c.company ? ' · <span class="muted-sm">' + esc(c.company) + '</span>' : '') + '</div>' +
-        '<div class="muted-sm">' + (c.phone ? '📞 ' + esc(c.phone) + '  ' : '') + (c.email ? '✉️ ' + esc(c.email) : '') + '</div></div>' +
+        '<div class="muted-sm" style="font-size:11px">' + (c.phone ? '📞 ' + esc(c.phone) + '   ' : '') + (upd ? '🕓 עודכן ' + upd : '') + '</div>' +
+        (content ? '<div class="muted-sm" style="white-space:normal;font-size:11px">📝 ' + esc(content.slice(0, 55)) + (content.length > 55 ? '…' : '') + '</div>' : '') +
+        (nt ? '<div style="font-size:11px;color:#7c9cff">📋 הבאה: ' + esc(nt.title) + (nt.dueDate ? ' · ' + esc(nt.dueDate) : '') + '</div>' : '<div class="muted-sm" style="font-size:11px">📋 אין משימה הבאה</div>') +
+      '</div>' +
       '<span class="crm-badge">' + esc(stageOf(c)) + '</span>' +
-      (wa ? '<a class="comp-btn" href="https://wa.me/' + wa + '" target="_blank" rel="noopener">💬</a>' : '') +
+      (wa ? '<a class="comp-btn" href="https://wa.me/' + wa + '" target="_blank" rel="noopener" title="שלח וואטסאפ" style="background:#25D366;border-color:#25D366;color:#fff;font-size:15px;padding:4px 9px">💬</a>' : '') +
       '<button class="comp-btn" onclick="open360(\'' + c.id + '\')">פתח</button></div>';
   }).join('') + '</div>';
 }
