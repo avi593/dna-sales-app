@@ -1,5 +1,5 @@
 {
-  "last_updated": "2026-06-18 08:44",
+  "last_updated": "2026-06-19 09:04",
   "categories": [
     {
       "name": "החשבון שלי",
@@ -84,16 +84,34 @@
   ],
   "products": [
     {
-      "name": "מצלמה תרמית 0.04 | רזולוציה FLIR E54 | 320X240",
-      "price": "₪27,000המחיר המקורי היה: ₪27,000.₪23,475המחיר הנוכחי הוא: ₪23,475.",
+      "name": "מצלמה תרמית רגישות 0.06 | 160×120רזולוציה E5 PRO",
+      "price": "₪7,650המחיר המקורי היה: ₪7,650.₪6,890המחיר הנוכחי הוא: ₪6,890.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=661"
+      "url": "/?orderby=date&add-to-cart=11693"
     },
     {
-      "name": "מצלמה תרמית 0.07 | רזולוציה FLIR TG165-X | 80X60",
-      "price": "₪3,586המחיר המקורי היה: ₪3,586.₪2,350המחיר הנוכחי הוא: ₪2,350.",
+      "name": "מצלמה תרמית 0.07 | רזולוציה FLIR C5 | 160×120",
+      "price": "₪5,100המחיר המקורי היה: ₪5,100.₪3,645המחיר הנוכחי הוא: ₪3,645.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=675"
+      "url": "/?orderby=date&add-to-cart=664"
+    },
+    {
+      "name": "מצלמת ביוב HD סיב 30 מטר",
+      "price": "₪15,150המחיר המקורי היה: ₪15,150.₪7,400המחיר הנוכחי הוא: ₪7,400.",
+      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
+      "url": "/?orderby=date&add-to-cart=829"
+    },
+    {
+      "name": "משאבת ניקוז לכיור SANIEXPERT",
+      "price": "₪2,300המחיר המקורי היה: ₪2,300.₪2,245המחיר הנוכחי הוא: ₪2,245.",
+      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
+      "url": "/?orderby=date&add-to-cart=14731"
+    },
+    {
+      "name": "גרוב הידראולי עד 12 צול",
+      "price": "₪11,615המחיר המקורי היה: ₪11,615.₪8,250המחיר הנוכחי הוא: ₪8,250.",
+      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
+      "url": "/?orderby=date&add-to-cart=909"
     },
     {
       "name": "מד לחות סיכה (בלוטוט) MR55",
@@ -102,16 +120,10 @@
       "url": "/?orderby=date&add-to-cart=617"
     },
     {
-      "name": "מצלמה תרמית 0.03 | רזולוציה FLIR E76 | 320X240",
-      "price": "₪38,500המחיר המקורי היה: ₪38,500.₪34,580המחיר הנוכחי הוא: ₪34,580.",
+      "name": "סטנד לצנרת מתכוונן",
+      "price": "₪900המחיר המקורי היה: ₪900.₪750המחיר הנוכחי הוא: ₪750.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%a6%d7%9c%d7%9e%d7%94-%d7%aa%d7%a8%d7%9e%d7%99%d7%aa-flir-e76/"
-    },
-    {
-      "name": "משאבת פתיחת סתימות מקצועית (לחץ/יניקה) | Super Ego | כולל מתאמים",
-      "price": "₪570המחיר המקורי היה: ₪570.₪549המחיר הנוכחי הוא: ₪549.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=201"
+      "url": "/?orderby=date&add-to-cart=421"
     },
     {
       "name": "אבקת זרחן לבדיקת דליפות 200 גרם (בחר צבע)",
@@ -120,34 +132,64 @@
       "url": "https://www.dna-tools.co.il/product/%d7%90%d7%91%d7%a7%d7%aa-%d7%96%d7%a8%d7%97%d7%9f-%d7%9c%d7%91%d7%93%d7%99%d7%a7%d7%aa-%d7%93%d7%9c%d7%99%d7%a4%d7%95%d7%aa-%d7%91%d7%97%d7%a8-%d7%a6%d7%91%d7%a2/"
     },
     {
-      "name": "מצלמה תרמית רגישות 0.06 | 160×120רזולוציה E5 PRO",
-      "price": "₪7,650המחיר המקורי היה: ₪7,650.₪6,890המחיר הנוכחי הוא: ₪6,890.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=11693"
-    },
-    {
-      "name": "סטנד לצנרת מתכוונן",
-      "price": "₪900המחיר המקורי היה: ₪900.₪750המחיר הנוכחי הוא: ₪750.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=421"
-    },
-    {
       "name": "מוט לפתיחת מכסה ביוב",
       "price": "₪152המחיר המקורי היה: ₪152.₪90המחיר הנוכחי הוא: ₪90.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
       "url": "/?orderby=date&add-to-cart=11802"
     },
     {
-      "name": "מכונת הברגות ניידת \"1/2 עד \"1/4-1",
-      "price": "₪4,200המחיר המקורי היה: ₪4,200.₪3,995המחיר הנוכחי הוא: ₪3,995.",
+      "name": "סט מוטות אוקולון 1 מטר מלא (10 מוטות)",
+      "price": "₪1,667המחיר המקורי היה: ₪1,667.₪1,550המחיר הנוכחי הוא: ₪1,550.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%9b%d7%95%d7%a0%d7%aa-%d7%94%d7%91%d7%a8%d7%92%d7%95%d7%aa-%d7%a0%d7%99%d7%99%d7%93%d7%aa-1-2-%d7%a2%d7%93-1-4-1/"
+      "url": "/?orderby=date&add-to-cart=10870"
     },
     {
-      "name": "משחזת זוית נטענת DCG407N",
-      "price": "₪963",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCG407N-משחזת-זוית-נטענת-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20681"
+      "name": "פטישון נטען DEWALT DCH172",
+      "price": "₪1,050",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCH172N-פטישון-נטען-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20687"
+    },
+    {
+      "name": "מכסה אלומיניום עמוק (5 ס\"מ עומק) לריצוף 70X70",
+      "price": "₪990",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/מכסה-אלומיניום-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20705"
+    },
+    {
+      "name": "משחזת זווית נטענת DGA504Z (גוף בלבד) מקיטה",
+      "price": "₪935",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DGA504Z-משחזת-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20632"
+    },
+    {
+      "name": "מברגת אימפקט DCF850B (גוף בלבד) DEWALT",
+      "price": "₪988",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCF850B-מברגת-אימפקט-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20657"
+    },
+    {
+      "name": "סט מברגות מקיטה DLX2145TJ",
+      "price": "₪2,320",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DLX2145TJ-סט-מברגות-מקיטה-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20647"
+    },
+    {
+      "name": "מסור חרב נטען DEWALT DCS369N",
+      "price": "₪994",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCS369N-מסור-חרב-נטען-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20695"
+    },
+    {
+      "name": "בקים למכונת הברגות BSPT HONGLI (בחר מידה)",
+      "price": "₪470",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/HONGLI-BSP-300x300.jpg",
+      "url": "https://www.dna-tools.co.il/product/%d7%91%d7%a7%d7%99%d7%9d-%d7%9c%d7%9e%d7%9b%d7%95%d7%a0%d7%aa-%d7%94%d7%91%d7%a8%d7%92%d7%95%d7%aa-bspt-hongli-%d7%91%d7%97%d7%a8-%d7%9e%d7%99%d7%93%d7%94/"
+    },
+    {
+      "name": "מכונת הברגות עד 4 צול דגם 1224 ריג'יד",
+      "price": "₪74,500",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/מכונת-הברגות-1224-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20803"
     },
     {
       "name": "סט מחבר לוקסיל חוליות (בחר קוטר)",
@@ -156,76 +198,34 @@
       "url": "https://www.dna-tools.co.il/product/%d7%a1%d7%98-%d7%9e%d7%97%d7%91%d7%a8-%d7%9c%d7%95%d7%a7%d7%a1%d7%99%d7%9c-%d7%97%d7%95%d7%9c%d7%99%d7%95%d7%aa-%d7%91%d7%97%d7%a8-%d7%a7%d7%95%d7%98%d7%a8/"
     },
     {
-      "name": "מיישר צינורות אוניברסלי עד 160 מ\"מ ריטמו",
-      "price": "₪9,740",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/מיישר-צנרת-1-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20769"
+      "name": "סרט טפלון רחב 10 יחידות",
+      "price": "₪60",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/12/RGD-300x300.jpg",
+      "url": "/?orderby=date&add-to-cart=20573"
     },
     {
-      "name": "רול גרובר ידני HONGLI GC02",
-      "price": "₪2,750",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/רול-גרובר-ידני-HONGLI-GC02-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20837"
-    },
-    {
-      "name": "מפתח רטיטה DCF899 1/2 (גוף בלבד) DEWALT",
-      "price": "₪1,335",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCF899-12-מפתח-רטיטה-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20672"
-    },
-    {
-      "name": "רול גרובר הידראולי כולל מנוע  \"12 – \"2 HONGLI G12D",
-      "price": "₪14,590",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/רול-גרובר-הידראולי-כולל-מנוע-HONGLI-G12D-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20835"
-    },
-    {
-      "name": "רשת פליז כבד (בחר אפשרויות)",
-      "price": "החל מ:₪121",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2025/01/7250-1-300x300.png",
-      "url": "https://www.dna-tools.co.il/product/%d7%a8%d7%a9%d7%aa-%d7%a4%d7%9c%d7%99%d7%96-%d7%9b%d7%91%d7%93-%d7%91%d7%97%d7%a8-%d7%90%d7%a4%d7%a9%d7%a8%d7%95%d7%99%d7%95%d7%aa/"
-    },
-    {
-      "name": "מכונת הברגות REX תוצרת סין (בחר קוטר)",
-      "price": "החל מ:₪7,450",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/REX-S25A-300x300.jpg",
-      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%9b%d7%95%d7%a0%d7%aa-%d7%94%d7%91%d7%a8%d7%92%d7%95%d7%aa-rex-%d7%aa%d7%95%d7%a6%d7%a8%d7%aa-%d7%a1%d7%99%d7%9f-%d7%91%d7%97%d7%a8-%d7%a7%d7%95%d7%98%d7%a8/"
-    },
-    {
-      "name": "סט 6 כלים DEWALT",
-      "price": "₪5,699",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/סט-כלים-דיוולט-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20589"
-    },
-    {
-      "name": "שואב אבק נטען DEWALT DCV501LN",
-      "price": "₪935",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCV501LN-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=20701"
-    },
-    {
-      "name": "מצלמה תרמית 0.03 | רזולוציה FLIR E86 | 464X348",
+      "name": "מצלמה תרמית 0.03 | רזולוציה FLIR E96 | 640×480",
       "price": "",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/e86-3qtrbcklft-01-300x300.png",
-      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%a6%d7%9c%d7%9e%d7%94-%d7%aa%d7%a8%d7%9e%d7%99%d7%aa-e86/"
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/e96-2v-01-300x300.webp",
+      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%a6%d7%9c%d7%9e%d7%94-%d7%aa%d7%a8%d7%9e%d7%99%d7%aa-e96-%d7%91%d7%a8%d7%96%d7%95%d7%9c%d7%95%d7%a6%d7%99%d7%94-%d7%92%d7%91%d7%95%d7%94%d7%94/"
     },
     {
-      "name": "מצלמה תרמית 0.07 |רזולוציה FLIR ONE Edge Pro | 160×120",
-      "price": "₪3,450המחיר המקורי היה: ₪3,450.₪3,040המחיר הנוכחי הוא: ₪3,040.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=7455"
+      "name": "אחריות וטיפול למוצרי FLIR",
+      "price": "",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2024/03/FKIR-PROTECT-4-300x300.png",
+      "url": "https://www.dna-tools.co.il/product/%d7%90%d7%97%d7%a8%d7%99%d7%95%d7%aa-%d7%95%d7%98%d7%99%d7%a4%d7%95%d7%9c-%d7%9c%d7%9e%d7%95%d7%a6%d7%a8%d7%99-flir/"
     },
     {
-      "name": "מצלמה תרמית FLIR C8 רזולוציה גבוהה 320×240 לאיתור נזילות וליקויי בנייה",
-      "price": "₪6,800",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2025/08/Flir-C8-HERO-300x300.jpg",
-      "url": "/?orderby=date&add-to-cart=18902"
+      "name": "מצלמה תרמית לדיאגנוסטיקה לרכב FLIR TG275 | רזולוציה 160×120 | עד 550°C",
+      "price": "",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/FLIR-tg275-3-300x300.png",
+      "url": "/?orderby=date&add-to-cart=613"
     },
     {
-      "name": "מצלמה תרמית מקצועית 0.04 | 320×240 רזולוציה FLIR E8 Pro",
-      "price": "החל מ:₪18,400המחיר המקורי היה: ₪18,400.₪14,939המחיר הנוכחי הוא: ₪14,939.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=date&add-to-cart=9282"
+      "name": "מטען לסוללות מסדרת E-X",
+      "price": "",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/12/t198531-e-series-batterychargerkit-01-300x300.png",
+      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%98%d7%a2%d7%9f-%d7%9c%d7%a1%d7%95%d7%9c%d7%9c%d7%95%d7%aa-%d7%9e%d7%a1%d7%93%d7%a8%d7%aa-flir-ex/"
     },
     {
       "name": "מד לחות מקצועי FLIR MR60",
@@ -234,22 +234,22 @@
       "url": "/?orderby=date&add-to-cart=620"
     },
     {
+      "name": "מצלמה תרמית 0.07 |רזולוציה FLIR ONE Edge Pro | 160×120",
+      "price": "₪3,450המחיר המקורי היה: ₪3,450.₪3,040המחיר הנוכחי הוא: ₪3,040.",
+      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
+      "url": "/?orderby=date&add-to-cart=7455"
+    },
+    {
       "name": "מד לחות 5 ב-1 עם MR77 METERLiNK",
       "price": "₪4,697המחיר המקורי היה: ₪4,697.₪4,100המחיר הנוכחי הוא: ₪4,100.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
       "url": "/?orderby=date&add-to-cart=618"
     },
     {
-      "name": "עדשת אינפרא אדום 28°, FOV 36 מ\"מ",
+      "name": "מצלמה תרמית 0.02 | רזולוציה FLIR T1020 | 1024×768",
       "price": "",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/12/t199064-300x300.jpg",
-      "url": "https://www.dna-tools.co.il/product/%d7%a2%d7%93%d7%a9%d7%aa-%d7%90%d7%99%d7%a0%d7%a4%d7%a8%d7%90-%d7%90%d7%93%d7%95%d7%9d-28-fov-36-%d7%9e%d7%9e/"
-    },
-    {
-      "name": "מצלמה תרמית 0.07 |רזולוציה FLIR ONE PRO | 160×120",
-      "price": "₪2,500",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "https://www.dna-tools.co.il/product/flir-one-pro-high-res-thermal-camera/"
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/t1k-300x300.png",
+      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%a6%d7%9c%d7%9e%d7%94-%d7%aa%d7%a8%d7%9e%d7%99%d7%aa-t1020/"
     },
     {
       "name": "סוללה למברגה 5 אמפר DCB205",
@@ -258,10 +258,22 @@
       "url": "/shop/?orderby=date&add-to-cart=21024"
     },
     {
-      "name": "בקים למכונת הברגות BSPT HONGLI (בחר מידה)",
-      "price": "₪470",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/HONGLI-BSP-300x300.jpg",
-      "url": "https://www.dna-tools.co.il/product/%d7%91%d7%a7%d7%99%d7%9d-%d7%9c%d7%9e%d7%9b%d7%95%d7%a0%d7%aa-%d7%94%d7%91%d7%a8%d7%92%d7%95%d7%aa-bspt-hongli-%d7%91%d7%97%d7%a8-%d7%9e%d7%99%d7%93%d7%94/"
+      "name": "רשת פליז כבד (בחר אפשרויות)",
+      "price": "החל מ:₪121",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2025/01/7250-1-300x300.png",
+      "url": "https://www.dna-tools.co.il/product/%d7%a8%d7%a9%d7%aa-%d7%a4%d7%9c%d7%99%d7%96-%d7%9b%d7%91%d7%93-%d7%91%d7%97%d7%a8-%d7%90%d7%a4%d7%a9%d7%a8%d7%95%d7%99%d7%95%d7%aa/"
+    },
+    {
+      "name": "רול גרובר ידני HONGLI GC02",
+      "price": "₪2,750",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/רול-גרובר-ידני-HONGLI-GC02-300x300.jpg",
+      "url": "/shop/?orderby=date&add-to-cart=20837"
+    },
+    {
+      "name": "רול גרובר הידראולי כולל מנוע  \"12 – \"2 HONGLI G12D",
+      "price": "₪14,590",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/רול-גרובר-הידראולי-כולל-מנוע-HONGLI-G12D-300x300.jpg",
+      "url": "/shop/?orderby=date&add-to-cart=20835"
     },
     {
       "name": "רול גרובר הידראולי \"12 – \"2 צול HONGLI YG12",
@@ -288,10 +300,10 @@
       "url": "/shop/?orderby=date&add-to-cart=20807"
     },
     {
-      "name": "מכונת הברגות עד 4 צול דגם 1224 ריג'יד",
-      "price": "₪74,500",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/מכונת-הברגות-1224-300x300.jpg",
-      "url": "/shop/?orderby=date&add-to-cart=20803"
+      "name": "מכונת הברגות REX תוצרת סין (בחר קוטר)",
+      "price": "החל מ:₪7,450",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/REX-S25A-300x300.jpg",
+      "url": "https://www.dna-tools.co.il/product/%d7%9e%d7%9b%d7%95%d7%a0%d7%aa-%d7%94%d7%91%d7%a8%d7%92%d7%95%d7%aa-rex-%d7%aa%d7%95%d7%a6%d7%a8%d7%aa-%d7%a1%d7%99%d7%9f-%d7%91%d7%97%d7%a8-%d7%a7%d7%95%d7%98%d7%a8/"
     },
     {
       "name": "מיישר צינורות אוניברסלי עד 63 מ\"מ ריטמו",
@@ -306,6 +318,12 @@
       "url": "/shop/?orderby=date&add-to-cart=20770"
     },
     {
+      "name": "מיישר צינורות אוניברסלי עד 160 מ\"מ ריטמו",
+      "price": "₪9,740",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/מיישר-צנרת-1-300x300.jpg",
+      "url": "/shop/?orderby=date&add-to-cart=20769"
+    },
+    {
       "name": "מעגלי צנרת אלקטרופיוזן 250-400 (זוג)",
       "price": "₪4,300",
       "image": "https://www.dna-tools.co.il/wp-content/uploads/2022/08/2ff414e01c284dbc300d10635a5d41fb-removebg-preview.png",
@@ -318,10 +336,10 @@
       "url": "/shop/?orderby=date&add-to-cart=20730"
     },
     {
-      "name": "מכסה אלומיניום עמוק (5 ס\"מ עומק) לריצוף 70X70",
-      "price": "₪990",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/מכסה-אלומיניום-300x300.jpg",
-      "url": "/shop/?orderby=date&add-to-cart=20705"
+      "name": "שואב אבק נטען DEWALT DCV501LN",
+      "price": "₪935",
+      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCV501LN-300x300.jpg",
+      "url": "/shop/?orderby=date&add-to-cart=20701"
     },
     {
       "name": "משחזת זוית נטענת DEWALT DCS438B",
@@ -336,12 +354,6 @@
       "url": "/shop/?orderby=date&add-to-cart=20697"
     },
     {
-      "name": "מסור חרב נטען DEWALT DCS369N",
-      "price": "₪994",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCS369N-מסור-חרב-נטען-300x300.jpg",
-      "url": "/shop/?orderby=date&add-to-cart=20695"
-    },
-    {
       "name": "מחרצת לבטון נטענת DEWALT DCG200NT",
       "price": "₪3,635",
       "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DCG200NT-מחרצת-לבטון-נטענת-300x300.jpg",
@@ -354,34 +366,22 @@
       "url": "/shop/?orderby=date&add-to-cart=20691"
     },
     {
-      "name": "סט מוטות אוקולון מלא 1.5 מטר (10 יח')",
-      "price": "₪1,869המחיר המקורי היה: ₪1,869.₪1,840המחיר הנוכחי הוא: ₪1,840.",
+      "name": "מכשיר מופות חשמליות לצנרת 40-315 מ\"מ (למופה חשמלית HDPE)",
+      "price": "החל מ:₪8,485המחיר המקורי היה: ₪8,485.₪7,866המחיר הנוכחי הוא: ₪7,866.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=popularity&add-to-cart=14569"
+      "url": "/?orderby=popularity&add-to-cart=12729"
     },
     {
-      "name": "מצלמת צנרת מתפלסת (Self-Leveling) | ראש 28 מ\"מ WPS-A1-C28 | ממשק עברית",
-      "price": "₪5,200המחיר המקורי היה: ₪5,200.₪4,185המחיר הנוכחי הוא: ₪4,185.",
+      "name": "מצלמת ביוב 360 מעלות HD WIFI",
+      "price": "₪26,765המחיר המקורי היה: ₪26,765.₪18,800המחיר הנוכחי הוא: ₪18,800.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=popularity&add-to-cart=683"
+      "url": "/?orderby=popularity&add-to-cart=7507"
     },
     {
-      "name": "מצלמת צנרת 23 מ\"מ | כבל 20 מטר WPS-A0-C23",
-      "price": "₪3,939המחיר המקורי היה: ₪3,939.₪2,800המחיר הנוכחי הוא: ₪2,800.",
+      "name": "בלון גומי מתנפח 2\" (50 מ\"מ)",
+      "price": "₪315המחיר המקורי היה: ₪315.₪290המחיר הנוכחי הוא: ₪290.",
       "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=popularity&add-to-cart=7491"
-    },
-    {
-      "name": "גרוב הידראולי עד 12 צול",
-      "price": "₪11,615המחיר המקורי היה: ₪11,615.₪8,250המחיר הנוכחי הוא: ₪8,250.",
-      "image": "https://www.dna-tools.co.il/wp-content/themes/kadence-child/images/hot-sale01.svg",
-      "url": "/?orderby=popularity&add-to-cart=909"
-    },
-    {
-      "name": "סט מברגות מקיטה DLX2145TJ",
-      "price": "₪2,320",
-      "image": "https://www.dna-tools.co.il/wp-content/uploads/2026/05/DLX2145TJ-סט-מברגות-מקיטה-300x300.jpg",
-      "url": "/?orderby=popularity&add-to-cart=20647"
+      "url": "https://www.dna-tools.co.il/product/%d7%91%d7%9c%d7%95%d7%9f-%d7%92%d7%95%d7%9e%d7%99-%d7%9e%d7%aa%d7%a0%d7%a4%d7%97-2-50-%d7%9e%d7%9e/"
     }
   ],
   "total_products": 50,
