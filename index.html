@@ -1166,6 +1166,45 @@ function dashCard(title, view, metrics) {
     '<div class="kpi-grid" style="margin:0">' + cells + '</div></div>';
 }
 
+// התראת תת-תמחור: מתחרה שירד מתחת למחיר שלי (diff<0 ב-modelMetrics — אותה לוגיקה כמו "יקר ממתחרה")
+function dashPriceAlertsHtml(ms) {
+  const hits = [];
+  (ms || []).forEach(m => {
+    const mm = modelMetrics(m);
+    if (mm.diff != null && mm.diff < 0) {
+      hits.push({ name: m.name || '—', my: m.myPrice, comp: mm.cheapestComp ? mm.cheapestComp.name : '',
+                  price: mm.cheapest, gap: -mm.diff, pct: -mm.pct });
+    }
+  });
+
+  if (!hits.length) {
+    return '<div class="card" style="border-right:3px solid #16a34a;background:rgba(22,163,74,0.07);margin-bottom:12px">' +
+      '<div style="display:flex;align-items:center;gap:10px">' +
+      '<span style="font-size:22px">✅</span>' +
+      '<div><div style="font-weight:700;color:#16a34a">אתה המוביל במחיר בכל הדגמים</div>' +
+      '<div style="font-size:12px;color:var(--muted)">אין מתחרה שזול ממך — נבדק הבוקר אוטומטית</div></div></div></div>';
+  }
+
+  hits.sort((a, b) => b.gap - a.gap);
+  const rows = hits.map(h =>
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--border)">' +
+      '<div style="min-width:0">' +
+        '<div style="font-weight:600">' + esc(h.name) + '</div>' +
+        '<div style="font-size:12px;color:var(--muted)">' + esc(h.comp || 'מתחרה') + ' זול ממך</div>' +
+      '</div>' +
+      '<div style="text-align:left;white-space:nowrap">' +
+        '<div style="color:#f87171;font-weight:700">−' + fmtPrice(h.gap) + ' (' + h.pct.toFixed(1) + '%)</div>' +
+        '<div style="font-size:12px;color:var(--muted)">שלך ' + fmtPrice(h.my) + ' · מתחרה ' + fmtPrice(h.price) + '</div>' +
+      '</div>' +
+    '</div>'
+  ).join('');
+
+  return '<div class="card" style="cursor:pointer;border-right:3px solid #f87171;background:rgba(248,113,113,0.07);margin-bottom:12px" onclick="dashGo(\'prices\')">' +
+    '<div class="card-head"><span style="color:#f87171;font-weight:700">⚠️ ' + hits.length + ' דגמים — מתחרה זול ממך</span>' +
+    '<span style="font-size:12px;color:var(--muted)">פתח מחירים ›</span></div>' +
+    rows + '</div>';
+}
+
 async function loadDashOverview() {
   const el = document.getElementById('dashOverview');
   if (!el) return;
@@ -1203,7 +1242,8 @@ async function loadDashOverview() {
   // 📡 ביצועים — נתוני Google Analytics
   const ga = (lastAnalytics && lastAnalytics.summary && !lastAnalytics.summary.error) ? lastAnalytics.summary : null;
 
-  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px">' +
+  el.innerHTML = dashPriceAlertsHtml(ms) +
+    '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px">' +
     dashCard('🤝 קשרי לקוחות', 'customers', [
       ['לידים חדשים', newLeads, newLeads > 0 ? '#3b82f6' : null],
       ['משימות להיום', dueTasks, dueTasks > 0 ? '#f59e0b' : null],
