@@ -809,7 +809,7 @@
           <input class="inp" id="catUsd" type="number" step="0.01" placeholder="מחיר $ (עלות)" />
           <input class="inp" id="catIls" type="number" step="0.01" placeholder="מחיר ₪ ידני (אופציונלי)" />
           <input class="inp" id="catShip" type="number" step="0.1" placeholder="שילוח %" value="10" />
-          <input class="inp" id="catProfit" type="number" step="0.01" placeholder="רווח רצוי (0.7)" />
+          <input class="inp" id="catProfit" type="number" step="0.01" placeholder="מחלק (0.7)" title="מחיר = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%" />
           <button class="btn btn-blue" onclick="addCatalog()">➕ הוסף</button>
         </div>
         <div class="muted-sm" id="fxNote"></div>
@@ -2158,15 +2158,15 @@ async function loadCatalog() {
   }
 }
 
-// חישוב שורת תמחור: דולר→שקל → +שילוח → מחיר מכירה לפי רווח רצוי → כולל מע"מ → רווח
+// חישוב שורת תמחור: דולר→שקל → +שילוח → מחיר מכירה (עלות÷מחלק) → כולל מע"מ → רווח
 function catCompute(it) {
   const usd = catNum(it.usdPrice), ilsM = catNum(it.ilsManual);
   const ils = ilsM != null ? ilsM : (usd != null && fxRate ? usd * fxRate : null);
   const shipPct = catNum(it.shippingPct) != null ? catNum(it.shippingPct) : 10;
   const afterShip = ils != null ? ils * (1 + shipPct / 100) : null;
-  const profRaw = catNum(it.desiredProfit);
-  const prof = profRaw != null ? profRaw : 0.7;   // ברירת מחדל קבועה 0.7
-  const priceExcl = (afterShip != null && prof < 1) ? afterShip / (1 - prof) : null;
+  const divRaw = catNum(it.desiredProfit);          // השדה = מחלק: מחיר ללקוח = עלות ÷ מחלק
+  const div = divRaw != null ? divRaw : 0.7;        // ברירת מחדל 0.7 ⇐ רווח 30% מלמעלה
+  const priceExcl = (afterShip != null && div > 0) ? afterShip / div : null;
   const priceIncl = priceExcl != null ? priceExcl * VAT_RATE : null;
   const profitIls = (priceExcl != null && afterShip != null) ? priceExcl - afterShip : null;
   const profitPct = (priceExcl != null && profitIls != null) ? profitIls / priceExcl * 100 : null;
@@ -2204,7 +2204,7 @@ function renderCatalog() {
   el.innerHTML = `<div class="cat-scroll"><table class="price-table cat-table">
     <thead><tr>
       <th>מק"ט</th><th>שם מוצר</th><th>מחיר $</th><th>מחיר ₪</th><th>שילוח %</th><th>אחרי שילוח</th>
-      <th>רווח רצוי</th><th>מחיר ללקוח</th><th>כולל מע"מ</th><th>רווח %</th><th>רווח ₪</th><th></th>
+      <th title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק</th><th>מחיר ללקוח</th><th>כולל מע"מ</th><th>רווח %</th><th>רווח ₪</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
