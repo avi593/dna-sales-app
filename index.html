@@ -605,7 +605,7 @@
 
   <!-- SIDEBAR -->
   <nav class="sidebar">
-    <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard')">
+    <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard'); loadDashOverview()">
       <span class="nav-icon">📊</span><span>דשבורד</span>
     </button>
     <button class="nav-btn" id="nav-customers" onclick="showView('customers'); loadCustomers()">
@@ -642,32 +642,11 @@
     <!-- ── DASHBOARD ── -->
     <div id="view-dashboard" class="view active">
       <div>
-        <div class="sec-title">📊 דשבורד מודיעין</div>
-        <div class="sec-sub">מצב יומי של העסק — מוצרים, שוק ומתחרים</div>
+        <div class="sec-title">📊 דשבורד — מרכז שליטה</div>
+        <div class="sec-sub">מבט-על יומי: קשרי לקוחות · מחירים · פרסום · ביצועים</div>
       </div>
 
-      <div class="kpi-grid">
-        <div class="kpi">
-          <div class="kpi-label">מוצרים בקטלוג</div>
-          <div class="kpi-val" id="kpiProd">—</div>
-          <div class="kpi-note up" id="kpiProdNote">טוען...</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">קטגוריות</div>
-          <div class="kpi-val" id="kpiCats">—</div>
-          <div class="kpi-note" id="kpiCatsNote">קטגוריות</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">עדכון אחרון</div>
-          <div class="kpi-val" style="font-size:17px" id="kpiDate">—</div>
-          <div class="kpi-note" id="kpiDateNote">לא ידוע</div>
-        </div>
-        <div class="kpi">
-          <div class="kpi-label">מתחרים במעקב</div>
-          <div class="kpi-val" id="kpiComp">0</div>
-          <div class="kpi-note">פעיל</div>
-        </div>
-      </div>
+      <div id="dashOverview" style="margin-bottom:6px"></div>
 
       <div class="action-grid">
         <button class="act-btn" onclick="runDailyScan()">
@@ -1141,6 +1120,7 @@ async function init() {
   loadCompetitors();   // אסינכרוני — נטען מה-API ברקע
   renderAdCompetitors();
   loadPostReports();   // דוחות קמפיינים — נטען מה-API ברקע
+  loadDashOverview();  // מבט-על: לקוחות, מחירים, פרסום, ביצועים
 }
 
 async function loadProducts() {
@@ -1151,17 +1131,100 @@ async function loadProducts() {
 }
 
 function updateKPIs() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   if (productsData) {
-    document.getElementById('kpiProd').textContent = productsData.total_products || productsData.products?.length || '—';
-    document.getElementById('kpiProdNote').textContent = 'עודכן ✓';
-    document.getElementById('kpiCats').textContent = productsData.categories?.length || '—';
+    set('kpiProd', productsData.total_products || productsData.products?.length || '—');
+    set('kpiProdNote', 'עודכן ✓');
+    set('kpiCats', productsData.categories?.length || '—');
     if (productsData.last_updated) {
       const parts = productsData.last_updated.split(' ');
-      document.getElementById('kpiDate').textContent = parts[0];
-      document.getElementById('kpiDateNote').textContent = parts[1] || '';
+      set('kpiDate', parts[0]);
+      set('kpiDateNote', parts[1] || '');
     }
   }
-  document.getElementById('kpiComp').textContent = competitors.length;
+  set('kpiComp', competitors.length);
+}
+
+// ═══════════════════════════════════
+// DASHBOARD — מרכז שליטה (מבט-על מכל אזור)
+// ═══════════════════════════════════
+
+function dashGo(view) {
+  showView(view);
+  if (view === 'customers' && typeof loadCustomers === 'function') loadCustomers();
+  else if (view === 'prices' && typeof loadModels === 'function') loadModels();
+  else if (view === 'performance' && typeof loadAnalytics === 'function') loadAnalytics();
+}
+
+function dashCard(title, view, metrics) {
+  const cells = metrics.map(m =>
+    '<div class="kpi"><div class="kpi-label">' + esc(m[0]) + '</div>' +
+    '<div class="kpi-val" style="font-size:22px' + (m[2] ? ';color:' + m[2] : '') + '">' + esc(String(m[1])) + '</div></div>'
+  ).join('');
+  return '<div class="card" style="cursor:pointer" onclick="dashGo(\'' + view + '\')">' +
+    '<div class="card-head"><span>' + title + '</span><span style="font-size:12px;color:var(--muted)">פתח ›</span></div>' +
+    '<div class="kpi-grid" style="margin:0">' + cells + '</div></div>';
+}
+
+async function loadDashOverview() {
+  const el = document.getElementById('dashOverview');
+  if (!el) return;
+  el.innerHTML = loadingHtml('טוען מבט-על...');
+  let cust = { customers: [] }, task = { tasks: [] }, model = { models: [] }, post = { posts: [] };
+  try {
+    [cust, task, model, post] = await Promise.all([
+      compApi('/customers').catch(() => ({ customers: [] })),
+      compApi('/tasks').catch(() => ({ tasks: [] })),
+      compApi('/models').catch(() => ({ models: [] })),
+      compApi('/posts').catch(() => ({ posts: [] }))
+    ]);
+  } catch (e) {}
+  try { await ensureAnalytics(); } catch (e) {}
+
+  const cs = (cust && cust.customers) || [];
+  const ts = (task && task.tasks) || [];
+  const ms = (model && model.models) || [];
+  const ps = (post && post.posts) || [];
+  const today = new Date().toISOString().slice(0, 10);
+
+  // 🤝 קשרי לקוחות
+  const newLeads = cs.filter(c => (c.stage || 'ליד חדש') === 'ליד חדש').length;
+  const openTasks = ts.filter(t => t.status !== 'בוצע');
+  const dueTasks = openTasks.filter(t => t.dueDate && t.dueDate <= today).length;
+  const closed = cs.filter(c => c.stage === 'סופק').length;
+
+  // 🏷️ מחירים — כמה דגמים אני יקר/מוביל מול המתחרים
+  let pricey = 0, leading = 0;
+  ms.forEach(m => { const mm = modelMetrics(m); if (mm.diff != null) { if (mm.diff < 0) pricey++; else leading++; } });
+
+  // 📣 פרסום — סך מעורבות בפוסטים
+  const eng = ps.reduce((s, p) => s + (p.likes || 0) + (p.comments || 0) + (p.shares || 0) + (p.reactions || 0), 0);
+
+  // 📡 ביצועים — נתוני Google Analytics
+  const ga = (lastAnalytics && lastAnalytics.summary && !lastAnalytics.summary.error) ? lastAnalytics.summary : null;
+
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px">' +
+    dashCard('🤝 קשרי לקוחות', 'customers', [
+      ['לידים חדשים', newLeads, newLeads > 0 ? '#3b82f6' : null],
+      ['משימות להיום', dueTasks, dueTasks > 0 ? '#f59e0b' : null],
+      ['סך לקוחות', cs.length],
+      ['סופקו', closed, '#16a34a']
+    ]) +
+    dashCard('🏷️ מחירים', 'prices', [
+      ['דגמים במעקב', ms.length],
+      ['יקר ממתחרה', pricey, pricey > 0 ? '#f87171' : null],
+      ['אני מוביל', leading, leading > 0 ? '#16a34a' : null]
+    ]) +
+    dashCard('📣 פרסום וקידום', 'content', [
+      ['פוסטים', ps.length],
+      ['סך מעורבות', eng]
+    ]) +
+    dashCard('📡 ביצועים', 'performance', ga ? [
+      ['משתמשים', ga.users || 0],
+      ['המרות', ga.conversions || 0],
+      ['הכנסות', '₪' + (ga.revenue || 0)]
+    ] : [['Google Analytics', 'לחץ לחיבור']]) +
+    '</div>';
 }
 
 // ═══════════════════════════════════
