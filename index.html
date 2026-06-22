@@ -439,6 +439,11 @@
     .cat-calc-row b { color: var(--text); }
     .cat-mine-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); margin-bottom: 4px; font-size: 13px; }
     .cat-mine-row b { color: var(--text); }
+    .cat-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+    .cat-tab { background: var(--bg2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 13px; cursor: pointer; font-size: 13px; font-family: inherit; }
+    .cat-tab:hover { color: var(--text); }
+    .cat-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .cat-tab-n { opacity: .65; font-size: 11px; }
 
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -809,6 +814,8 @@
         <div class="cat-add-row">
           <input class="inp" id="catSku" placeholder='מק"ט' />
           <input class="inp" id="catName" placeholder="שם מוצר" />
+          <input class="inp" id="catCategory" placeholder="קטגוריה" list="catCatList" />
+          <datalist id="catCatList"></datalist>
           <input class="inp" id="catUsd" type="number" step="0.01" placeholder="מחיר $ (עלות)" />
           <input class="inp" id="catIls" type="number" step="0.01" placeholder="מחיר ₪ ידני (אופציונלי)" />
           <input class="inp" id="catShip" type="number" step="0.1" placeholder="שילוח %" value="10" />
@@ -2144,6 +2151,7 @@ let catalog = [];
 let fxRate = null;
 let expandedCatalog = new Set();
 let catModels = {};   // modelId → דגם (עם competitors) למעקב מתחרים בקטלוג
+let catFilter = '';   // לשונית פעילה בקטלוג ('' = הכול)
 const VAT_RATE = 1.18;
 
 function catNum(v) { return (v === 0 || (v && !isNaN(parseFloat(v)))) ? parseFloat(v) : null; }
@@ -2191,7 +2199,14 @@ function renderCatalog() {
     + `onchange="updateCatalogField('${it.id}','${field}',this.value)" />`;
   const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '<span class="price-neutral">—</span>';
 
-  const body = catalog.map(it => {
+  // לשוניות לפי קטגוריה (מותג) — נוצרות אוטומטית מהקטגוריות הקיימות
+  const cats = [...new Set(catalog.map(it => (it.category || '').trim()).filter(Boolean))].sort();
+  const dl = document.getElementById('catCatList'); if (dl) dl.innerHTML = cats.map(g => `<option value="${esc(g)}"></option>`).join('');
+  const tabBtn = (label, val, n) => `<button class="cat-tab ${catFilter === val ? 'active' : ''}" onclick="setCatFilter('${String(val).replace(/'/g, "\\'")}')">${esc(label)} <span class="cat-tab-n">${n}</span></button>`;
+  const tabsHtml = `<div class="cat-tabs">${tabBtn('הכול', '', catalog.length)}${cats.map(g => tabBtn(g, g, catalog.filter(it => (it.category || '').trim() === g).length)).join('')}</div>`;
+  const items = catFilter ? catalog.filter(it => (it.category || '').trim() === catFilter) : catalog;
+
+  const body = items.map(it => {
     const c = catCompute(it);
     const ilsPh = (catNum(it.ilsManual) == null && c.ils != null) ? Math.round(c.ils) : '';
     const open = expandedCatalog.has(it.id);
@@ -2233,6 +2248,7 @@ function renderCatalog() {
         <div class="cat-edit-grid">
           <label>מק"ט${inp(it, 'sku', '90px')}</label>
           <label>שם מוצר${inp(it, 'name', '170px')}</label>
+          <label>קטגוריה${inp(it, 'category', '110px')}</label>
           <label>מחיר $ (עלות)${inp(it, 'usdPrice', '70px')}</label>
           <label>מחיר ₪ ידני${inp(it, 'ilsManual', '80px', ilsPh)}</label>
           <label>שילוח %${inp(it, 'shippingPct', '55px')}</label>
@@ -2265,10 +2281,15 @@ function renderCatalog() {
     return mainRow + detailRow;
   }).join('');
 
-  el.innerHTML = `<div class="cat-scroll"><table class="price-table cat-table">
+  const table = items.length
+    ? `<div class="cat-scroll"><table class="price-table cat-table">
     <thead><tr><th>מק"ט</th><th>שם מוצר</th><th>מחיר ללקוח</th><th>כולל מע"מ</th></tr></thead>
-    <tbody>${body}</tbody></table></div>`;
+    <tbody>${body}</tbody></table></div>`
+    : '<div class="page-empty">אין מוצרים בקטגוריה זו.</div>';
+  el.innerHTML = tabsHtml + table;
 }
+
+function setCatFilter(v) { catFilter = v; renderCatalog(); }
 
 // ── מעקב מתחרים בקטלוג (לינק מתחרים) — נשען על מנוע הדגמים/הסריקה הקיים ──
 function toggleCatExpand(id) {
@@ -2337,6 +2358,7 @@ async function addCatalog() {
   if (!sku && !name) { alert('הזן מק"ט או שם מוצר'); return; }
   const body = {
     sku, name,
+    category: document.getElementById('catCategory').value.trim() || catFilter,
     usdPrice: catNum(document.getElementById('catUsd').value),
     ilsManual: catNum(document.getElementById('catIls').value),
     shippingPct: catNum(document.getElementById('catShip').value) ?? 10,
@@ -2345,7 +2367,7 @@ async function addCatalog() {
   setStatus('מוסיף פריט...', true);
   try {
     await compApi('/catalog', 'POST', body);
-    ['catSku', 'catName', 'catUsd', 'catIls', 'catProfit'].forEach(i => document.getElementById(i).value = '');
+    ['catSku', 'catName', 'catCategory', 'catUsd', 'catIls', 'catProfit'].forEach(i => document.getElementById(i).value = '');
     document.getElementById('catShip').value = '10';
     await loadCatalog();
     setStatus('נוסף', false);
