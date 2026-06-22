@@ -892,6 +892,37 @@ WC_STATUS_HE = {
 }
 
 
+def wc_find(args):
+    """מאתר מוצר באתר WooCommerce לפי מק"ט (sku) או שם (search) — מחזיר קישור, שם, מחיר."""
+    base = (_get_config("wcApiBase") or "").rstrip("/")
+    ck = _get_config("wcKey")
+    cs = _get_config("wcSecret")
+    if not (base and ck and cs):
+        return _json({"error": "לא הוגדרו פרטי WooCommerce API (כתובת, Key, Secret)"}, 400)
+    if not base.startswith("http"):
+        base = "https://" + base
+    sku = (args.get("sku") or "").strip()
+    search = (args.get("search") or "").strip()
+    params = {"consumer_key": ck, "consumer_secret": cs, "per_page": 10}
+    if sku:
+        params["sku"] = sku
+    elif search:
+        params["search"] = search
+    else:
+        return _json({"error": "חסר sku או search"}, 400)
+    try:
+        r = requests.get(base + "/wp-json/wc/v3/products", params=params, timeout=45)
+        items = r.json()
+        if isinstance(items, dict):
+            return _json({"error": items.get("message", "שגיאת WooCommerce")}, 502)
+        out = [{"id": p.get("id"), "name": p.get("name"), "sku": p.get("sku"),
+                "price": p.get("price"), "permalink": p.get("permalink"),
+                "status": p.get("status")} for p in items]
+        return _json({"products": out})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def wc_sync(data):
     """מושך את ההזמנות האחרונות מ-WooCommerce, ממפה סטטוס→שלב, ומייבא/מעדכן לידים ב-CRM."""
     data = data or {}
@@ -1642,6 +1673,10 @@ def competitors_api(request):
         elif resource == "wc-sync":
             if method == "POST":
                 return wc_sync(data)
+
+        elif resource == "wc-find":
+            if method == "GET":
+                return wc_find(args)
 
         elif resource == "customers":
             if method == "GET":
