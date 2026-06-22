@@ -1397,7 +1397,7 @@ def track_categories(data):
 
 # ═══════════════════════════ CATALOG (תמחור) + FX ═══════════════════════════
 
-CATALOG_FIELDS = {"sku", "name", "usdPrice", "ilsManual", "shippingPct", "desiredProfit"}
+CATALOG_FIELDS = {"sku", "name", "usdPrice", "ilsManual", "shippingPct", "desiredProfit", "modelId"}
 
 
 def get_fx():

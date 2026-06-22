@@ -433,6 +433,16 @@
       background: rgba(248,113,113,.08); color: #f87171;
     }
     .comp-btn-del:hover { background: rgba(248,113,113,.18); }
+    .cat-actions { display: flex; gap: 4px; align-items: center; }
+    .cat-exp-tr > td { background: rgba(37,99,235,.06); padding: 12px 16px !important; }
+    .cat-exp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; font-size: 13px; }
+    .cat-comp-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
+    .cat-comp-name { flex: 1; min-width: 0; color: #60a5fa; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+    .cat-comp-name:hover { text-decoration: underline; }
+    .cat-comp-price { font-weight: 700; white-space: nowrap; }
+    .cat-comp-gap { white-space: nowrap; }
+    .cat-comp-add { display: flex; gap: 6px; margin-top: 10px; }
+    .cat-comp-add .inp { flex: 1; }
 
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -2138,6 +2148,8 @@ async function trackProduct() {
 // ═══════════════════════════════════
 let catalog = [];
 let fxRate = null;
+let expandedCatalog = new Set();
+let catModels = {};   // modelId → דגם (עם competitors) למעקב מתחרים בקטלוג
 const VAT_RATE = 1.18;
 
 function catNum(v) { return (v === 0 || (v && !isNaN(parseFloat(v)))) ? parseFloat(v) : null; }
@@ -2152,6 +2164,7 @@ async function loadCatalog() {
   try {
     const d = await compApi('/catalog');
     catalog = d.items || [];
+    try { const md = await compApi('/models'); catModels = {}; (md.models || []).forEach(m => { catModels[m.id] = m; }); } catch { catModels = {}; }
     renderCatalog();
   } catch (e) {
     el.innerHTML = outputCard('שגיאה', `<span style="color:#f87171">${e.message}</span>`);
@@ -2186,7 +2199,10 @@ function renderCatalog() {
   const rows = catalog.map(it => {
     const c = catCompute(it);
     const ilsPh = (catNum(it.ilsManual) == null && c.ils != null) ? Math.round(c.ils) : '';
-    return `<tr>
+    const open = expandedCatalog.has(it.id);
+    const model = it.modelId ? catModels[it.modelId] : null;
+    const nComp = (model && model.competitors) ? model.competitors.length : 0;
+    const mainRow = `<tr>
       <td>${inp(it, 'sku', '70px')}</td>
       <td>${inp(it, 'name', '150px')}</td>
       <td>${inp(it, 'usdPrice', '60px')}</td>
@@ -2198,8 +2214,13 @@ function renderCatalog() {
       <td class="cat-incl">${money(c.priceIncl)}</td>
       <td><span class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</span></td>
       <td><span class="${(c.profitIls ?? 0) < 0 ? 'price-low' : 'price-high'}">${money(c.profitIls)}</span></td>
-      <td><button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">✕</button></td>
+      <td><div class="cat-actions">
+        <button class="comp-btn" title="לינק מתחרים" onclick="toggleCatExpand('${it.id}')">${open ? '▲' : '▼'} מתחרים${nComp ? ` (${nComp})` : ''}</button>
+        <button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">✕</button>
+      </div></td>
     </tr>`;
+    const expRow = open ? `<tr class="cat-exp-tr"><td colspan="12">${catCompetitorsHtml(it, c)}</td></tr>` : '';
+    return mainRow + expRow;
   }).join('');
   el.innerHTML = `<div class="cat-scroll"><table class="price-table cat-table">
     <thead><tr>
@@ -2207,6 +2228,92 @@ function renderCatalog() {
       <th title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק</th><th>מחיר ללקוח</th><th>כולל מע"מ</th><th>רווח %</th><th>רווח ₪</th><th></th>
     </tr></thead>
     <tbody>${rows}</tbody></table></div>`;
+}
+
+// ── מעקב מתחרים בקטלוג (לינק מתחרים) — נשען על מנוע הדגמים/הסריקה הקיים ──
+function toggleCatExpand(id) {
+  if (expandedCatalog.has(id)) expandedCatalog.delete(id); else expandedCatalog.add(id);
+  renderCatalog();
+}
+
+function catCompetitorsHtml(it, c) {
+  const model = it.modelId ? catModels[it.modelId] : null;
+  const comps = (model && model.competitors) || [];
+  const mine = c.priceIncl;
+  const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
+  let list;
+  if (!comps.length) {
+    list = '<div class="muted-sm" style="padding:6px 0">אין עדיין מתחרים. הדבק קישור מתחרה למוצר זה ולחץ +.</div>';
+  } else {
+    list = comps.map(s => {
+      const p = (s.lastPrice === 0 || s.lastPrice) ? s.lastPrice : null;
+      const cls = (p != null && mine != null) ? priceClass(p, mine) : 'price-neutral';
+      const priceTxt = p != null ? money(p) : (s.lastStatus && s.lastStatus !== 200 ? 'אין מחיר' : '—');
+      let gap = '';
+      if (p != null && mine != null) {
+        if (p < mine) gap = `זול ממך ב-${money(mine - p)}`;
+        else if (p > mine) gap = `יקר ממך ב-${money(p - mine)}`;
+        else gap = 'זהה';
+      }
+      return `<div class="cat-comp-row">
+        <a href="${esc(s.url)}" target="_blank" rel="noopener" class="cat-comp-name">${esc(s.name || s.url)}</a>
+        <span class="${cls} cat-comp-price">${priceTxt}</span>
+        <span class="muted-sm cat-comp-gap">${gap}</span>
+        <button class="comp-btn comp-btn-del" title="הסר" onclick="removeCatCompetitor('${s.id}')">✕</button>
+      </div>`;
+    }).join('');
+  }
+  return `<div class="cat-exp">
+    <div class="cat-exp-head">
+      <span>🔍 לינק מתחרים — מול המחיר שלך כולל מע"מ: <b>${money(mine)}</b></span>
+      ${comps.length ? `<button class="comp-btn" onclick="scanCatItem('${it.id}')">🔄 סרוק עכשיו</button>` : ''}
+    </div>
+    ${list}
+    <div class="cat-comp-add">
+      <input class="inp" id="catComp_${it.id}" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatCompetitor('${it.id}')}" />
+      <button class="add-plus" title="הוסף וסרוק" onclick="addCatCompetitor('${it.id}')">+</button>
+    </div>
+  </div>`;
+}
+
+async function ensureCatModel(it) {
+  if (it.modelId) return it.modelId;
+  const m = await compApi('/models', 'POST', { name: it.name || it.sku || 'מוצר' });
+  await compApi('/catalog/' + it.id, 'PUT', { modelId: m.id });
+  it.modelId = m.id;
+  return m.id;
+}
+
+async function addCatCompetitor(catalogId) {
+  const el = document.getElementById('catComp_' + catalogId);
+  const url = ((el && el.value) || '').trim();
+  if (!url) { alert('הדבק קישור מתחרה'); return; }
+  const it = catalog.find(x => x.id === catalogId);
+  if (!it) return;
+  setStatus('מוסיף וסורק מתחרה...', true);
+  try {
+    const mid = await ensureCatModel(it);
+    await compApi('/sources', 'POST', { modelId: mid, url });
+    await compApi('/scan/' + mid, 'POST');
+    expandedCatalog.add(catalogId);
+    await loadCatalog();
+    setStatus('נוסף ונסרק', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function removeCatCompetitor(sourceId) {
+  if (!confirm('להסיר מתחרה זה?')) return;
+  setStatus('מסיר...', true);
+  try { await compApi('/sources/' + sourceId, 'DELETE'); await loadCatalog(); setStatus('הוסר', false); }
+  catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+async function scanCatItem(catalogId) {
+  const it = catalog.find(x => x.id === catalogId);
+  if (!it || !it.modelId) return;
+  setStatus('סורק מחירים...', true);
+  try { await compApi('/scan/' + it.modelId, 'POST'); await loadCatalog(); setStatus('נסרק', false); }
+  catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
 async function addCatalog() {
