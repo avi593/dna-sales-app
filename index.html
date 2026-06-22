@@ -433,16 +433,10 @@
       background: rgba(248,113,113,.08); color: #f87171;
     }
     .comp-btn-del:hover { background: rgba(248,113,113,.18); }
-    .cat-actions { display: flex; gap: 4px; align-items: center; }
-    .cat-exp-tr > td { background: rgba(37,99,235,.06); padding: 12px 16px !important; }
-    .cat-exp-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; font-size: 13px; }
-    .cat-comp-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); }
-    .cat-comp-name { flex: 1; min-width: 0; color: #60a5fa; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-    .cat-comp-name:hover { text-decoration: underline; }
-    .cat-comp-price { font-weight: 700; white-space: nowrap; }
-    .cat-comp-gap { white-space: nowrap; }
-    .cat-comp-add { display: flex; gap: 6px; margin-top: 10px; }
-    .cat-comp-add .inp { flex: 1; }
+    .cat-edit-grid { display: flex; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 4px; }
+    .cat-edit-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
+    .cat-calc-row { display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 0; border-top: 1px solid var(--border); margin: 6px 0; font-size: 13px; }
+    .cat-calc-row b { color: var(--text); }
 
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -2196,84 +2190,81 @@ function renderCatalog() {
     `<input class="cat-inp" style="width:${w}" value="${esc(String(it[field] ?? ''))}" placeholder="${ph ?? ''}" `
     + `onchange="updateCatalogField('${it.id}','${field}',this.value)" />`;
   const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '<span class="price-neutral">—</span>';
-  const rows = catalog.map(it => {
+
+  const body = catalog.map(it => {
     const c = catCompute(it);
     const ilsPh = (catNum(it.ilsManual) == null && c.ils != null) ? Math.round(c.ils) : '';
     const open = expandedCatalog.has(it.id);
     const model = it.modelId ? catModels[it.modelId] : null;
-    const nComp = (model && model.competitors) ? model.competitors.length : 0;
-    const mainRow = `<tr>
-      <td>${inp(it, 'sku', '70px')}</td>
-      <td>${inp(it, 'name', '150px')}</td>
-      <td>${inp(it, 'usdPrice', '60px')}</td>
-      <td>${inp(it, 'ilsManual', '78px', ilsPh)}</td>
-      <td>${inp(it, 'shippingPct', '48px')}</td>
-      <td>${money(c.afterShip)}</td>
-      <td>${inp(it, 'desiredProfit', '56px', '0.7')}</td>
-      <td class="pt-my">${money(c.priceExcl)}</td>
-      <td class="cat-incl">${money(c.priceIncl)}</td>
-      <td><span class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</span></td>
-      <td><span class="${(c.profitIls ?? 0) < 0 ? 'price-low' : 'price-high'}">${money(c.profitIls)}</span></td>
-      <td><div class="cat-actions">
-        <button class="comp-btn" title="לינק מתחרים" onclick="toggleCatExpand('${it.id}')">${open ? '▲' : '▼'} מתחרים${nComp ? ` (${nComp})` : ''}</button>
-        <button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">✕</button>
-      </div></td>
-    </tr>`;
-    const expRow = open ? `<tr class="cat-exp-tr"><td colspan="12">${catCompetitorsHtml(it, c)}</td></tr>` : '';
-    return mainRow + expRow;
+    const comps = (model && model.competitors) || [];
+    const nComp = comps.length;
+    const mine = c.priceIncl;
+
+    // החלק הראשון — שורה ראשית לחיצה (כמו "מחירים"): מק"ט, שם, מחיר ללקוח, כולל מע"מ
+    const mainRow = `
+      <tr class="pt-row ${open ? 'pt-open' : ''}" onclick="toggleCatExpand('${it.id}')">
+        <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(it.sku || '—')}</td>
+        <td>${esc(it.name || '—')}</td>
+        <td class="pt-my">${money(c.priceExcl)}</td>
+        <td class="cat-incl">${money(c.priceIncl)}${nComp ? ` <span class="muted-sm">· ${nComp} 🔍</span>` : ''}</td>
+      </tr>`;
+
+    const compRows = comps.length ? comps.map(s => {
+      const p = (s.lastPrice === 0 || s.lastPrice) ? s.lastPrice : null;
+      let gap = '';
+      if (p != null && mine != null) gap = p < mine ? `זול ממך ב-${money(mine - p)}` : (p > mine ? `יקר ממך ב-${money(p - mine)}` : 'זהה');
+      return `<div class="src-row">
+        <div class="src-info"><div class="src-name">
+          ${s.url ? `<a class="link-name" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name || 'מתחרה')}</a>` : esc(s.name || 'מתחרה')}
+          <span class="muted-sm">${gap}</span>
+        </div></div>
+        <div class="src-price ${(p != null && mine != null) ? priceClass(p, mine) : 'price-neutral'}">${p != null ? money(p) : (s.lastStatus && s.lastStatus !== 200 ? 'אין מחיר' : '—')}</div>
+        <button class="comp-btn comp-btn-del" title="הסר" onclick="removeCatCompetitor('${s.id}')">✕</button>
+      </div>`;
+    }).join('') : '<div class="page-empty">אין עדיין מתחרים למוצר זה.</div>';
+
+    // החלק השני — הרחבה בסגנון "מחירים": עריכת תמחור + מתחרים
+    const detailRow = open ? `
+      <tr class="pt-detail"><td colspan="4">
+        <div class="cat-edit-grid">
+          <label>מק"ט${inp(it, 'sku', '90px')}</label>
+          <label>שם מוצר${inp(it, 'name', '170px')}</label>
+          <label>מחיר $ (עלות)${inp(it, 'usdPrice', '70px')}</label>
+          <label>מחיר ₪ ידני${inp(it, 'ilsManual', '80px', ilsPh)}</label>
+          <label>שילוח %${inp(it, 'shippingPct', '55px')}</label>
+          <label title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק${inp(it, 'desiredProfit', '60px', '0.7')}</label>
+        </div>
+        <div class="cat-calc-row">
+          <span>אחרי שילוח: <b>${money(c.afterShip)}</b></span>
+          <span>מחיר ללקוח: <b>${money(c.priceExcl)}</b></span>
+          <span>כולל מע"מ: <b>${money(c.priceIncl)}</b></span>
+          <span>רווח: <b class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</b> ${c.profitIls != null ? '(' + money(c.profitIls) + ')' : ''}</span>
+        </div>
+        <div class="detail-head">
+          <span class="muted-sm">🔍 לינק מתחרים — מול המחיר שלך כולל מע"מ: ${money(mine)}</span>
+          <span class="detail-spacer"></span>
+          ${nComp ? `<button class="comp-btn" onclick="scanCatItem('${it.id}')">🔄 סרוק</button>` : ''}
+          <button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">🗑️ מחק מוצר</button>
+        </div>
+        <div class="model-add">
+          <input class="inp" id="catComp_${it.id}" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatCompetitor('${it.id}')}" />
+          <button class="add-plus" title="הוסף וסרוק" onclick="addCatCompetitor('${it.id}')">+</button>
+        </div>
+        <div class="src-list">${compRows}</div>
+      </td></tr>` : '';
+
+    return mainRow + detailRow;
   }).join('');
+
   el.innerHTML = `<div class="cat-scroll"><table class="price-table cat-table">
-    <thead><tr>
-      <th>מק"ט</th><th>שם מוצר</th><th>מחיר $</th><th>מחיר ₪</th><th>שילוח %</th><th>אחרי שילוח</th>
-      <th title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק</th><th>מחיר ללקוח</th><th>כולל מע"מ</th><th>רווח %</th><th>רווח ₪</th><th></th>
-    </tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
+    <thead><tr><th>מק"ט</th><th>שם מוצר</th><th>מחיר ללקוח</th><th>כולל מע"מ</th></tr></thead>
+    <tbody>${body}</tbody></table></div>`;
 }
 
 // ── מעקב מתחרים בקטלוג (לינק מתחרים) — נשען על מנוע הדגמים/הסריקה הקיים ──
 function toggleCatExpand(id) {
   if (expandedCatalog.has(id)) expandedCatalog.delete(id); else expandedCatalog.add(id);
   renderCatalog();
-}
-
-function catCompetitorsHtml(it, c) {
-  const model = it.modelId ? catModels[it.modelId] : null;
-  const comps = (model && model.competitors) || [];
-  const mine = c.priceIncl;
-  const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
-  let list;
-  if (!comps.length) {
-    list = '<div class="muted-sm" style="padding:6px 0">אין עדיין מתחרים. הדבק קישור מתחרה למוצר זה ולחץ +.</div>';
-  } else {
-    list = comps.map(s => {
-      const p = (s.lastPrice === 0 || s.lastPrice) ? s.lastPrice : null;
-      const cls = (p != null && mine != null) ? priceClass(p, mine) : 'price-neutral';
-      const priceTxt = p != null ? money(p) : (s.lastStatus && s.lastStatus !== 200 ? 'אין מחיר' : '—');
-      let gap = '';
-      if (p != null && mine != null) {
-        if (p < mine) gap = `זול ממך ב-${money(mine - p)}`;
-        else if (p > mine) gap = `יקר ממך ב-${money(p - mine)}`;
-        else gap = 'זהה';
-      }
-      return `<div class="cat-comp-row">
-        <a href="${esc(s.url)}" target="_blank" rel="noopener" class="cat-comp-name">${esc(s.name || s.url)}</a>
-        <span class="${cls} cat-comp-price">${priceTxt}</span>
-        <span class="muted-sm cat-comp-gap">${gap}</span>
-        <button class="comp-btn comp-btn-del" title="הסר" onclick="removeCatCompetitor('${s.id}')">✕</button>
-      </div>`;
-    }).join('');
-  }
-  return `<div class="cat-exp">
-    <div class="cat-exp-head">
-      <span>🔍 לינק מתחרים — מול המחיר שלך כולל מע"מ: <b>${money(mine)}</b></span>
-      ${comps.length ? `<button class="comp-btn" onclick="scanCatItem('${it.id}')">🔄 סרוק עכשיו</button>` : ''}
-    </div>
-    ${list}
-    <div class="cat-comp-add">
-      <input class="inp" id="catComp_${it.id}" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatCompetitor('${it.id}')}" />
-      <button class="add-plus" title="הוסף וסרוק" onclick="addCatCompetitor('${it.id}')">+</button>
-    </div>
-  </div>`;
 }
 
 async function ensureCatModel(it) {
