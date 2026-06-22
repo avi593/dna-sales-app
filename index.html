@@ -437,6 +437,8 @@
     .cat-edit-grid label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: var(--muted); }
     .cat-calc-row { display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 0; border-top: 1px solid var(--border); margin: 6px 0; font-size: 13px; }
     .cat-calc-row b { color: var(--text); }
+    .cat-mine-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); margin-bottom: 4px; font-size: 13px; }
+    .cat-mine-row b { color: var(--text); }
 
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -618,11 +620,8 @@
     <button class="nav-btn" id="nav-competitors" onclick="showView('competitors')">
       <span class="nav-icon">🔍</span><span>מתחרים</span>
     </button>
-    <button class="nav-btn" id="nav-prices" onclick="showView('prices'); loadModels()">
-      <span class="nav-icon">🏷️</span><span>מחירים</span>
-    </button>
     <button class="nav-btn" id="nav-catalog" onclick="showView('catalog'); loadCatalog()">
-      <span class="nav-icon">🧮</span><span>קטלוג</span>
+      <span class="nav-icon">🧮</span><span>קטלוג ומחירים</span>
     </button>
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
       <span class="nav-icon">📣</span><span>פרסום וקידום</span>
@@ -803,8 +802,8 @@
     <!-- ── CATALOG (תמחור) ── -->
     <div id="view-catalog" class="view">
       <div>
-        <div class="sec-title">🧮 קטלוג ותמחור</div>
-        <div class="sec-sub">מעלות בדולר → מחיר מכירה ורווח · שער דולר חי</div>
+        <div class="sec-title">🧮 קטלוג ומחירים</div>
+        <div class="sec-sub">עלות → מחיר ורווח · המחיר שלי החי · מעקב מתחרים · שער דולר חי</div>
       </div>
       <div class="add-model-box">
         <div class="cat-add-row">
@@ -1156,6 +1155,7 @@ function updateKPIs() {
 function dashGo(view) {
   showView(view);
   if (view === 'customers' && typeof loadCustomers === 'function') loadCustomers();
+  else if (view === 'catalog' && typeof loadCatalog === 'function') loadCatalog();
   else if (view === 'prices' && typeof loadModels === 'function') loadModels();
   else if (view === 'performance' && typeof loadAnalytics === 'function') loadAnalytics();
 }
@@ -1203,7 +1203,7 @@ function dashPriceAlertsHtml(ms) {
     '</div>'
   ).join('');
 
-  return '<div class="card" style="cursor:pointer;border-right:3px solid #f87171;background:rgba(248,113,113,0.07);margin-bottom:12px" onclick="dashGo(\'prices\')">' +
+  return '<div class="card" style="cursor:pointer;border-right:3px solid #f87171;background:rgba(248,113,113,0.07);margin-bottom:12px" onclick="dashGo(\'catalog\')">' +
     '<div class="card-head"><span style="color:#f87171;font-weight:700">⚠️ ' + hits.length + ' דגמים — מתחרה זול ממך</span>' +
     '<span style="font-size:12px;color:var(--muted)">פתח מחירים ›</span></div>' +
     rows + '</div>';
@@ -1254,7 +1254,7 @@ async function loadDashOverview() {
       ['סך לקוחות', cs.length],
       ['סופקו', closed, '#16a34a']
     ]) +
-    dashCard('🏷️ מחירים', 'prices', [
+    dashCard('🏷️ מחירים', 'catalog', [
       ['דגמים במעקב', ms.length],
       ['יקר ממתחרה', pricey, pricey > 0 ? '#f87171' : null],
       ['אני מוביל', leading, leading > 0 ? '#16a34a' : null]
@@ -2198,15 +2198,19 @@ function renderCatalog() {
     const model = it.modelId ? catModels[it.modelId] : null;
     const comps = (model && model.competitors) || [];
     const nComp = comps.length;
-    const mine = c.priceIncl;
+    const myUrl = (model && model.myUrl) || '';
+    const myLive = (model && (model.myPrice === 0 || model.myPrice)) ? model.myPrice : null;  // המחיר שלי החי (נסרק מהאתר)
+    const mine = myLive != null ? myLive : c.priceIncl;        // השוואת מתחרים מול המחיר האמיתי אם קיים
+    const showExcl = c.priceExcl != null ? c.priceExcl : (myLive != null ? myLive / VAT_RATE : null);
+    const showIncl = c.priceIncl != null ? c.priceIncl : myLive;
 
     // החלק הראשון — שורה ראשית לחיצה (כמו "מחירים"): מק"ט, שם, מחיר ללקוח, כולל מע"מ
     const mainRow = `
       <tr class="pt-row ${open ? 'pt-open' : ''}" onclick="toggleCatExpand('${it.id}')">
         <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(it.sku || '—')}</td>
         <td>${esc(it.name || '—')}</td>
-        <td class="pt-my">${money(c.priceExcl)}</td>
-        <td class="cat-incl">${money(c.priceIncl)}${nComp ? ` <span class="muted-sm">· ${nComp} 🔍</span>` : ''}</td>
+        <td class="pt-my">${money(showExcl)}</td>
+        <td class="cat-incl">${money(showIncl)}${nComp ? ` <span class="muted-sm">· ${nComp} 🔍</span>` : ''}</td>
       </tr>`;
 
     const compRows = comps.length ? comps.map(s => {
@@ -2239,6 +2243,11 @@ function renderCatalog() {
           <span>מחיר ללקוח: <b>${money(c.priceExcl)}</b></span>
           <span>כולל מע"מ: <b>${money(c.priceIncl)}</b></span>
           <span>רווח: <b class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</b> ${c.profitIls != null ? '(' + money(c.profitIls) + ')' : ''}</span>
+        </div>
+        <div class="cat-mine-row">
+          <span>🔗 הקישור שלי: <input class="cat-inp" style="width:240px" value="${esc(myUrl)}" placeholder="דף המוצר באתר שלך (למחיר חי)" onchange="updateCatModelUrl('${it.id}', this.value)" /></span>
+          <span>💰 המחיר שלי החי: <b>${myLive != null ? money(myLive) : '<span class="price-neutral">— הוסף קישור</span>'}</b></span>
+          ${myUrl ? `<a class="link-name" href="${esc(myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : ''}
         </div>
         <div class="detail-head">
           <span class="muted-sm">🔍 לינק מתחרים — מול המחיר שלך כולל מע"מ: ${money(mine)}</span>
@@ -2273,6 +2282,21 @@ async function ensureCatModel(it) {
   await compApi('/catalog/' + it.id, 'PUT', { modelId: m.id });
   it.modelId = m.id;
   return m.id;
+}
+
+// "הקישור שלי" — שומר את דף המוצר שלי בדגם המקושר וסורק את המחיר החי
+async function updateCatModelUrl(catalogId, url) {
+  url = (url || '').trim();
+  const it = catalog.find(x => x.id === catalogId);
+  if (!it) return;
+  setStatus('שומר קישור וסורק מחיר...', true);
+  try {
+    const mid = await ensureCatModel(it);
+    await compApi('/models/' + mid, 'PUT', { myUrl: url });
+    if (url) await compApi('/scan/' + mid, 'POST');   // סריקת המחיר שלי מהדף
+    await loadCatalog();
+    setStatus('נשמר', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
 async function addCatCompetitor(catalogId) {
