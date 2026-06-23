@@ -2262,6 +2262,7 @@ function renderCatalog() {
         </div>
         <div class="cat-mine-row">
           <span>🔗 הקישור שלי: <input class="cat-inp" style="width:240px" value="${esc(myUrl)}" placeholder="דף המוצר באתר שלך (למחיר חי)" onchange="updateCatModelUrl('${it.id}', this.value)" /></span>
+          <button class="comp-btn" title="חיפוש לפי מק&quot;ט/שם באתר" onclick="findCatOnSite('${it.id}')">🔎 אתר באתר</button>
           <span>💰 המחיר שלי החי: <b>${myLive != null ? money(myLive) : '<span class="price-neutral">— הוסף קישור</span>'}</b></span>
           ${myUrl ? `<a class="link-name" href="${esc(myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : ''}
         </div>
@@ -2317,6 +2318,24 @@ async function updateCatModelUrl(catalogId, url) {
     if (url) await compApi('/scan/' + mid, 'POST');   // סריקת המחיר שלי מהדף
     await loadCatalog();
     setStatus('נשמר', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
+
+// "אתר באתר" — מחפש את המוצר ב-WooCommerce לפי מק"ט/שם ומצרף את הקישור
+async function findCatOnSite(catalogId) {
+  const it = catalog.find(x => x.id === catalogId);
+  if (!it) return;
+  const q = (it.sku && String(it.sku).trim()) ? String(it.sku).trim() : (it.name || '').trim().split(/\s+/)[0];
+  if (!q) { alert('אין מק"ט או שם לחיפוש'); return; }
+  setStatus('מאתר באתר...', true);
+  try {
+    let ps = (await compApi('/wc-find?sku=' + encodeURIComponent(q))).products || [];
+    if (!ps.length) ps = (await compApi('/wc-find?search=' + encodeURIComponent(q))).products || [];
+    if (!ps.length) { setStatus('לא נמצא', false); alert('לא נמצא מוצר באתר עבור: ' + q); return; }
+    const hit = ps.find(p => (p.sku || '').toUpperCase() === q.toUpperCase()) || ps[0];
+    setStatus('', false);
+    if (!confirm(`נמצא באתר:\n${hit.name}\nמחיר: ₪${hit.price}\n\nלצרף כקישור שלך?`)) return;
+    await updateCatModelUrl(catalogId, hit.permalink);
   } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
 }
 
