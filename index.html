@@ -444,6 +444,10 @@
     .cat-tab:hover { color: var(--text); }
     .cat-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
     .cat-tab-n { opacity: .65; font-size: 11px; }
+    .cat-subtabs { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 12px; padding-right: 12px; border-right: 2px solid var(--border); }
+    .cat-subtab { background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 4px 11px; cursor: pointer; font-size: 12px; font-family: inherit; }
+    .cat-subtab:hover { color: var(--text); }
+    .cat-subtab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
     .pl-upload { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
     .pl-upload input[type=file] { color: var(--muted); font-size: 12px; }
     .pl-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
@@ -2176,7 +2180,8 @@ let catalog = [];
 let fxRate = null;
 let expandedCatalog = new Set();
 let catModels = {};   // modelId → דגם (עם competitors) למעקב מתחרים בקטלוג
-let catFilter = '';   // לשונית פעילה בקטלוג ('' = הכול)
+let catFilter = '';   // לשונית ראשית פעילה ('' = הכול)
+let catSubFilter = ''; // תת-לשונית פעילה ('' = כל הקטגוריה). קטגוריה היררכית: "FLIR/IRW"
 const VAT_RATE = 1.18;
 
 function catNum(v) { return (v === 0 || (v && !isNaN(parseFloat(v)))) ? parseFloat(v) : null; }
@@ -2224,12 +2229,26 @@ function renderCatalog() {
     + `onchange="updateCatalogField('${it.id}','${field}',this.value)" />`;
   const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '<span class="price-neutral">—</span>';
 
-  // לשוניות לפי קטגוריה (מותג) — נוצרות אוטומטית מהקטגוריות הקיימות
-  const cats = [...new Set(catalog.map(it => (it.category || '').trim()).filter(Boolean))].sort();
-  const dl = document.getElementById('catCatList'); if (dl) dl.innerHTML = cats.map(g => `<option value="${esc(g)}"></option>`).join('');
-  const tabBtn = (label, val, n) => `<button class="cat-tab ${catFilter === val ? 'active' : ''}" onclick="setCatFilter('${String(val).replace(/'/g, "\\'")}')">${esc(label)} <span class="cat-tab-n">${n}</span></button>`;
-  const tabsHtml = `<div class="cat-tabs">${tabBtn('הכול', '', catalog.length)}${cats.map(g => tabBtn(g, g, catalog.filter(it => (it.category || '').trim() === g).length)).join('')}</div>`;
-  const items = catFilter ? catalog.filter(it => (it.category || '').trim() === catFilter) : catalog;
+  // לשוניות היררכיות (2 רמות): קטגוריה "FLIR/IRW" → ראשי "FLIR", תת "IRW"
+  const topOf = c => ((c || '').split('/')[0] || '').trim();
+  const subOf = c => { const p = (c || '').split('/'); return p.length > 1 ? p.slice(1).join('/').trim() : ''; };
+  const allCats = [...new Set(catalog.map(it => (it.category || '').trim()).filter(Boolean))].sort();
+  const dl = document.getElementById('catCatList'); if (dl) dl.innerHTML = allCats.map(g => `<option value="${esc(g)}"></option>`).join('');
+  const esq = v => String(v).replace(/'/g, "\\'");
+  const tops = [...new Set(catalog.map(it => topOf(it.category)).filter(Boolean))].sort();
+  const mainBtn = (label, val, n) => `<button class="cat-tab ${catFilter === val ? 'active' : ''}" onclick="setCatFilter('${esq(val)}')">${esc(label)} <span class="cat-tab-n">${n}</span></button>`;
+  const tabsHtml = `<div class="cat-tabs">${mainBtn('הכול', '', catalog.length)}${tops.map(t => mainBtn(t, t, catalog.filter(it => topOf(it.category) === t).length)).join('')}</div>`;
+  // תת-לשוניות עבור הראשי הפעיל
+  let subHtml = '';
+  if (catFilter) {
+    const subs = [...new Set(catalog.filter(it => topOf(it.category) === catFilter && subOf(it.category)).map(it => subOf(it.category)))].sort();
+    if (subs.length) {
+      const subBtn = (label, val, n) => `<button class="cat-subtab ${catSubFilter === val ? 'active' : ''}" onclick="setCatSubFilter('${esq(val)}')">${esc(label)} <span class="cat-tab-n">${n}</span></button>`;
+      subHtml = `<div class="cat-subtabs">${subBtn('הכול', '', catalog.filter(it => topOf(it.category) === catFilter).length)}${subs.map(s => subBtn(s, s, catalog.filter(it => topOf(it.category) === catFilter && subOf(it.category) === s).length)).join('')}</div>`;
+    }
+  }
+  const items = !catFilter ? catalog
+    : catalog.filter(it => topOf(it.category) === catFilter && (!catSubFilter || subOf(it.category) === catSubFilter));
 
   const body = items.map(it => {
     const c = catCompute(it);
@@ -2312,10 +2331,11 @@ function renderCatalog() {
     <thead><tr><th>מק"ט</th><th>שם מוצר</th><th>מחיר ללקוח</th><th>כולל מע"מ</th></tr></thead>
     <tbody>${body}</tbody></table></div>`
     : '<div class="page-empty">אין מוצרים בקטגוריה זו.</div>';
-  el.innerHTML = tabsHtml + table;
+  el.innerHTML = tabsHtml + subHtml + table;
 }
 
-function setCatFilter(v) { catFilter = v; renderCatalog(); }
+function setCatFilter(v) { catFilter = v; catSubFilter = ''; renderCatalog(); }
+function setCatSubFilter(v) { catSubFilter = v; renderCatalog(); }
 
 // ════════ ייבוא מחירון מ-PDF (AI) — Gemini multimodal מחלץ טבלה → התאמה → אישור ════════
 let plBase64 = null, plMime = null, plRows = [];
