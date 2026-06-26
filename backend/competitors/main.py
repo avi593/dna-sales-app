@@ -1542,6 +1542,15 @@ def create_catalog(data):
         return _json({"error": "יש להזין שם מוצר או מק\"ט"}, 400)
     fields.setdefault("shippingPct", 10)
     fields.setdefault("desiredProfit", 0.7)
+    # מניעת כפילויות: אם קיים פריט עם אותו מק"ט — מעדכנים אותו במקום ליצור חדש (upsert)
+    sku = (fields.get("sku") or "").strip()
+    if sku:
+        existing = list(db.collection("catalog").where("sku", "==", sku).limit(1).stream())
+        if existing:
+            ref = existing[0].reference
+            fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+            ref.update(fields)
+            return _json(_ts_to_iso(_doc_to_dict(ref.get())), 200)
     fields["createdAt"] = firestore.SERVER_TIMESTAMP
     fields["updatedAt"] = firestore.SERVER_TIMESTAMP
     ref = db.collection("catalog").document()
