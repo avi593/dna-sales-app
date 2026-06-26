@@ -444,6 +444,13 @@
     .cat-tab:hover { color: var(--text); }
     .cat-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
     .cat-tab-n { opacity: .65; font-size: 11px; }
+    .pl-upload { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    .pl-upload input[type=file] { color: var(--muted); font-size: 12px; }
+    .pl-controls { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; font-size: 13px; }
+    .pl-controls label { display: flex; gap: 5px; align-items: center; color: var(--muted); }
+    .pl-tablewrap { max-height: 46vh; overflow: auto; border: 1px solid var(--border); border-radius: 10px; }
+    .pl-tablewrap th { position: sticky; top: 0; background: var(--bg2); z-index: 1; }
+    .pl-tablewrap td, .pl-tablewrap th { font-size: 12px; padding: 5px 8px; }
 
     /* ══ MARKET VIEW ══ */
     .mkt-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
@@ -821,6 +828,7 @@
           <input class="inp" id="catShip" type="number" step="0.1" placeholder="שילוח %" value="10" />
           <input class="inp" id="catProfit" type="number" step="0.01" placeholder="מחלק (0.7)" title="מחיר = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%" />
           <button class="btn btn-blue" onclick="addCatalog()">➕ הוסף</button>
+          <button class="btn btn-orange" onclick="openPriceListImport()" title="העלה PDF מחירון — ה-AI יחלץ ויעדכן">📄 ייבוא מחירון (AI)</button>
         </div>
         <div class="muted-sm" id="fxNote"></div>
       </div>
@@ -1048,6 +1056,23 @@
     <input type="text" class="modal-inp" id="backendInp" placeholder="https://...cloudfunctions.net/analytics"
       onkeydown="if(event.key==='Enter')saveBackend()" />
     <button class="modal-btn" onclick="saveBackend()">שמור וחבר</button>
+  </div>
+</div>
+
+<!-- ══════════════ PRICE-LIST IMPORT MODAL ══════════════ -->
+<div class="overlay hidden" id="plModal">
+  <div class="modal" style="width:840px;max-width:calc(100vw - 24px);text-align:right">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <h3>📄 ייבוא מחירון מ-PDF (AI)</h3>
+      <button class="comp-btn comp-btn-del" onclick="plClose()" title="סגור">✕</button>
+    </div>
+    <p>העלה מחירון יצרן (PDF או תמונה). ה-AI יחלץ את הטבלה, יתאים לקטלוג לפי מק"ט, ויציג מה ישתנה — לאישורך.</p>
+    <div class="pl-upload">
+      <input type="file" id="plFile" accept=".pdf,image/*" onchange="plFileChosen(this)" />
+      <button class="btn btn-blue" id="plAnalyzeBtn" onclick="plAnalyze()" disabled>🤖 נתח</button>
+      <span class="muted-sm" id="plFileName"></span>
+    </div>
+    <div id="plResult"></div>
   </div>
 </div>
 
@@ -2291,6 +2316,144 @@ function renderCatalog() {
 }
 
 function setCatFilter(v) { catFilter = v; renderCatalog(); }
+
+// ════════ ייבוא מחירון מ-PDF (AI) — Gemini multimodal מחלץ טבלה → התאמה → אישור ════════
+let plBase64 = null, plMime = null, plRows = [];
+function plNum(v) { if (v == null) return null; const n = parseFloat(String(v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
+function plSell(net, div, ship) { if (net == null || !fxRate || !div) return null; return net * fxRate * (1 + ship / 100) / div * VAT_RATE; }
+
+function openPriceListImport() {
+  if (!apiKey) { showApiModal(); return; }
+  plBase64 = null; plMime = null; plRows = [];
+  document.getElementById('plFile').value = '';
+  document.getElementById('plFileName').textContent = '';
+  document.getElementById('plAnalyzeBtn').disabled = true;
+  document.getElementById('plResult').innerHTML = '';
+  document.getElementById('plModal').classList.remove('hidden');
+}
+function plClose() { document.getElementById('plModal').classList.add('hidden'); }
+
+function plFileChosen(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  document.getElementById('plFileName').textContent = f.name + ' (' + Math.round(f.size / 1024) + 'KB)';
+  const reader = new FileReader();
+  reader.onload = e => { plBase64 = String(e.target.result).split(',')[1]; plMime = f.type || 'application/pdf'; document.getElementById('plAnalyzeBtn').disabled = false; };
+  reader.readAsDataURL(f);
+}
+
+async function plExtractAI(base64, mime) {
+  const prompt = 'זהו מחירון של יצרן. חלץ את כל שורות המוצרים בטבלה. לכל מוצר החזר: ' +
+    'sku (מק"ט / Material No / Part No), name (שם/דגם), ' +
+    'grossUsd (מחיר מחירון / MSRP / List / ברוטו, בדולר), ' +
+    'netUsd (מחיר אחרי הנחה / Partner / Net / Customer, בדולר; אם יש מחיר אחד בלבד — אותו ערך לשניהם). ' +
+    'מספרים בלבד (בלי $ ופסיקים). אל תדלג על אף שורת מוצר.';
+  const body = {
+    contents: [{ parts: [{ inline_data: { mime_type: mime, data: base64 } }, { text: prompt }] }],
+    generationConfig: {
+      temperature: 0, responseMimeType: 'application/json',
+      responseSchema: { type: 'object', properties: { products: { type: 'array', items: { type: 'object', properties: { sku: { type: 'string' }, name: { type: 'string' }, grossUsd: { type: 'number' }, netUsd: { type: 'number' } } } } } }
+    }
+  };
+  const r = await fetch(EP(apiKey), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (d.error) throw new Error(d.error.message);
+  const txt = (d.candidates?.[0]?.content?.parts || []).filter(p => p.text).map(p => p.text).join('');
+  let parsed; try { parsed = JSON.parse(txt); } catch { const m = txt.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+  if (!parsed || !Array.isArray(parsed.products)) throw new Error('לא הצלחתי לקרוא טבלה מהקובץ');
+  return parsed.products;
+}
+
+async function plAnalyze() {
+  if (!plBase64) return;
+  const el = document.getElementById('plResult');
+  el.innerHTML = loadingHtml('ה-AI מנתח את המחירון... (כמה שניות)');
+  try {
+    if (!catalog.length) await loadCatalog();
+    const products = await plExtractAI(plBase64, plMime);
+    plRows = products.map(p => {
+      const sku = String(p.sku || '').trim();
+      const gross = plNum(p.grossUsd);
+      const net = plNum(p.netUsd != null ? p.netUsd : p.grossUsd);
+      const ex = (sku && catalog.find(c => (c.sku || '').trim().toLowerCase() === sku.toLowerCase()))
+        || (p.name && catalog.find(c => (c.name || '').trim().toLowerCase() === String(p.name).trim().toLowerCase()));
+      return {
+        sku, name: String(p.name || sku || 'מוצר'), gross, net,
+        exId: ex ? ex.id : null, exCost: ex ? ex.usdPrice : null,
+        exShip: ex ? (ex.shippingPct != null ? ex.shippingPct : 10) : null,
+        exDiv: ex ? (ex.desiredProfit != null ? ex.desiredProfit : 0.7) : null,
+        include: net != null
+      };
+    });
+    if (!plRows.length) { el.innerHTML = '<div style="padding:10px">לא נמצאו מוצרים בקובץ.</div>'; return; }
+    plRenderReview();
+  } catch (e) { el.innerHTML = '<div style="color:#f87171;padding:10px">שגיאה: ' + esc(e.message) + '</div>'; }
+}
+
+function plRenderReview() {
+  const cats = [...new Set(catalog.map(i => (i.category || '').trim()).filter(Boolean))];
+  const news = plRows.filter(r => !r.exId).length, upd = plRows.filter(r => r.exId).length;
+  document.getElementById('plResult').innerHTML =
+    '<div class="pl-controls">' +
+    '<label>לשונית <input class="cat-inp" id="plCategory" list="plCatList" style="width:120px" placeholder="קטגוריה" onchange="plRenderTable()"></label>' +
+    '<datalist id="plCatList">' + cats.map(c => `<option value="${esc(c)}">`).join('') + '</datalist>' +
+    '<label>מחלק (חדשים) <input class="cat-inp" id="plDivisor" type="number" step="0.01" value="0.5" style="width:55px" onchange="plRenderTable()"></label>' +
+    '<label>שילוח% (חדשים) <input class="cat-inp" id="plShipping" type="number" step="0.1" value="10" style="width:50px" onchange="plRenderTable()"></label>' +
+    `<span class="muted-sm">${plRows.length} נמצאו · ${news} חדשים · ${upd} קיימים</span>` +
+    '</div>' +
+    '<div class="muted-sm" style="margin-bottom:6px">מוצר <b>קיים</b> — מתעדכנת רק העלות (מחיר המכירה נשמר). מוצר <b>חדש</b> — מתומחר לפי המחלק והשילוח שלמעלה.</div>' +
+    '<div id="plTableWrap"></div>' +
+    '<button class="btn btn-blue" style="margin-top:10px" onclick="plApply()">✅ אשר ועדכן את הנבחרים</button>';
+  plRenderTable();
+}
+
+function plRenderTable() {
+  const div = parseFloat((document.getElementById('plDivisor') || {}).value) || 0.5;
+  const ship = parseFloat((document.getElementById('plShipping') || {}).value) || 10;
+  const money = v => v != null ? '₪' + Math.round(v).toLocaleString('he-IL') : '—';
+  const rows = plRows.map((r, i) => {
+    const sell = r.exId ? plSell(r.net, r.exDiv, r.exShip) : plSell(r.net, div, ship);
+    const status = r.exId
+      ? (r.exCost != null && Math.abs(r.exCost - (r.net ?? -1)) < 0.01 ? '<span class="muted-sm">ללא שינוי</span>' : `<span style="color:#f59e0b">עדכון $${r.exCost}→$${r.net}</span>`)
+      : '<span style="color:#3b82f6">חדש</span>';
+    return `<tr>
+      <td><input type="checkbox" ${r.include ? 'checked' : ''} onchange="plRows[${i}].include=this.checked"></td>
+      <td>${esc(r.sku || '—')}</td>
+      <td>${esc(r.name)}</td>
+      <td class="muted-sm">${r.gross != null ? '$' + r.gross : '—'}</td>
+      <td><input class="cat-inp" style="width:72px" value="${r.net != null ? r.net : ''}" onchange="plRows[${i}].net=plNum(this.value);plRenderTable()"></td>
+      <td>${status}</td>
+      <td>${money(sell)}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('plTableWrap').innerHTML =
+    '<div class="pl-tablewrap"><table class="price-table"><thead><tr><th></th><th>מק"ט</th><th>דגם</th><th>ברוטו</th><th>עלות $</th><th>סטטוס</th><th>מכירה</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+}
+
+async function plApply() {
+  const div = parseFloat(document.getElementById('plDivisor').value) || 0.5;
+  const ship = parseFloat(document.getElementById('plShipping').value) || 10;
+  const cat = document.getElementById('plCategory').value.trim();
+  const sel = plRows.filter(r => r.include && r.net != null);
+  if (!sel.length) { alert('לא נבחרו מוצרים'); return; }
+  setStatus('מעדכן ' + sel.length + ' מוצרים...', true);
+  try {
+    for (const r of sel) {
+      if (r.exId) {                                  // קיים — מעדכנים רק עלות (ולשונית אם נבחרה)
+        const body = { usdPrice: r.net };
+        if (cat) body.category = cat;
+        await compApi('/catalog/' + r.exId, 'PUT', body);
+      } else {                                       // חדש — תמחור מלא לפי הבקרות
+        const body = { sku: r.sku, name: r.name, usdPrice: r.net, shippingPct: ship, desiredProfit: div };
+        if (cat) body.category = cat;
+        await compApi('/catalog', 'POST', body);
+      }
+    }
+    plClose();
+    await loadCatalog();
+    setStatus('עודכנו ' + sel.length + ' מוצרים ✓', false);
+  } catch (e) { alert('שגיאה: ' + e.message); setStatus('שגיאה', false); }
+}
 
 // ── מעקב מתחרים בקטלוג (לינק מתחרים) — נשען על מנוע הדגמים/הסריקה הקיים ──
 function toggleCatExpand(id) {
