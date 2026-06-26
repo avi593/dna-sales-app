@@ -2402,7 +2402,7 @@ async function plAnalyze() {
         exId: ex ? ex.id : null, exCost: ex ? ex.usdPrice : null,
         exShip: ex ? (ex.shippingPct != null ? ex.shippingPct : 10) : null,
         exDiv: ex ? (ex.desiredProfit != null ? ex.desiredProfit : 0.7) : null,
-        include: net != null
+        include: net != null && !ex   // ברירת מחדל: רק מוצרים חדשים מסומנים; קיימים — אופציונלי
       };
     });
     if (!plRows.length) { el.innerHTML = '<div style="padding:10px">לא נמצאו מוצרים בקובץ.</div>'; return; }
