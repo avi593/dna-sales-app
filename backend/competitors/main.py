@@ -393,7 +393,7 @@ def create_source(data):
 
 
 def update_source(sid, data):
-    fields = _pick(data, {"name", "url"})
+    fields = _pick(data, {"name", "url", "manualPrice"})   # manualPrice — מחיר ידני (גובר על הסריקה)
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     ref = db.collection("priceSources").document(sid)
