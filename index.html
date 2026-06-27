@@ -836,6 +836,9 @@
         </div>
         <div class="muted-sm" id="fxNote"></div>
       </div>
+      <div class="input-row" style="margin-bottom:8px">
+        <input class="inp" id="catSearch" placeholder='🔍 חיפוש מוצר לפי שם או מק"ט...' oninput="catSearch=this.value; renderCatalog()" />
+      </div>
       <div id="catalogTable"></div>
     </div>
 
@@ -2182,6 +2185,7 @@ let expandedCatalog = new Set();
 let catModels = {};   // modelId → דגם (עם competitors) למעקב מתחרים בקטלוג
 let catFilter = '';   // לשונית ראשית פעילה ('' = הכול)
 let catSubFilter = ''; // תת-לשונית פעילה ('' = כל הקטגוריה). קטגוריה היררכית: "FLIR/IRW"
+let catSearch = '';    // חיפוש מוצר לפי שם או מק"ט
 const VAT_RATE = 1.18;
 
 function catNum(v) { return (v === 0 || (v && !isNaN(parseFloat(v)))) ? parseFloat(v) : null; }
@@ -2247,8 +2251,10 @@ function renderCatalog() {
       subHtml = `<div class="cat-subtabs">${subBtn('הכול', '', catalog.filter(it => topOf(it.category) === catFilter).length)}${subs.map(s => subBtn(s, s, catalog.filter(it => topOf(it.category) === catFilter && subOf(it.category) === s).length)).join('')}</div>`;
     }
   }
-  const items = !catFilter ? catalog
+  const q = (catSearch || '').trim().toLowerCase();
+  let items = !catFilter ? catalog
     : catalog.filter(it => topOf(it.category) === catFilter && (!catSubFilter || subOf(it.category) === catSubFilter));
+  if (q) items = items.filter(it => (it.name || '').toLowerCase().includes(q) || String(it.sku || '').toLowerCase().includes(q));
 
   const body = items.map(it => {
     const c = catCompute(it);
@@ -2330,8 +2336,9 @@ function renderCatalog() {
     ? `<div class="cat-scroll"><table class="price-table cat-table">
     <thead><tr><th>מק"ט</th><th>שם מוצר</th><th>מחיר ללקוח</th><th>כולל מע"מ</th></tr></thead>
     <tbody>${body}</tbody></table></div>`
-    : '<div class="page-empty">אין מוצרים בקטגוריה זו.</div>';
-  el.innerHTML = tabsHtml + subHtml + table;
+    : `<div class="page-empty">${q ? 'לא נמצאו מוצרים לחיפוש "' + esc(catSearch.trim()) + '".' : 'אין מוצרים בקטגוריה זו.'}</div>`;
+  const searchNote = q ? `<div class="muted-sm" style="margin-bottom:8px">🔍 ${items.length} תוצאות עבור "${esc(catSearch.trim())}"</div>` : '';
+  el.innerHTML = tabsHtml + subHtml + searchNote + table;
 }
 
 function setCatFilter(v) { catFilter = v; catSubFilter = ''; renderCatalog(); }
