@@ -442,6 +442,27 @@
     .src-price-inp { width: 95px; text-align: center; font-weight: 700; flex: none; }
     .src-price-inp.price-low { color: var(--pink); }
     .src-price-inp.price-high { color: var(--green); }
+    /* ── דף מוצר: 3 חלקים ── */
+    .cat-detail { padding: 6px 2px 2px; }
+    .cat-ident { margin-bottom: 12px; }
+    .cat-sec { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; }
+    .cat-sec:last-child { margin-bottom: 0; }
+    .cat-sec-h { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 12px; }
+    .cat-sec-ic { font-size: 15px; }
+    .cat-sec .cat-mine-row, .cat-sec .cat-calc-row { border-top: none; margin: 0; padding: 0; }
+    .cat-flow { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; }
+    .cat-flow-card { flex: 1; min-width: 108px; background: var(--bg3); border-radius: 8px; padding: 9px 11px; }
+    .cat-flow-card .cfl { display: block; font-size: 11px; color: var(--muted); margin-bottom: 4px; }
+    .cat-flow-card b { font-size: 16px; color: var(--text); font-weight: 700; }
+    .cat-flow-card-hl { background: rgba(37,99,235,.18); border: 1px solid var(--blue); }
+    .cat-flow-card-hl .cfl { color: #93c5fd; }
+    .cat-flow-card-hl b { color: #bfdbfe; }
+    .cat-flow-arr { display: flex; align-items: center; color: var(--muted); font-size: 15px; }
+    .cat-profit { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 13px; border-radius: 8px; margin: 12px 0; font-size: 13px; }
+    .cat-profit b { font-size: 15px; font-weight: 700; }
+    .cat-profit-src { font-size: 11px; font-weight: 400; opacity: .85; }
+    .cat-profit.pos { background: rgba(5,150,105,.16); color: #6ee7b7; }
+    .cat-profit.neg { background: rgba(219,39,119,.16); color: #f9a8d4; }
     .cat-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
     .cat-tab { background: var(--bg2); border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 6px 13px; cursor: pointer; font-size: 13px; font-family: inherit; }
     .cat-tab:hover { color: var(--text); }
@@ -2269,8 +2290,13 @@ function renderCatalog() {
     const myUrl = (model && model.myUrl) || '';
     const myLive = (model && (model.myPrice === 0 || model.myPrice)) ? model.myPrice : null;  // המחיר שלי החי (נסרק מהאתר)
     const mine = myLive != null ? myLive : c.priceIncl;        // השוואת מתחרים מול המחיר האמיתי אם קיים
-    const showExcl = c.priceExcl != null ? c.priceExcl : (myLive != null ? myLive / VAT_RATE : null);
-    const showIncl = c.priceIncl != null ? c.priceIncl : myLive;
+    // מחיר המכירה = מחיר האתר (חי, כולל מע"מ) אם קיים, אחרת המחיר המחושב לפי מחלק
+    const fromSite = myLive != null;
+    const showIncl = fromSite ? myLive : c.priceIncl;
+    const showExcl = showIncl != null ? showIncl / VAT_RATE : null;
+    // רווח לפי מחיר המכירה בפועל (ללא מע"מ) מול העלות אחרי שילוח
+    const profIls = (showExcl != null && c.afterShip != null) ? showExcl - c.afterShip : null;
+    const profPct = (profIls != null && showExcl) ? profIls / showExcl * 100 : null;
 
     // החלק הראשון — שורה ראשית לחיצה (כמו "מחירים"): מק"ט, שם, מחיר ללקוח, כולל מע"מ
     const mainRow = `
@@ -2299,41 +2325,70 @@ function renderCatalog() {
       </div>`;
     }).join('') : '<div class="page-empty">אין עדיין מתחרים למוצר זה.</div>';
 
-    // החלק השני — הרחבה בסגנון "מחירים": עריכת תמחור + מתחרים
+    // הרחבת המוצר — מחולק ל-3 חלקים: תמחור · המחיר שלי · מתחרים
+    const usdCost = catNum(it.usdPrice), ilsCost = catNum(it.ilsManual);
+    const costStr = (usdCost != null && ilsCost == null)
+      ? '$' + usdCost.toLocaleString('en-US')
+      : money(c.ils);
+    const profPos = (profPct ?? 0) >= 0;
     const detailRow = open ? `
       <tr class="pt-detail"><td colspan="4">
-        <div class="cat-edit-grid">
-          <label>מק"ט${inp(it, 'sku', '90px')}</label>
-          <label>שם מוצר${inp(it, 'name', '170px')}</label>
-          <label>קטגוריה${inp(it, 'category', '110px')}</label>
-          <label>מחיר $ (עלות)${inp(it, 'usdPrice', '70px')}</label>
-          <label>מחיר ₪ ידני${inp(it, 'ilsManual', '80px', ilsPh)}</label>
-          <label>שילוח %${inp(it, 'shippingPct', '55px')}</label>
-          <label title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק${inp(it, 'desiredProfit', '60px', '0.7')}</label>
+        <div class="cat-detail">
+
+          <div class="cat-edit-grid cat-ident">
+            <label>מק"ט${inp(it, 'sku', '90px')}</label>
+            <label>שם מוצר${inp(it, 'name', '200px')}</label>
+            <label>קטגוריה${inp(it, 'category', '120px')}</label>
+          </div>
+
+          <div class="cat-sec">
+            <div class="cat-sec-h"><span class="cat-sec-ic">🧮</span> תמחור</div>
+            <div class="cat-flow">
+              <div class="cat-flow-card"><span class="cfl">עלות</span><b>${costStr}</b></div>
+              <span class="cat-flow-arr">←</span>
+              <div class="cat-flow-card"><span class="cfl">אחרי שילוח</span><b>${money(c.afterShip)}</b></div>
+              <span class="cat-flow-arr">←</span>
+              <div class="cat-flow-card"><span class="cfl">מחיר ללקוח</span><b>${money(showExcl)}</b></div>
+              <span class="cat-flow-arr">←</span>
+              <div class="cat-flow-card cat-flow-card-hl"><span class="cfl">כולל מע"מ${fromSite ? ' 🌐' : ''}</span><b>${money(showIncl)}</b></div>
+            </div>
+            <div class="cat-profit ${profPos ? 'pos' : 'neg'}">
+              <span>רווח <span class="cat-profit-src">${fromSite ? '· לפי מחיר האתר' : '· מחושב (אין מחיר אתר)'}</span></span>
+              <b>${profPct != null ? profPct.toFixed(1) + '%' : '—'}${profIls != null ? ' · ' + money(profIls) : ''}</b>
+            </div>
+            <div class="cat-edit-grid">
+              <label>מחיר $ (עלות)${inp(it, 'usdPrice', '80px')}</label>
+              <label>מחיר ₪ ידני${inp(it, 'ilsManual', '90px', ilsPh)}</label>
+              <label>שילוח %${inp(it, 'shippingPct', '60px')}</label>
+              <label title="מחיר ללקוח = עלות אחרי שילוח ÷ מחלק · 0.7 ⇐ רווח 30%">מחלק${inp(it, 'desiredProfit', '60px', '0.7')}</label>
+            </div>
+          </div>
+
+          <div class="cat-sec">
+            <div class="cat-sec-h"><span class="cat-sec-ic">🏷️</span> המחיר שלי באתר</div>
+            <div class="cat-mine-row">
+              <span>🔗 הקישור שלי: <input class="cat-inp" style="width:240px" value="${esc(myUrl)}" placeholder="דף המוצר באתר שלך (למחיר חי)" onchange="updateCatModelUrl('${it.id}', this.value)" /></span>
+              <button class="comp-btn" title="חיפוש לפי מק&quot;ט/שם באתר" onclick="findCatOnSite('${it.id}')">🔎 אתר באתר</button>
+              <span>💰 המחיר שלי החי: <b>${myLive != null ? money(myLive) : '<span class="price-neutral">— הוסף קישור</span>'}</b></span>
+              ${myUrl ? `<a class="link-name" href="${esc(myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : ''}
+            </div>
+          </div>
+
+          <div class="cat-sec">
+            <div class="cat-sec-h">
+              <span class="cat-sec-ic">🔍</span> מתחרים <span class="muted-sm">· מול ${money(mine)} כולל מע"מ</span>
+              <span class="detail-spacer"></span>
+              ${nComp ? `<button class="comp-btn" onclick="scanCatItem('${it.id}')">🔄 סרוק</button>` : ''}
+              <button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">🗑️ מחק מוצר</button>
+            </div>
+            <div class="model-add">
+              <input class="inp" id="catComp_${it.id}" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatCompetitor('${it.id}')}" />
+              <button class="add-plus" title="הוסף וסרוק" onclick="addCatCompetitor('${it.id}')">+</button>
+            </div>
+            <div class="src-list">${compRows}</div>
+          </div>
+
         </div>
-        <div class="cat-calc-row">
-          <span>אחרי שילוח: <b>${money(c.afterShip)}</b></span>
-          <span>מחיר ללקוח: <b>${money(c.priceExcl)}</b></span>
-          <span>כולל מע"מ: <b>${money(c.priceIncl)}</b></span>
-          <span>רווח: <b class="${(c.profitPct ?? 0) < 0 ? 'price-low' : 'price-high'}">${c.profitPct != null ? c.profitPct.toFixed(1) + '%' : '—'}</b> ${c.profitIls != null ? '(' + money(c.profitIls) + ')' : ''}</span>
-        </div>
-        <div class="cat-mine-row">
-          <span>🔗 הקישור שלי: <input class="cat-inp" style="width:240px" value="${esc(myUrl)}" placeholder="דף המוצר באתר שלך (למחיר חי)" onchange="updateCatModelUrl('${it.id}', this.value)" /></span>
-          <button class="comp-btn" title="חיפוש לפי מק&quot;ט/שם באתר" onclick="findCatOnSite('${it.id}')">🔎 אתר באתר</button>
-          <span>💰 המחיר שלי החי: <b>${myLive != null ? money(myLive) : '<span class="price-neutral">— הוסף קישור</span>'}</b></span>
-          ${myUrl ? `<a class="link-name" href="${esc(myUrl)}" target="_blank" rel="noopener">פתח דף</a>` : ''}
-        </div>
-        <div class="detail-head">
-          <span class="muted-sm">🔍 לינק מתחרים — מול המחיר שלך כולל מע"מ: ${money(mine)}</span>
-          <span class="detail-spacer"></span>
-          ${nComp ? `<button class="comp-btn" onclick="scanCatItem('${it.id}')">🔄 סרוק</button>` : ''}
-          <button class="comp-btn comp-btn-del" onclick="delCatalog('${it.id}')">🗑️ מחק מוצר</button>
-        </div>
-        <div class="model-add">
-          <input class="inp" id="catComp_${it.id}" placeholder="הדבק קישור מתחרה למוצר זה" onkeydown="if(event.key==='Enter'){event.preventDefault();addCatCompetitor('${it.id}')}" />
-          <button class="add-plus" title="הוסף וסרוק" onclick="addCatCompetitor('${it.id}')">+</button>
-        </div>
-        <div class="src-list">${compRows}</div>
       </td></tr>` : '';
 
     return mainRow + detailRow;
