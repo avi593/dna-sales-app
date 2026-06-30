@@ -442,6 +442,10 @@
     .src-price-inp { width: 95px; text-align: center; font-weight: 700; flex: none; }
     .src-price-inp.price-low { color: var(--pink); }
     .src-price-inp.price-high { color: var(--green); }
+    .src-price-live { width: 95px; text-align: center; font-weight: 700; flex: none; padding: 5px 7px; }
+    .src-price-live.price-low { color: var(--pink); }
+    .src-price-live.price-high { color: var(--green); }
+    .src-price-live.price-neutral { color: var(--muted); }
     /* ── דף מוצר: 3 חלקים ── */
     .cat-detail { padding: 6px 2px 2px; }
     .cat-ident { margin-bottom: 12px; }
@@ -2310,17 +2314,22 @@ function renderCatalog() {
     const compRows = comps.length ? comps.map(s => {
       const manual = (s.manualPrice === 0 || s.manualPrice) ? s.manualPrice : null;
       const scraped = (s.lastPrice === 0 || s.lastPrice) ? s.lastPrice : null;
-      const p = manual != null ? manual : scraped;          // מחיר ידני גובר על הסריקה
-      const blocked = scraped == null && s.lastStatus && s.lastStatus !== 200;
+      const scanOk = scraped != null && s.lastStatus === 200;   // הסריקה הצליחה
+      const p = scanOk ? scraped : (manual != null ? manual : scraped);  // סריקה מנצחת; ידני רק כגיבוי כשחסום
       let gap = '';
       if (p != null && mine != null) gap = p < mine ? `זול ממך ב-${money(mine - p)}` : (p > mine ? `יקר ממך ב-${money(p - mine)}` : 'זהה');
-      const tag = manual != null ? ' · ✍️ ידני' : (blocked ? ' · ⛔ חסום לסריקה' : '');
+      const tag = scanOk
+        ? ' · 🔄 נסרק' + (manual != null ? ' (יש גיבוי ידני)' : '')
+        : (manual != null ? ' · ✍️ ידני (גיבוי)' : ' · ⛔ חסום — הזן גיבוי');
+      const priceCell = scanOk
+        ? `<span class="src-price-live ${mine != null ? priceClass(scraped, mine) : ''}" title="נסרק חי מהאתר${manual != null ? ' · גיבוי ידני: ₪' + Math.round(manual) : ''}">${money(scraped)}</span>`
+        : `<input class="cat-inp src-price-inp ${(manual != null && mine != null) ? priceClass(manual, mine) : ''}" value="${manual != null ? Math.round(manual) : ''}" placeholder="₪ גיבוי" title="מחיר ידני — גיבוי לכשהסריקה חסומה (רוקן כדי לבטל)" onchange="setCompManualPrice('${s.id}', this.value)" />`;
       return `<div class="src-row">
         <div class="src-info"><div class="src-name">
           ${s.url ? `<a class="link-name" href="${esc(s.url)}" target="_blank" rel="noopener">${esc(s.name || 'מתחרה')}</a>` : esc(s.name || 'מתחרה')}
           <span class="muted-sm">${gap}${tag}</span>
         </div></div>
-        <input class="cat-inp src-price-inp ${(p != null && mine != null) ? priceClass(p, mine) : ''}" value="${p != null ? Math.round(p) : ''}" placeholder="₪ ידני" title="הזן מחיר ידני (נשמר, גובר על הסריקה; רוקן כדי לחזור לסריקה)" onchange="setCompManualPrice('${s.id}', this.value)" />
+        ${priceCell}
         <button class="comp-btn comp-btn-del" title="הסר" onclick="removeCatCompetitor('${s.id}')">✕</button>
       </div>`;
     }).join('') : '<div class="page-empty">אין עדיין מתחרים למוצר זה.</div>';
