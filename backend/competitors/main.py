@@ -1642,6 +1642,19 @@ def competitors_api(request):
 
         elif resource == "scan-all":
             if method in ("GET", "POST"):
+                # סריקה אוטומטית (Cloud Scheduler) רצה רק בשבת — להקטין חשיפה לזיהוי/חסימה ע"י מתחרים.
+                # סריקה ידנית מהאתר (דפדפן) או ?force=1 — תמיד רצה.
+                ua = request.headers.get("User-Agent") or ""
+                force = (args.get("force") or "").lower() in ("1", "true", "yes")
+                if ("Google-Cloud-Scheduler" in ua) and not force:
+                    from datetime import datetime
+                    try:
+                        from zoneinfo import ZoneInfo
+                        now = datetime.now(ZoneInfo("Asia/Jerusalem"))
+                    except Exception:
+                        now = datetime.utcnow()
+                    if now.weekday() != 5:  # 5 = שבת (שני=0 … שבת=5)
+                        return _json({"skipped": "סריקה אוטומטית רצה רק בשבת", "weekday": now.weekday()})
                 return scan_all()
 
         elif resource == "fx":
