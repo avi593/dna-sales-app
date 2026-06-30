@@ -32,6 +32,7 @@ Runtime: Python 3.12
 import os
 import re
 import time
+import random
 import base64
 import json as _jsonlib
 from concurrent.futures import ThreadPoolExecutor
@@ -225,6 +226,31 @@ SCAN_HEADERS = {
     "Sec-Ch-Ua-Platform": '"Windows"',
 }
 
+# מאגר דפדפנים אמיתיים — מסובבים אקראית כדי שהסריקה לא תיראה כמו אותו בוט בכל פעם.
+# כל פרופיל עקבי (UA + client-hints תואמים) כדי לא ליצור חתימה חשודה.
+_UA_PROFILES = [
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+     "Sec-Ch-Ua": '"Google Chrome";v="125", "Chromium";v="125", "Not.A/Brand";v="24"', "Sec-Ch-Ua-Mobile": "?0", "Sec-Ch-Ua-Platform": '"Windows"'},
+    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+     "Sec-Ch-Ua": '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"', "Sec-Ch-Ua-Mobile": "?0", "Sec-Ch-Ua-Platform": '"macOS"'},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0",
+     "Sec-Ch-Ua": '"Microsoft Edge";v="124", "Chromium";v="124", "Not-A.Brand";v="99"', "Sec-Ch-Ua-Mobile": "?0", "Sec-Ch-Ua-Platform": '"Windows"'},
+    {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0"},
+    {"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4.1 Safari/605.1.15"},
+]
+_BASE_HEADERS = {
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate",
+    "Upgrade-Insecure-Requests": "1",
+}
+
+def _scan_headers():
+    """כותרות בקשה עם דפדפן אקראי מהמאגר — מקשה על מתחרה לזהות את הסריקה."""
+    h = dict(_BASE_HEADERS)
+    h.update(random.choice(_UA_PROFILES))
+    return h
+
 
 def _to_price(val):
     """ממיר מחרוזת/מספר למחיר float, מטפל בפסיקי אלפים ובנקודה עשרונית."""
@@ -299,7 +325,7 @@ def extract_price(html):
 
 def fetch_price(url):
     try:
-        r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
+        r = requests.get(url, headers=_scan_headers(), timeout=20)
         if r.status_code != 200:
             return {"price": None, "status": r.status_code}
         # תיקון קידוד: כשהשרת לא מצהיר charset, requests מניח ISO-8859-1 ושובר את ₪.
@@ -411,8 +437,9 @@ def delete_source(sid):
     return _json({"deleted": sid})
 
 
-def scan_model(mid):
-    """סורק מחיר אמיתי: הדף שלי + כל המתחרים, מעדכן ב-Firestore ומחזיר את התוצאה."""
+def scan_model(mid, delay=False):
+    """סורק מחיר אמיתי: הדף שלי + כל המתחרים, מעדכן ב-Firestore ומחזיר את התוצאה.
+    delay=True (סריקה אוטומטית): מערבב סדר ומוסיף השהיה אקראית בין בקשות — אנטי-זיהוי."""
     ref = db.collection("models").document(mid)
     snap = ref.get()
     if not snap.exists:
@@ -428,7 +455,10 @@ def scan_model(mid):
         result["myStatus"] = my.get("status")
 
     comps = []
-    for s in db.collection("priceSources").where("modelId", "==", mid).stream():
+    sources = list(db.collection("priceSources").where("modelId", "==", mid).stream())
+    if delay:
+        random.shuffle(sources)
+    for s in sources:
         sd = s.to_dict()
         res = fetch_price(sd.get("url", ""))
         s.reference.update({
@@ -436,18 +466,27 @@ def scan_model(mid):
         })
         comps.append({"id": s.id, "name": sd.get("name"),
                       "price": res["price"], "status": res.get("status")})
+        if delay:
+            time.sleep(random.uniform(0.4, 1.3))   # השהיה בין מתחרים
     result["competitors"] = comps
     return _json(result)
 
 
-def scan_all():
-    """סורק את כל הדגמים — מופעל ידנית ('סרוק הכל') ובתזמון יומי (Cloud Scheduler)."""
+def scan_all(stealth=False):
+    """סורק את כל הדגמים — מופעל ידנית ('סרוק הכל') ובתזמון שבועי (Cloud Scheduler).
+    stealth=True (אוטומטי): מערבב סדר, jitter בתחילה והשהיות בין דגמים — אנטי-זיהוי.
+    ידני (דפדפן): ללא השהיות — מהיר."""
     ids = [s.id for s in db.collection("models").stream()]
+    if stealth:
+        random.shuffle(ids)
+        time.sleep(random.uniform(0, 10))        # jitter קל בתחילת הסריקה
     for mid in ids:
         try:
-            scan_model(mid)
+            scan_model(mid, delay=stealth)
         except Exception:
             pass
+        if stealth:
+            time.sleep(random.uniform(0.8, 2.2))  # השהיה אקראית בין דגמים
     return _json({"scanned": len(ids)})
 
 
@@ -1642,11 +1681,12 @@ def competitors_api(request):
 
         elif resource == "scan-all":
             if method in ("GET", "POST"):
-                # סריקה אוטומטית (Cloud Scheduler) רצה רק בשבת — להקטין חשיפה לזיהוי/חסימה ע"י מתחרים.
-                # סריקה ידנית מהאתר (דפדפן) או ?force=1 — תמיד רצה.
+                # סריקה אוטומטית (Cloud Scheduler) רצה רק בשבת ובמצב חמקני — להקטין חשיפה לזיהוי/חסימה.
+                # סריקה ידנית מהאתר (דפדפן) או ?force=1 — תמיד רצה, מהר.
                 ua = request.headers.get("User-Agent") or ""
+                is_cron = "Google-Cloud-Scheduler" in ua
                 force = (args.get("force") or "").lower() in ("1", "true", "yes")
-                if ("Google-Cloud-Scheduler" in ua) and not force:
+                if is_cron and not force:
                     from datetime import datetime
                     try:
                         from zoneinfo import ZoneInfo
@@ -1655,7 +1695,7 @@ def competitors_api(request):
                         now = datetime.utcnow()
                     if now.weekday() != 5:  # 5 = שבת (שני=0 … שבת=5)
                         return _json({"skipped": "סריקה אוטומטית רצה רק בשבת", "weekday": now.weekday()})
-                return scan_all()
+                return scan_all(stealth=is_cron and not force)
 
         elif resource == "fx":
             if method == "GET":
