@@ -577,9 +577,56 @@ def publish_facebook(data):
     image_b64 = (data.get("imageBase64") or "").strip()
     if not message and not image and not image_b64:
         return _json({"error": "אין תוכן לפרסום"}, 400)
+    # תזמון אופציונלי: scheduledTime = unix seconds (או ISO) — פייסבוק מפרסם לבד במועד
+    sched = data.get("scheduledTime")
+    sched_ts = None
+    if sched:
+        try:
+            sched_ts = int(float(sched))
+        except Exception:
+            try:
+                from datetime import datetime
+                sched_ts = int(datetime.fromisoformat(str(sched).replace("Z", "+00:00")).timestamp())
+            except Exception:
+                return _json({"error": "scheduledTime לא תקין (unix seconds או ISO)"}, 400)
+        now = int(time.time())
+        if sched_ts < now + 600:
+            return _json({"error": "זמן התזמון חייב להיות לפחות 10 דקות בעתיד"}, 400)
+        if sched_ts > now + 60 * 60 * 24 * 180:
+            return _json({"error": "זמן התזמון חורג מ-6 חודשים"}, 400)
     token = _resolve_page_token(token, page)
     try:
-        if image_b64:
+        if sched_ts:
+            # פוסט מתוזמן: מעלים תמונה כלא-מפורסמת, ואז יוצרים פוסט-פיד מתוזמן עם המדיה המצורפת
+            media_fbid = None
+            if image_b64:
+                if "," in image_b64:
+                    image_b64 = image_b64.split(",", 1)[1]
+                try:
+                    img_bytes = base64.b64decode(image_b64)
+                except Exception:
+                    return _json({"error": "תמונה לא תקינה"}, 400)
+                ru = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",
+                                   data={"published": "false", "access_token": token},
+                                   files={"source": ("image.jpg", img_bytes, "image/jpeg")}, timeout=60)
+                du = ru.json()
+                if "error" in du:
+                    return _json({"error": du["error"].get("message", "שגיאת פייסבוק"), "raw": du["error"]}, 502)
+                media_fbid = du.get("id")
+            elif image:
+                ru = requests.post(f"https://graph.facebook.com/v21.0/{page}/photos",
+                                   data={"published": "false", "url": image, "access_token": token}, timeout=30)
+                du = ru.json()
+                if "error" in du:
+                    return _json({"error": du["error"].get("message", "שגיאת פייסבוק"), "raw": du["error"]}, 502)
+                media_fbid = du.get("id")
+            feed_data = {"access_token": token, "published": "false", "scheduled_publish_time": sched_ts}
+            if message:
+                feed_data["message"] = message
+            if media_fbid:
+                feed_data["attached_media[0]"] = _jsonlib.dumps({"media_fbid": media_fbid})
+            r = requests.post(f"https://graph.facebook.com/v21.0/{page}/feed", data=feed_data, timeout=30)
+        elif image_b64:
             # תמונה שהועלתה מהמחשב (data URL / base64) — מעלה כקובץ לדף
             if "," in image_b64:
                 image_b64 = image_b64.split(",", 1)[1]
@@ -606,13 +653,14 @@ def publish_facebook(data):
                     "postId": str(post_id),
                     "message": (message or "")[:500],
                     "hasImage": bool(image or image_b64),
+                    "scheduledTime": sched_ts,
                     "createdAt": firestore.SERVER_TIMESTAMP,
                     "likes": 0, "comments": 0, "shares": 0, "reactions": 0,
                 }, merge=True)
             except Exception:
                 pass
-        return _json({"ok": True, "postId": post_id,
-                      "url": f"https://www.facebook.com/{post_id}" if post_id else None})
+        return _json({"ok": True, "postId": post_id, "scheduled": bool(sched_ts), "scheduledTime": sched_ts,
+                      "url": (None if sched_ts else (f"https://www.facebook.com/{post_id}" if post_id else None))})
     except Exception as e:
         return _json({"error": str(e)}, 500)
 
