@@ -800,6 +800,7 @@ ASSISTANT_SCHEMA = {
     "type": "object",
     "properties": {
         "intent": {"type": "string"},
+        "is_query": {"type": "boolean"},
         "confidence": {"type": "number"},
         "needs_user_confirmation": {"type": "boolean"},
         "clarifying_question": {"type": "string"},
@@ -816,16 +817,18 @@ ASSISTANT_SCHEMA = {
 }
 
 ASSISTANT_SYS = """את/ה "העוזרת שלי" — עוזרת AI אישית לאבי, בעל דנא ציוד אינסטלציה (עסק B2B לציוד אינסטלציה בישראל).
-המשתמש כותב הודעות חופשיות בעברית, ואת/ה מחלצת מהן כוונה למשימה, ומחזירה JSON בלבד לפי הסכימה שסופקה.
+המשתמש כותב הודעות חופשיות בעברית, ואת/ה מחלצת מהן כוונה, ומחזירה JSON בלבד לפי הסכימה שסופקה.
 תאריך היום: __TODAY__ (שעון ישראל).
 
 כללים מחייבים:
-- לעולם אל תמציאי או תנחשי מידע חסר. אם משהו לא ברור — מי האדם, האם הוא לקוח או ספק, על מה בדיוק מדובר, או שיש כמה פירושים אפשריים — הורידי confidence מתחת ל-0.65 ונסחי clarifying_question ממוקדת וקצרה בעברית.
+- is_query: סמני true אם ההודעה היא שאלה או בקשת מידע על מצב קיים — למשל "מה המשימות הפתוחות שלי", "מה חשוב לי עכשיו", "מה קורה עם ההזמנה של X" — ולא הוראה ליצור משהו חדש. אחרת false. שאלה כזו לעולם לא יוצרת משימה חדשה, רק מציגה מידע קיים.
+- אם is_query=true — אין צורך למלא entities/task_title; summary יכול להיות ריק (המערכת עצמה תשלוף ותציג את המידע).
+- אם is_query=false: לעולם אל תמציאי או תנחשי מידע חסר. אם משהו לא ברור — מי האדם, האם הוא לקוח או ספק, על מה בדיוק מדובר, או שיש כמה פירושים אפשריים — הורידי confidence מתחת ל-0.65 ונסחי clarifying_question ממוקדת וקצרה בעברית.
 - confidence מעל 0.85 = ברור לגמרי, אין צורך באישור. 0.65–0.85 = סביר אך כדאי לוודא (סמני needs_user_confirmation=true אם יש ספק קל). מתחת ל-0.65 = לא ברור, יש לשאול (needs_user_confirmation=true).
 - entities.due_date: אם המשתמש ציין תאריך יחסי ("מחר", "יום חמישי", "בעוד שבוע") — חשבי תאריך מדויק בפורמט YYYY-MM-DD לפי תאריך היום שסופק למעלה. אם לא צוין תאריך כלל — השאירי ריק.
 - entities.task_title: ניסוח קצר, ברור ומעשי של המשימה (לא ציטוט מילולי של ההודעה).
 - entities.customer_name: רק אם שם אדם/לקוח מפורש הוזכר; אחרת השאירי ריק.
-- summary: משפט אחד קצר בעברית שמסכם מה הבנת — ישמש כתשובת הצ'אט למשתמש, אז שיהיה טבעי וידידותי.
+- summary: משפט אחד קצר בעברית שמסכם מה הבנת — ישמש כתשובת הצ'אט למשתמש (רק כשis_query=false), אז שיהיה טבעי וידידותי.
 - אל תחזירי שום טקסט מחוץ ל-JSON."""
 
 
@@ -869,6 +872,26 @@ def _find_customer_by_name(name):
     return matches[0] if len(matches) == 1 else None
 
 
+def _list_open_tasks(limit=10):
+    """משימות פתוחות, ממוינות לפי תאריך יעד (עם תאריך קודם; בלי תאריך בסוף). קריאה בלבד — לא נוגעת ב-DB."""
+    docs = list(db.collection("tasks").where("status", "==", "פתוח").stream())
+    docs.sort(key=lambda d: (not (d.to_dict() or {}).get("dueDate"), (d.to_dict() or {}).get("dueDate") or ""))
+    return docs[:limit]
+
+
+def _open_tasks_reply():
+    tasks = _list_open_tasks()
+    if not tasks:
+        return "אין לך כרגע משימות פתוחות. 🎉"
+    lines = []
+    for d in tasks:
+        t = d.to_dict() or {}
+        title = t.get("title") or "(ללא כותרת)"
+        due = t.get("dueDate")
+        lines.append("• " + title + (" — עד " + due if due else ""))
+    return f"יש לך {len(tasks)} משימות פתוחות:\n" + "\n".join(lines)
+
+
 def list_assistant_messages():
     docs = db.collection("assistantMessages").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).limit(60).stream()
@@ -900,6 +923,13 @@ def assistant_process(data):
         reply = "לא הצלחתי לעבד את ההודעה כרגע (" + (err or "שגיאה") + "). ההודעה נשמרה — אפשר לנסות שוב."
         msg_ref.update({"reply": reply, "error": err, "processed": True})
         return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": False})
+
+    # שאלת מידע (קריאה בלבד) — לעולם לא יוצרת רשומה, רק שולפת ומציגה מצב קיים
+    if result.get("is_query"):
+        reply = _open_tasks_reply()
+        msg_ref.update({"reply": reply, "aiResult": result, "processed": True, "isQuery": True})
+        return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [],
+                      "needsClarification": False, "isQuery": True})
 
     confidence = float(result.get("confidence") or 0)
     entities = result.get("entities") or {}
