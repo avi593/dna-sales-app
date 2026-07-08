@@ -58,7 +58,9 @@ COMPETITOR_FIELDS = {"name", "website", "category", "status", "notes"}
 CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "lastContact",
                    "stage", "source", "industry", "companySize", "website",
                    "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt", "content"}
-TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes"}
+TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes",
+                "parentTaskId", "isParent", "sequenceOrder", "progressPercent",
+                "sourceMessageId", "needsReview"}
 DOCUMENT_FIELDS = {"customerId", "name", "type", "data"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
@@ -507,7 +509,7 @@ def _get_config(key, default=None):
 def set_config(data):
     fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
                           "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken",
-                          "leadIntakeKey", "wcApiBase", "wcKey", "wcSecret"})
+                          "leadIntakeKey", "wcApiBase", "wcKey", "wcSecret", "geminiKey"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
@@ -515,7 +517,8 @@ def set_config(data):
     return _json({"ok": True, "serpConfigured": bool(_get_config("serpApiKey")),
                   "ideogramConfigured": bool(_get_config("ideogramKey")),
                   "metaConfigured": bool(_get_config("metaToken")),
-                  "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId"))})
+                  "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId")),
+                  "assistantConfigured": bool(_get_config("geminiKey"))})
 
 
 def config_status():
@@ -526,7 +529,8 @@ def config_status():
                   "fbConfigured": bool(_get_config("fbPageToken") and _get_config("fbPageId")),
                   "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId")),
                   "adsConfigured": bool(_get_config("adAccountId")),
-                  "wcConfigured": bool(_get_config("wcApiBase") and _get_config("wcKey"))})
+                  "wcConfigured": bool(_get_config("wcApiBase") and _get_config("wcKey")),
+                  "assistantConfigured": bool(_get_config("geminiKey"))})
 
 
 def _resolve_page_token(token, page):
@@ -786,6 +790,157 @@ def delete_task(tid):
         return _json({"error": "משימה לא נמצאה"}, 404)
     ref.delete()
     return _json({"deleted": tid})
+
+
+# ═══════════════════════════ ASSISTANT — "העוזרת שלי" (AviOS Phase A) ═══════════════════════════
+# עקרון-על: כל הודעה נשמרת גולמית לפני כל עיבוד. ה-AI אינו כותב ל-DB ישירות —
+# מחזיר JSON מובנה בלבד; השרת מאמת ומחליט אילו רשומות ליצור, לפי סף ביטחון (confidence gate).
+
+ASSISTANT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "intent": {"type": "string"},
+        "confidence": {"type": "number"},
+        "needs_user_confirmation": {"type": "boolean"},
+        "clarifying_question": {"type": "string"},
+        "entities": {
+            "type": "object",
+            "properties": {
+                "customer_name": {"type": "string"},
+                "task_title": {"type": "string"},
+                "due_date": {"type": "string"},
+            },
+        },
+        "summary": {"type": "string"},
+    },
+}
+
+ASSISTANT_SYS = """את/ה "העוזרת שלי" — עוזרת AI אישית לאבי, בעל דנא ציוד אינסטלציה (עסק B2B לציוד אינסטלציה בישראל).
+המשתמש כותב הודעות חופשיות בעברית, ואת/ה מחלצת מהן כוונה למשימה, ומחזירה JSON בלבד לפי הסכימה שסופקה.
+תאריך היום: __TODAY__ (שעון ישראל).
+
+כללים מחייבים:
+- לעולם אל תמציאי או תנחשי מידע חסר. אם משהו לא ברור — מי האדם, האם הוא לקוח או ספק, על מה בדיוק מדובר, או שיש כמה פירושים אפשריים — הורידי confidence מתחת ל-0.65 ונסחי clarifying_question ממוקדת וקצרה בעברית.
+- confidence מעל 0.85 = ברור לגמרי, אין צורך באישור. 0.65–0.85 = סביר אך כדאי לוודא (סמני needs_user_confirmation=true אם יש ספק קל). מתחת ל-0.65 = לא ברור, יש לשאול (needs_user_confirmation=true).
+- entities.due_date: אם המשתמש ציין תאריך יחסי ("מחר", "יום חמישי", "בעוד שבוע") — חשבי תאריך מדויק בפורמט YYYY-MM-DD לפי תאריך היום שסופק למעלה. אם לא צוין תאריך כלל — השאירי ריק.
+- entities.task_title: ניסוח קצר, ברור ומעשי של המשימה (לא ציטוט מילולי של ההודעה).
+- entities.customer_name: רק אם שם אדם/לקוח מפורש הוזכר; אחרת השאירי ריק.
+- summary: משפט אחד קצר בעברית שמסכם מה הבנת — ישמש כתשובת הצ'אט למשתמש, אז שיהיה טבעי וידידותי.
+- אל תחזירי שום טקסט מחוץ ל-JSON."""
+
+
+def _call_gemini_structured(prompt, schema):
+    """קריאת Gemini בצד-שרת עם פלט JSON מובנה. מפתח נשמר ב-Firestore config (geminiKey) — לא נחשף ללקוח."""
+    key = _get_config("geminiKey")
+    if not key:
+        return None, "לא הוגדר מפתח Gemini (יש להגדיר דרך ⚙️ הגדרות בעוזרת שלי)"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    body = {
+        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "responseSchema": schema},
+    }
+    last_err = None
+    for attempt in range(1, 4):
+        try:
+            r = requests.post(url, json=body, timeout=30)
+            d = r.json()
+            if r.status_code == 200:
+                text = d["candidates"][0]["content"]["parts"][0]["text"]
+                return _jsonlib.loads(text), None
+            msg = (d.get("error") or {}).get("message", "")
+            last_err = msg or f"שגיאת Gemini ({r.status_code})"
+            if r.status_code in (429, 503) or re.search(r"overload|high demand|try again", msg, re.I):
+                time.sleep(1.5 * attempt)
+                continue
+            return None, last_err
+        except Exception as e:
+            last_err = str(e)
+            time.sleep(1.0)
+    return None, last_err or "נכשל אחרי מספר ניסיונות"
+
+
+def _find_customer_by_name(name):
+    """התאמה חד-משמעית בלבד — שם מדויק (לא תלוי-רישיות). כמה התאמות או אפס → None (לא מנחשים)."""
+    name = (name or "").strip()
+    if not name:
+        return None
+    matches = [d for d in db.collection("customers").stream()
+               if ((d.to_dict() or {}).get("name") or "").strip().lower() == name.lower()]
+    return matches[0] if len(matches) == 1 else None
+
+
+def list_assistant_messages():
+    docs = db.collection("assistantMessages").order_by(
+        "createdAt", direction=firestore.Query.DESCENDING).limit(60).stream()
+    items = [_ts_to_iso(_doc_to_dict(d)) for d in docs]
+    items.reverse()  # ישן→חדש, לתצוגת צ'אט כרונולוגית
+    return _json({"messages": items})
+
+
+def assistant_process(data):
+    text = (data.get("message") or "").strip()
+    if not text:
+        return _json({"error": "אין הודעה"}, 400)
+
+    # עקרון-על: שומרים את ההודעה הגולמית לפני כל עיבוד — תמיד, גם אם ה-AI ייכשל
+    msg_ref = db.collection("assistantMessages").document()
+    msg_ref.set({"text": text, "role": "user", "createdAt": firestore.SERVER_TIMESTAMP, "processed": False})
+
+    from datetime import datetime
+    try:
+        from zoneinfo import ZoneInfo
+        today = datetime.now(ZoneInfo("Asia/Jerusalem")).strftime("%Y-%m-%d")
+    except Exception:
+        today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    prompt = ASSISTANT_SYS.replace("__TODAY__", today) + "\n\nהודעת המשתמש:\n" + text
+    result, err = _call_gemini_structured(prompt, ASSISTANT_SCHEMA)
+
+    if err or not result:
+        reply = "לא הצלחתי לעבד את ההודעה כרגע (" + (err or "שגיאה") + "). ההודעה נשמרה — אפשר לנסות שוב."
+        msg_ref.update({"reply": reply, "error": err, "processed": True})
+        return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": False})
+
+    confidence = float(result.get("confidence") or 0)
+    entities = result.get("entities") or {}
+    clarifying = (result.get("clarifying_question") or "").strip()
+    summary = (result.get("summary") or "").strip()
+
+    if confidence < 0.65 or result.get("needs_user_confirmation"):
+        reply = clarifying or summary or "אפשר לפרט קצת יותר? לא הבנתי מספיק כדי לפתוח משימה."
+        msg_ref.update({"reply": reply, "aiResult": result, "processed": True, "needsClarification": True})
+        return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": True})
+
+    # ביטחון מספיק — יוצרים משימה. 0.65–0.85 מסומן לבדיקה (needsReview), לא חוסם.
+    needs_review = confidence < 0.85
+    customer = _find_customer_by_name(entities.get("customer_name"))
+    task_fields = {
+        "title": (entities.get("task_title") or summary or text[:80]).strip(),
+        "status": "פתוח", "priority": "רגיל",
+        "notes": 'מקור (עוזרת AI): "' + text + '"',
+        "sourceMessageId": msg_ref.id,
+        "needsReview": needs_review,
+        "createdAt": firestore.SERVER_TIMESTAMP,
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }
+    due = (entities.get("due_date") or "").strip()
+    if due:
+        task_fields["dueDate"] = due
+    if customer:
+        task_fields["customerId"] = customer.id
+    task_ref = db.collection("tasks").document()
+    task_ref.set(task_fields)
+    created = [{"id": task_ref.id, "title": task_fields["title"], "dueDate": task_fields.get("dueDate"),
+                "customerName": (customer.to_dict() or {}).get("name") if customer else None}]
+
+    reply = ("נקלט ✅ " + summary) if summary else ("נקלט ✅ יצרתי משימה: " + task_fields["title"])
+    if needs_review:
+        reply += " (מסומן לבדיקה — לא הייתי בטוחה ב-100%)"
+
+    msg_ref.update({"reply": reply, "aiResult": result, "processed": True,
+                    "createdTaskIds": [t["id"] for t in created]})
+    return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": created,
+                  "needsClarification": False, "needsReview": needs_review})
 
 
 def list_posts():
@@ -1817,6 +1972,12 @@ def competitors_api(request):
                 return update_task(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_task(item_id)
+
+        elif resource == "assistant":
+            if method == "GET":
+                return list_assistant_messages()
+            if method == "POST":
+                return assistant_process(data)
 
         elif resource == "posts":
             if method == "GET":

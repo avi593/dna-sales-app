@@ -664,6 +664,19 @@
     .crm-card:hover { border-color:#5b7cfa; }
     .crm-score { display:inline-block; min-width:28px; text-align:center; border-radius:7px; padding:1px 7px; font-weight:700; font-size:12px; }
     .crm-badge { display:inline-block; border-radius:7px; padding:1px 8px; font-size:11px; font-weight:600; background:var(--bg3,#1b2236); border:1px solid var(--border,#2a3550); }
+    /* ══ ASSISTANT (העוזרת שלי) ══ */
+    .av-head { display:flex; align-items:center; justify-content:space-between; }
+    .av-card {
+      margin-top:8px; display:flex; align-items:center; gap:8px;
+      background:var(--bg3); border:1px solid var(--border); border-radius:10px;
+      padding:8px 12px; font-size:12px;
+    }
+    .av-card-icon { font-size:15px; }
+    .av-card-title { color:var(--text); font-weight:600; }
+    .av-card-sub { color:var(--muted); }
+    .av-card.review { border-color:#d97706; }
+    .av-card.review .av-card-icon { color:#d97706; }
+    .msg-col { display:flex; flex-direction:column; gap:6px; min-width:0; }
   </style>
 </head>
 <body>
@@ -699,6 +712,9 @@
     </div>
 
     <div class="nav-group">ניווט</div>
+    <button class="nav-btn" id="nav-assistant" onclick="showView('assistant'); loadAssistantHistory()">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span><span>העוזרת שלי</span>
+    </button>
     <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard'); loadDashOverview()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v8H4z"/><path d="M4 16h6v4H4z"/><path d="M14 12h6v8h-6z"/><path d="M14 4h6v4h-6z"/></svg></span><span>דשבורד</span>
     </button>
@@ -741,6 +757,33 @@
 
   <!-- MAIN -->
   <main class="main">
+
+    <!-- ── ASSISTANT (העוזרת שלי) ── -->
+    <div id="view-assistant" class="view">
+      <div class="av-head">
+        <div>
+          <div class="sec-title">🤖 העוזרת שלי</div>
+          <div class="sec-sub">כתוב הודעה חופשית — המשימה נפתחת אצלך אוטומטית</div>
+        </div>
+        <button class="btn-h" onclick="setGeminiKey()">⚙️ הגדרות</button>
+      </div>
+
+      <div class="chat-wrap" style="flex:1">
+        <div class="chat-area" id="avArea">
+          <div class="card-empty" style="padding:40px 20px">
+            <div class="card-empty-icon">🤖</div>
+            <div class="card-empty-title">היי, אני העוזרת שלך</div>
+            <div class="card-empty-desc">אפשר לכתוב לי משימה, תזכורת או עדכון — ואני אטפל בזה. למשל: "לחזור ליוסי מחר לגבי מצלמת ביוב"</div>
+          </div>
+        </div>
+        <div class="chat-input-wrap">
+          <textarea class="chat-ta" id="avTa" rows="1" placeholder="כתוב הודעה..."
+            onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendAssistant()}"
+            oninput="this.style.height='auto';this.style.height=Math.min(this.scrollHeight,120)+'px'"></textarea>
+          <button class="send-btn" id="avSendBtn" onclick="sendAssistant()">➤</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ── DASHBOARD ── -->
     <div id="view-dashboard" class="view active">
@@ -3688,6 +3731,86 @@ function appendTyping() {
 }
 
 function removeEl(id) { document.getElementById(id)?.remove(); }
+
+// ═══════════════════════════════════
+// העוזרת שלי (AviOS Phase A) — צ'אט-קודם: כותבים הודעה חופשית, נפתחת משימה אוטומטית
+// עקרון: כל עיבוד AI קורה בשרת (מפתח Gemini נשמר ב-Firestore config, לא בדפדפן)
+// ═══════════════════════════════════
+let avLoaded = false;
+
+async function loadAssistantHistory() {
+  if (avLoaded) return;
+  avLoaded = true;
+  try {
+    const d = await compApi('/assistant');
+    if (!d.messages || !d.messages.length) return; // נשארת תצוגת הפתיחה
+    const area = document.getElementById('avArea');
+    area.innerHTML = '';
+    d.messages.forEach(m => {
+      appendAvMsg('user', m.text);
+      if (m.reply) appendAvMsg('ai', m.reply);
+    });
+  } catch (e) { /* שקט — נשארת תצוגת הפתיחה */ }
+}
+
+async function sendAssistant() {
+  const ta = document.getElementById('avTa');
+  const text = ta.value.trim();
+  if (!text) return;
+  ta.value = ''; ta.style.height = 'auto';
+  document.getElementById('avSendBtn').disabled = true;
+  document.getElementById('avArea').querySelector('.card-empty')?.remove();
+
+  appendAvMsg('user', text);
+  const tid = appendAvTyping();
+
+  try {
+    const d = await compApi('/assistant', 'POST', { message: text });
+    removeEl(tid);
+    appendAvMsg('ai', d.reply || '(אין תשובה)', d.createdTasks, d.needsReview);
+  } catch (e) {
+    removeEl(tid);
+    appendAvMsg('ai', `⚠️ שגיאה: ${e.message}`);
+  } finally {
+    document.getElementById('avSendBtn').disabled = false;
+  }
+}
+
+function appendAvMsg(role, text, createdTasks, needsReview) {
+  const area = document.getElementById('avArea');
+  const d = document.createElement('div');
+  d.className = 'msg ' + role;
+  const cards = (createdTasks || []).map(t => `
+    <div class="av-card ${needsReview ? 'review' : ''}">
+      <span class="av-card-icon">${needsReview ? '⚠️' : '✅'}</span>
+      <div><div class="av-card-title">${esc(t.title)}</div>
+      <div class="av-card-sub">${t.dueDate ? 'עד ' + esc(t.dueDate) : ''}${t.customerName ? ' · ' + esc(t.customerName) : ''}</div></div>
+    </div>`).join('');
+  d.innerHTML = `<div class="msg-av">${role === 'ai' ? '🤖' : '👤'}</div>`
+    + `<div class="msg-col"><div class="msg-bub">${esc(text).replace(/\n/g, '<br>')}</div>${cards}</div>`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+}
+
+function appendAvTyping() {
+  const area = document.getElementById('avArea');
+  const id = 'avty' + Date.now();
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = id;
+  d.innerHTML = `<div class="msg-av">🤖</div><div class="typing-bub"><div class="dots"><span></span><span></span><span></span></div>חושבת...</div>`;
+  area.appendChild(d);
+  area.scrollTop = area.scrollHeight;
+  return id;
+}
+
+async function setGeminiKey() {
+  const key = prompt('מפתח Google AI Studio API עבור העוזרת (נשמר בצד השרת בלבד, לא בדפדפן):', apiKey || '');
+  if (key === null) return;
+  try {
+    await compApi('/config', 'POST', { geminiKey: key.trim() });
+    alert('✅ נשמר. העוזרת מוכנה לעבודה.');
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
 
 // ═══════════════════════════════════
 // קמפיין ממומן — אסטרטג מדיה (סיעור מוחות → תוכנית מלאה)
