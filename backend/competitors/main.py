@@ -765,6 +765,7 @@ def create_task(data):
         return _json({"error": "שדה 'title' הוא חובה"}, 400)
     fields.setdefault("status", "פתוח")
     fields.setdefault("priority", "רגיל")
+    fields["taskNumber"] = _next_task_number()
     fields["createdAt"] = firestore.SERVER_TIMESTAMP
     fields["updatedAt"] = firestore.SERVER_TIMESTAMP
     ref = db.collection("tasks").document()
@@ -804,6 +805,15 @@ ASSISTANT_SCHEMA = {
         "confidence": {"type": "number"},
         "needs_user_confirmation": {"type": "boolean"},
         "clarifying_question": {"type": "string"},
+        "referenced_task_number": {"type": "number"},
+        "update": {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string"},
+                "due_date": {"type": "string"},
+                "notes_append": {"type": "string"},
+            },
+        },
         "entities": {
             "type": "object",
             "properties": {
@@ -820,12 +830,16 @@ ASSISTANT_SYS = """את/ה "העוזרת שלי" — עוזרת AI אישית ל
 המשתמש כותב הודעות חופשיות בעברית, ואת/ה מחלצת מהן כוונה, ומחזירה JSON בלבד לפי הסכימה שסופקה.
 תאריך היום: __TODAY__ (שעון ישראל).
 
+לכל משימה יש מספר קבוע (#). רשימת המשימות הפתוחות הקיימות כרגע מסופקת למטה — זו המקור היחיד לאמת לגבי אילו מספרים קיימים.
+
 כללים מחייבים:
+- referenced_task_number: אם ההודעה מתייחסת למשימה קיימת לפי מספר — למשל "משימה 3", "עדכן את 5", "3 — נסגר", או אפילו הודעה שהיא רק מספר בודד — התאימי לרשימת המשימות הפתוחות שסופקה למטה וקבעי את המספר. אם המספר שהוזכר לא מופיע ברשימה, עדיין קבעי אותו כאן (כדי שהמערכת תוכל להודיע שלא נמצא) — אל תמציאי משימה חלופית.
+- אם נקבע referenced_task_number: אל תמלאי entities/task_title (זו לא יצירת משימה חדשה). אם המשתמש ציין מה לשנות (למשל "נסגר"/"הושלם" → update.status="סגור"; תאריך חדש → update.due_date; הערה → update.notes_append) — מלאי רק את מה שצוין במפורש, בלי להמציא. אם המשתמש רק שאל על המשימה בלי לבקש שינוי (למשל "מה קורה עם משימה 3") — השאירי update ריק וסמני is_query=true.
 - is_query: סמני true אם ההודעה היא שאלה או בקשת מידע על מצב קיים — למשל "מה המשימות הפתוחות שלי", "מה חשוב לי עכשיו", "מה קורה עם ההזמנה של X" — ולא הוראה ליצור משהו חדש. אחרת false. שאלה כזו לעולם לא יוצרת משימה חדשה, רק מציגה מידע קיים.
-- אם is_query=true — אין צורך למלא entities/task_title; summary יכול להיות ריק (המערכת עצמה תשלוף ותציג את המידע).
-- אם is_query=false: לעולם אל תמציאי או תנחשי מידע חסר. אם משהו לא ברור — מי האדם, האם הוא לקוח או ספק, על מה בדיוק מדובר, או שיש כמה פירושים אפשריים — הורידי confidence מתחת ל-0.65 ונסחי clarifying_question ממוקדת וקצרה בעברית.
+- אם is_query=true (וללא referenced_task_number) — אין צורך למלא entities/task_title; summary יכול להיות ריק (המערכת עצמה תשלוף ותציג את המידע).
+- אם is_query=false וללא referenced_task_number: לעולם אל תמציאי או תנחשי מידע חסר. אם משהו לא ברור — מי האדם, האם הוא לקוח או ספק, על מה בדיוק מדובר, או שיש כמה פירושים אפשריים — הורידי confidence מתחת ל-0.65 ונסחי clarifying_question ממוקדת וקצרה בעברית.
 - confidence מעל 0.85 = ברור לגמרי, אין צורך באישור. 0.65–0.85 = סביר אך כדאי לוודא (סמני needs_user_confirmation=true אם יש ספק קל). מתחת ל-0.65 = לא ברור, יש לשאול (needs_user_confirmation=true).
-- entities.due_date: אם המשתמש ציין תאריך יחסי ("מחר", "יום חמישי", "בעוד שבוע") — חשבי תאריך מדויק בפורמט YYYY-MM-DD לפי תאריך היום שסופק למעלה. אם לא צוין תאריך כלל — השאירי ריק.
+- entities.due_date / update.due_date: אם המשתמש ציין תאריך יחסי ("מחר", "יום חמישי", "בעוד שבוע") — חשבי תאריך מדויק בפורמט YYYY-MM-DD לפי תאריך היום שסופק למעלה. אם לא צוין תאריך כלל — השאירי ריק.
 - entities.task_title: ניסוח קצר, ברור ומעשי של המשימה (לא ציטוט מילולי של ההודעה).
 - entities.customer_name: רק אם שם אדם/לקוח מפורש הוזכר; אחרת השאירי ריק.
 - summary: משפט אחד קצר בעברית שמסכם מה הבנת — ישמש כתשובת הצ'אט למשתמש (רק כשis_query=false), אז שיהיה טבעי וידידותי.
@@ -872,6 +886,24 @@ def _find_customer_by_name(name):
     return matches[0] if len(matches) == 1 else None
 
 
+def _next_task_number():
+    """מספר משימה רץ, ייחודי לכל משימה (ידנית או מהעוזרת) — כדי שאפשר יהיה להתייחס למשימה לפי מספר קצר.
+    בריצה הראשונה גם משייך מספרים למשימות ישנות שנוצרו לפני התכונה, לפי סדר יצירה."""
+    cfg_ref = db.collection("config").document("settings")
+    snap = cfg_ref.get()
+    cur = (snap.to_dict() or {}).get("taskCounter") if snap.exists else None
+    if cur is None:
+        legacy = [d for d in db.collection("tasks").stream() if not (d.to_dict() or {}).get("taskNumber")]
+        legacy.sort(key=lambda d: (d.to_dict() or {}).get("createdAt") or 0)
+        cur = 0
+        for d in legacy:
+            cur += 1
+            d.reference.update({"taskNumber": cur})
+    nxt = cur + 1
+    cfg_ref.set({"taskCounter": nxt}, merge=True)
+    return nxt
+
+
 def _list_open_tasks(limit=10):
     """משימות פתוחות, ממוינות לפי תאריך יעד (עם תאריך קודם; בלי תאריך בסוף). קריאה בלבד — לא נוגעת ב-DB."""
     docs = list(db.collection("tasks").where("status", "==", "פתוח").stream())
@@ -888,7 +920,8 @@ def _open_tasks_reply():
         t = d.to_dict() or {}
         title = t.get("title") or "(ללא כותרת)"
         due = t.get("dueDate")
-        lines.append("• " + title + (" — עד " + due if due else ""))
+        num = t.get("taskNumber")
+        lines.append("• " + (f"#{num} " if num else "") + title + (" — עד " + due if due else ""))
     return f"יש לך {len(tasks)} משימות פתוחות:\n" + "\n".join(lines)
 
 
@@ -916,13 +949,67 @@ def assistant_process(data):
     except Exception:
         today = datetime.utcnow().strftime("%Y-%m-%d")
 
-    prompt = ASSISTANT_SYS.replace("__TODAY__", today) + "\n\nהודעת המשתמש:\n" + text
+    open_tasks = _list_open_tasks(30)
+    if open_tasks:
+        lines = []
+        for d in open_tasks:
+            t = d.to_dict() or {}
+            num = t.get("taskNumber")
+            if not num:
+                continue
+            lines.append(f"#{num}: {t.get('title','')}" + (f" (עד {t['dueDate']})" if t.get("dueDate") else ""))
+        tasks_context = "המשימות הפתוחות הקיימות כרגע:\n" + "\n".join(lines) if lines else "אין כרגע משימות פתוחות עם מספר."
+    else:
+        tasks_context = "אין כרגע משימות פתוחות."
+
+    prompt = ASSISTANT_SYS.replace("__TODAY__", today) + "\n\n" + tasks_context + "\n\nהודעת המשתמש:\n" + text
     result, err = _call_gemini_structured(prompt, ASSISTANT_SCHEMA)
 
     if err or not result:
         reply = "לא הצלחתי לעבד את ההודעה כרגע (" + (err or "שגיאה") + "). ההודעה נשמרה — אפשר לנסות שוב."
         msg_ref.update({"reply": reply, "error": err, "processed": True})
         return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": False})
+
+    # אזכור משימה קיימת לפי מספר — עדכון או הצגת פרטים. לעולם לא יוצר משימה חדשה.
+    ref_num = result.get("referenced_task_number")
+    if ref_num:
+        ref_num = int(ref_num)
+        task_doc = next(iter(db.collection("tasks").where("taskNumber", "==", ref_num).limit(1).stream()), None)
+        if not task_doc:
+            reply = f"לא מצאתי משימה מספר {ref_num}. אפשר לבדוק את המספר?"
+            msg_ref.update({"reply": reply, "aiResult": result, "processed": True, "needsClarification": True})
+            return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": True})
+
+        t = task_doc.to_dict() or {}
+        upd = result.get("update") or {}
+        changes = {}
+        if (upd.get("status") or "").strip():
+            changes["status"] = upd["status"].strip()
+        if (upd.get("due_date") or "").strip():
+            changes["dueDate"] = upd["due_date"].strip()
+        if (upd.get("notes_append") or "").strip():
+            cur_notes = t.get("notes") or ""
+            changes["notes"] = (cur_notes + "\n" if cur_notes else "") + upd["notes_append"].strip()
+
+        if not changes:
+            # אין בקשת שינוי — רק הצגת פרטי המשימה
+            reply = (f"משימה #{ref_num}: {t.get('title','(ללא כותרת)')}"
+                     + (f" — עד {t['dueDate']}" if t.get("dueDate") else "")
+                     + f" — סטטוס: {t.get('status','?')}")
+            msg_ref.update({"reply": reply, "aiResult": result, "processed": True, "isQuery": True})
+            return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [],
+                          "needsClarification": False, "isQuery": True})
+
+        changes["updatedAt"] = firestore.SERVER_TIMESTAMP
+        task_doc.reference.update(changes)
+        reply = f'עודכן ✅ משימה #{ref_num} "{t.get("title","")}"'
+        if "status" in changes:
+            reply += f" — סטטוס: {changes['status']}"
+        if "dueDate" in changes:
+            reply += f" — תאריך יעד: {changes['dueDate']}"
+        msg_ref.update({"reply": reply, "aiResult": result, "processed": True, "updatedTaskId": task_doc.id})
+        return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": [], "needsClarification": False,
+                      "updatedTask": {"id": task_doc.id, "number": ref_num, "title": t.get("title")}})
 
     # שאלת מידע (קריאה בלבד) — לעולם לא יוצרת רשומה, רק שולפת ומציגה מצב קיים
     if result.get("is_query"):
@@ -950,6 +1037,7 @@ def assistant_process(data):
         "notes": 'מקור (עוזרת AI): "' + text + '"',
         "sourceMessageId": msg_ref.id,
         "needsReview": needs_review,
+        "taskNumber": _next_task_number(),
         "createdAt": firestore.SERVER_TIMESTAMP,
         "updatedAt": firestore.SERVER_TIMESTAMP,
     }
@@ -961,9 +1049,13 @@ def assistant_process(data):
     task_ref = db.collection("tasks").document()
     task_ref.set(task_fields)
     created = [{"id": task_ref.id, "title": task_fields["title"], "dueDate": task_fields.get("dueDate"),
+                "number": task_fields["taskNumber"],
                 "customerName": (customer.to_dict() or {}).get("name") if customer else None}]
 
-    reply = ("נקלט ✅ " + summary) if summary else ("נקלט ✅ יצרתי משימה: " + task_fields["title"])
+    num_tag = f'#{task_fields["taskNumber"]} '
+    reply = ("נקלט ✅ " + summary) if summary else ("נקלט ✅ יצרתי משימה " + num_tag + task_fields["title"])
+    if summary:
+        reply += f" ({num_tag.strip()})"
     if needs_review:
         reply += " (מסומן לבדיקה — לא הייתי בטוחה ב-100%)"
 

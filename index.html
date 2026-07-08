@@ -3794,7 +3794,7 @@ function appendAvMsg(role, text, createdTasks, needsReview) {
   const cards = (createdTasks || []).map(t => `
     <div class="av-card ${needsReview ? 'review' : ''}">
       <span class="av-card-icon">${needsReview ? '⚠️' : '✅'}</span>
-      <div><div class="av-card-title">${esc(t.title)}</div>
+      <div><div class="av-card-title">${t.number ? '#' + t.number + ' ' : ''}${esc(t.title)}</div>
       <div class="av-card-sub">${t.dueDate ? 'עד ' + esc(t.dueDate) : ''}${t.customerName ? ' · ' + esc(t.customerName) : ''}</div></div>
     </div>`).join('');
   d.innerHTML = `<div class="msg-av">${role === 'ai' ? '🤖' : '👤'}</div>`
