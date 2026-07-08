@@ -720,8 +720,8 @@
     <button class="nav-btn" id="nav-assistant" onclick="showView('assistant'); loadAssistantHistory()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span><span>העוזרת שלי</span>
     </button>
-    <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard'); loadDashOverview()">
-      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h6v8H4z"/><path d="M4 16h6v4H4z"/><path d="M14 12h6v8h-6z"/><path d="M14 4h6v4h-6z"/></svg></span><span>דשבורד</span>
+    <button class="nav-btn active" id="nav-tasks" onclick="showView('tasks'); loadTasksView()">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8"/><path d="M14 19l2 2 4-4"/><path d="M8 8h4"/><path d="M8 12h3"/></svg></span><span>משימות</span>
     </button>
     <button class="nav-btn" id="nav-customers" onclick="showView('customers'); loadCustomers()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/><path d="M21 21v-2a4 4 0 0 0-3-3.85"/></svg></span><span>קשרי לקוחות</span>
@@ -795,8 +795,24 @@
       </div>
     </div>
 
+    <!-- ── TASKS (משימות) ── -->
+    <div id="view-tasks" class="view active">
+      <div>
+        <div class="sec-title">✅ משימות</div>
+        <div class="sec-sub">כל המשימות במקום אחד — עדכון ישיר בטבלה, או בצ'אט עם העוזרת לפי מספר (#)</div>
+      </div>
+      <div class="cat-add-row">
+        <input class="inp" id="tvNew" placeholder="משימה חדשה — מה צריך לעשות?" style="flex:1;min-width:200px"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();tvAdd()}" />
+        <input class="cat-inp" id="tvNewDue" type="date" style="width:150px" title="תאריך יעד (לא חובה)" />
+        <button class="add-plus" onclick="tvAdd()" title="הוסף משימה">+</button>
+      </div>
+      <div class="cat-tabs" id="tvTabs"></div>
+      <div id="tasksTable"><div class="page-empty">טוען משימות...</div></div>
+    </div>
+
     <!-- ── DASHBOARD ── -->
-    <div id="view-dashboard" class="view active">
+    <div id="view-dashboard" class="view">
       <div>
         <div class="sec-title">📊 דשבורד — מרכז שליטה</div>
         <div class="sec-sub">מבט-על יומי: קשרי לקוחות · מחירים · פרסום · ביצועים</div>
@@ -1293,13 +1309,14 @@ message content here
 
 async function init() {
   if (!apiKey) showApiModal();
+  loadTasksView();     // מסך הבית החדש — משימות
   await loadProducts();
   renderSavedReports();
   updateKPIs();
   loadCompetitors();   // אסינכרוני — נטען מה-API ברקע
   renderAdCompetitors();
   loadPostReports();   // דוחות קמפיינים — נטען מה-API ברקע
-  loadDashOverview();  // מבט-על: לקוחות, מחירים, פרסום, ביצועים
+  loadDashOverview();  // מבט-על (מוצג רק אחרי סריקה יומית)
 }
 
 async function loadProducts() {
@@ -3840,6 +3857,100 @@ async function setGeminiKey() {
     avConfigured = !!d.assistantConfigured;
     renderAvConfigBanner();
     alert(avConfigured ? '✅ המפתח נשמר. העוזרת מוכנה לעבודה.' : '⚠️ הבקשה בוצעה אך המפתח לא נראה תקין — נסה שוב.');
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ═══════════════════════════════════
+// משימות — מסך ניהול מלא (החליף את הדשבורד בניווט)
+// ═══════════════════════════════════
+let tvTasks = [], tvCustomers = {}, tvFilter = 'open';
+
+async function loadTasksView() {
+  try {
+    const [td, cd] = await Promise.all([compApi('/tasks'), compApi('/customers')]);
+    tvTasks = td.tasks || [];
+    tvCustomers = {};
+    (cd.customers || []).forEach(c => { tvCustomers[c.id] = c.name; });
+    renderTasksView();
+  } catch (e) {
+    document.getElementById('tasksTable').innerHTML = '<div class="page-empty">שגיאה בטעינה: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderTasksView() {
+  const open = tvTasks.filter(t => t.status !== 'בוצע');
+  const done = tvTasks.filter(t => t.status === 'בוצע');
+  const tabs = [['open', 'פתוחות', open.length], ['all', 'הכול', tvTasks.length], ['done', 'בוצעו', done.length]];
+  document.getElementById('tvTabs').innerHTML = tabs.map(([f, label, n]) =>
+    `<button class="cat-tab ${tvFilter === f ? 'active' : ''}" onclick="tvFilter='${f}';renderTasksView()">${label} <span class="cat-tab-n">${n}</span></button>`).join('');
+
+  let list = tvFilter === 'open' ? open : (tvFilter === 'done' ? done : tvTasks);
+  list = [...list].sort((a, b) =>
+    ((a.status === 'בוצע' ? 1 : 0) - (b.status === 'בוצע' ? 1 : 0))
+    || ((a.dueDate ? 0 : 1) - (b.dueDate ? 0 : 1))
+    || String(a.dueDate || '').localeCompare(String(b.dueDate || '')));
+
+  if (!list.length) {
+    document.getElementById('tasksTable').innerHTML = '<div class="page-empty">אין משימות להצגה. הוסף כאן למעלה — או כתוב לעוזרת שלי.</div>';
+    return;
+  }
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = list.map(t => {
+    const isDone = t.status === 'בוצע';
+    const overdue = !isDone && t.dueDate && t.dueDate < today;
+    return `<tr class="pt-row" style="cursor:default${isDone ? ';opacity:.5' : ''}">
+      <td class="pt-num">${t.taskNumber ? '#' + t.taskNumber : '—'}</td>
+      <td><input class="cat-inp" style="width:96%;min-width:170px" value="${esc(t.title || '')}" onchange="tvUpdate('${t.id}','title',this.value)" /></td>
+      <td>${esc(tvCustomers[t.customerId] || '—')}</td>
+      <td><input class="cat-inp ${overdue ? 'price-low' : ''}" type="date" value="${esc(t.dueDate || '')}" onchange="tvUpdate('${t.id}','dueDate',this.value)" /></td>
+      <td><select class="cat-inp" onchange="tvUpdate('${t.id}','priority',this.value)">${['דחוף', 'גבוה', 'רגיל', 'נמוך'].map(p => `<option ${((t.priority || 'רגיל') === p) ? 'selected' : ''}>${p}</option>`).join('')}</select></td>
+      <td>${t.needsReview ? '<span class="muted-sm" title="נוצר ע״י העוזרת בביטחון חלקי">⚠️</span>' : ''}${t.sourceMessageId ? '<span class="muted-sm" title="נוצר מהעוזרת שלי">🤖</span>' : ''}</td>
+      <td style="white-space:nowrap">
+        <button class="comp-btn" onclick="tvToggle('${t.id}', ${isDone ? 'false' : 'true'})">${isDone ? '↩️ פתח' : '✅ בוצע'}</button>
+        <button class="comp-btn comp-btn-del" title="מחק" onclick="tvDelete('${t.id}')">🗑️</button>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tasksTable').innerHTML =
+    `<table class="price-table"><thead><tr><th>#</th><th>משימה</th><th>לקוח</th><th>תאריך יעד</th><th>עדיפות</th><th></th><th>פעולות</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+async function tvAdd() {
+  const inp = document.getElementById('tvNew');
+  const title = inp.value.trim();
+  if (!title) return;
+  const body = { title };
+  const due = document.getElementById('tvNewDue').value;
+  if (due) body.dueDate = due;
+  try {
+    await compApi('/tasks', 'POST', body);
+    inp.value = ''; document.getElementById('tvNewDue').value = '';
+    await loadTasksView();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function tvUpdate(id, field, value) {
+  const body = {}; body[field] = (field === 'dueDate' && !value) ? null : value;
+  try {
+    await compApi('/tasks/' + id, 'PUT', body);
+    const t = tvTasks.find(x => x.id === id); if (t) t[field] = body[field];
+  } catch (e) { alert('שגיאה: ' + e.message); loadTasksView(); }
+}
+
+async function tvToggle(id, markDone) {
+  try {
+    await compApi('/tasks/' + id, 'PUT', { status: markDone ? 'בוצע' : 'פתוח' });
+    const t = tvTasks.find(x => x.id === id); if (t) t.status = markDone ? 'בוצע' : 'פתוח';
+    renderTasksView();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function tvDelete(id) {
+  if (!confirm('למחוק את המשימה?')) return;
+  try {
+    await compApi('/tasks/' + id, 'DELETE');
+    tvTasks = tvTasks.filter(x => x.id !== id);
+    renderTasksView();
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 
