@@ -677,6 +677,11 @@
     .av-card.review { border-color:#d97706; }
     .av-card.review .av-card-icon { color:#d97706; }
     .msg-col { display:flex; flex-direction:column; gap:6px; min-width:0; }
+    .av-banner {
+      display:flex; align-items:center; justify-content:space-between; gap:10px;
+      background:rgba(217,119,6,.12); border:1px solid #d97706; border-radius:10px;
+      padding:9px 13px; font-size:13px; color:#fbbf24; margin-top:4px;
+    }
   </style>
 </head>
 <body>
@@ -766,6 +771,11 @@
           <div class="sec-sub">כתוב הודעה חופשית — המשימה נפתחת אצלך אוטומטית</div>
         </div>
         <button class="btn-h" onclick="setGeminiKey()">⚙️ הגדרות</button>
+      </div>
+
+      <div id="avConfigBanner" class="av-banner" style="display:none">
+        <span>⚠️ יש להגדיר מפתח Gemini כדי שהעוזרת תוכל לעבוד</span>
+        <button class="btn-h" onclick="setGeminiKey()">⚙️ הגדר עכשיו</button>
       </div>
 
       <div class="chat-wrap" style="flex:1">
@@ -3739,6 +3749,7 @@ function removeEl(id) { document.getElementById(id)?.remove(); }
 let avLoaded = false;
 
 async function loadAssistantHistory() {
+  checkAssistantConfig();
   if (avLoaded) return;
   avLoaded = true;
   try {
@@ -3803,12 +3814,32 @@ function appendAvTyping() {
   return id;
 }
 
+let avConfigured = null; // null = טרם נבדק, true/false = נבדק
+
+async function checkAssistantConfig() {
+  try {
+    const d = await compApi('/config');
+    avConfigured = !!d.assistantConfigured;
+  } catch (e) { avConfigured = null; }
+  renderAvConfigBanner();
+}
+
+function renderAvConfigBanner() {
+  const el = document.getElementById('avConfigBanner');
+  if (!el) return;
+  el.style.display = avConfigured === false ? 'flex' : 'none';
+}
+
 async function setGeminiKey() {
   const key = prompt('מפתח Google AI Studio API עבור העוזרת (נשמר בצד השרת בלבד, לא בדפדפן):', apiKey || '');
   if (key === null) return;
+  const trimmed = key.trim();
+  if (!trimmed) { alert('לא הוזן מפתח — לא בוצע שינוי.'); return; }
   try {
-    await compApi('/config', 'POST', { geminiKey: key.trim() });
-    alert('✅ נשמר. העוזרת מוכנה לעבודה.');
+    const d = await compApi('/config', 'POST', { geminiKey: trimmed });
+    avConfigured = !!d.assistantConfigured;
+    renderAvConfigBanner();
+    alert(avConfigured ? '✅ המפתח נשמר. העוזרת מוכנה לעבודה.' : '⚠️ הבקשה בוצעה אך המפתח לא נראה תקין — נסה שוב.');
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 
