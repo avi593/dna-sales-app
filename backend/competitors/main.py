@@ -1080,7 +1080,16 @@ def email_inbox(args):
         if args.get("q"):
             params["q"] = args.get("q")
         r = requests.get(bridge, params=params, timeout=30)
-        d = r.json()
+        try:
+            d = r.json()
+        except Exception:
+            # הגשר החזיר משהו שאינו JSON (בד"כ דף HTML של גוגל) — נחזיר רמז לאבחון
+            body = (r.text or "")[:200]
+            hint = "נראה כמו דף התחברות/שגיאה של גוגל — בדוק שהפריסה היא 'אפליקציית אינטרנט' עם גישה ל'כל אחד', ושהכתובת היא ה-/exec מהפריסה האחרונה" \
+                if "<html" in body.lower() or "<!doctype" in body.lower() else ""
+            return _json({"configured": True, "emails": [],
+                          "error": f"הגשר החזיר תשובה לא תקינה (סטטוס {r.status_code}). {hint}",
+                          "raw": body}, 502)
     except Exception as e:
         return _json({"configured": True, "error": "הגשר לא הגיב: " + str(e), "emails": []}, 502)
     if d.get("error"):
