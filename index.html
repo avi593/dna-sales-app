@@ -809,6 +809,17 @@
       </div>
       <div class="cat-tabs" id="tvTabs"></div>
       <div id="tasksTable"><div class="page-empty">טוען משימות...</div></div>
+
+      <div class="camp-block" id="tvEmailWrap" style="margin-top:8px">
+        <div class="detail-head" style="padding-top:0">
+          <b>📧 בקשות מהמייל</b>
+          <span class="muted-sm" id="tvEmailStatus"></span>
+          <span class="detail-spacer"></span>
+          <button class="comp-btn" onclick="tvEmailRefresh()">🔄 רענן</button>
+          <button class="comp-btn" onclick="tvEmailSetup()">⚙️ חיבור מייל</button>
+        </div>
+        <div id="tvEmails"><div class="muted-sm">לחץ "🔄 רענן" לשליפת מיילים אחרונים מהתיבה.</div></div>
+      </div>
     </div>
 
     <!-- ── DASHBOARD ── -->
@@ -3951,6 +3962,68 @@ async function tvDelete(id) {
     await compApi('/tasks/' + id, 'DELETE');
     tvTasks = tvTasks.filter(x => x.id !== id);
     renderTasksView();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ── מיילים → משימות (גשר Gmail) ──
+let tvEmailList = [];
+
+async function tvEmailRefresh() {
+  const el = document.getElementById('tvEmails');
+  el.innerHTML = '<div class="muted-sm">שולף מיילים...</div>';
+  try {
+    const d = await compApi('/email-inbox');
+    if (d.configured === false) {
+      el.innerHTML = '<div class="muted-sm">📮 עוד לא חובר — לחץ "⚙️ חיבור מייל" להקמה חד-פעמית (יש הוראות מוכנות).</div>';
+      return;
+    }
+    if (d.error) { el.innerHTML = '<div class="muted-sm">⚠️ ' + esc(d.error) + '</div>'; return; }
+    tvEmailList = d.emails || [];
+    if (!tvEmailList.length) { el.innerHTML = '<div class="muted-sm">לא נמצאו מיילים מתאימים בתקופה האחרונה.</div>'; return; }
+    el.innerHTML = tvEmailList.map((em, i) => {
+      const from = esc(String(em.from || '').replace(/<[^>]*>/g, '').trim());
+      const date = em.date ? esc(String(em.date).slice(0, 10)) : '';
+      const done = em.processed;
+      return `<div class="src-row" style="align-items:flex-start">
+        <div class="src-info" style="min-width:0">
+          <div class="src-name">${from} <span class="muted-sm">· ${date}</span></div>
+          <div style="font-size:13px;color:var(--text);margin:2px 0">${esc(em.subject || '(ללא נושא)')}</div>
+          <div class="muted-sm" style="white-space:normal">${esc(String(em.snippet || '').slice(0, 160))}...</div>
+        </div>
+        ${done
+          ? `<span class="muted-sm" style="flex:none">✓ נוצרה ${(em.taskNumbers || []).map(n => '#' + n).join(', ')}</span>`
+          : `<button class="comp-btn" style="flex:none" id="tvEmBtn${i}" onclick="tvEmailCreate(${i})">➕ צור משימה</button>`}
+      </div>`;
+    }).join('');
+  } catch (e) { el.innerHTML = '<div class="muted-sm">⚠️ שגיאה: ' + esc(e.message) + '</div>'; }
+}
+
+async function tvEmailCreate(i) {
+  const em = tvEmailList[i];
+  if (!em) return;
+  const btn = document.getElementById('tvEmBtn' + i);
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ יוצר...'; }
+  try {
+    const d = await compApi('/email-task', 'POST', { id: em.id, from: em.from, subject: em.subject, snippet: em.snippet, date: em.date });
+    if (d.reply) alert(d.reply);
+    await loadTasksView();
+    await tvEmailRefresh();
+  } catch (e) {
+    alert('שגיאה: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '➕ צור משימה'; }
+  }
+}
+
+async function tvEmailSetup() {
+  const url = prompt('כתובת גשר המייל (Apps Script Web App URL — מסתיימת ב-/exec):');
+  if (url === null) return;
+  const key = prompt('המפתח הסודי (אותו SECRET שמופיע בסקריפט):');
+  if (key === null) return;
+  if (!url.trim() || !key.trim()) { alert('חסרים פרטים — לא בוצע שינוי.'); return; }
+  try {
+    await compApi('/config', 'POST', { emailBridgeUrl: url.trim(), emailBridgeKey: key.trim() });
+    alert('✅ נשמר. לחץ "🔄 רענן" לשליפת מיילים.');
+    tvEmailRefresh();
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 

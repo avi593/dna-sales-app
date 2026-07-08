@@ -509,7 +509,8 @@ def _get_config(key, default=None):
 def set_config(data):
     fields = _pick(data, {"serpApiKey", "serpProvider", "ideogramKey", "metaToken",
                           "fbPageToken", "fbPageId", "igUserId", "adAccountId", "adsToken",
-                          "leadIntakeKey", "wcApiBase", "wcKey", "wcSecret", "geminiKey"})
+                          "leadIntakeKey", "wcApiBase", "wcKey", "wcSecret", "geminiKey",
+                          "emailBridgeUrl", "emailBridgeKey"})
     if not fields:
         return _json({"error": "אין שדות לעדכון"}, 400)
     db.collection("config").document("settings").set(fields, merge=True)
@@ -530,7 +531,8 @@ def config_status():
                   "igConfigured": bool(_get_config("fbPageToken") and _get_config("igUserId")),
                   "adsConfigured": bool(_get_config("adAccountId")),
                   "wcConfigured": bool(_get_config("wcApiBase") and _get_config("wcKey")),
-                  "assistantConfigured": bool(_get_config("geminiKey"))})
+                  "assistantConfigured": bool(_get_config("geminiKey")),
+                  "emailConfigured": bool(_get_config("emailBridgeUrl") and _get_config("emailBridgeKey"))})
 
 
 def _resolve_page_token(token, page):
@@ -1063,6 +1065,68 @@ def assistant_process(data):
                     "createdTaskIds": [t["id"] for t in created]})
     return _json({"messageId": msg_ref.id, "reply": reply, "createdTasks": created,
                   "needsClarification": False, "needsReview": needs_review})
+
+
+# ── מיילים → משימות: גשר Apps Script בחשבון הגוגל של המשתמש (קריאה בלבד, מוגן במפתח סודי) ──
+
+def email_inbox(args):
+    """שולף מיילים אחרונים דרך גשר ה-Apps Script ומסמן אילו כבר הפכו למשימות."""
+    bridge = _get_config("emailBridgeUrl")
+    key = _get_config("emailBridgeKey")
+    if not bridge or not key:
+        return _json({"configured": False, "emails": []})
+    try:
+        params = {"key": key}
+        if args.get("q"):
+            params["q"] = args.get("q")
+        r = requests.get(bridge, params=params, timeout=30)
+        d = r.json()
+    except Exception as e:
+        return _json({"configured": True, "error": "הגשר לא הגיב: " + str(e), "emails": []}, 502)
+    if d.get("error"):
+        return _json({"configured": True, "error": "שגיאת גשר: " + str(d["error"]), "emails": []}, 502)
+    emails = d.get("emails") or []
+    # סימון מיילים שכבר טופלו (נוצרה מהם משימה)
+    for em in emails:
+        try:
+            doc = db.collection("processedEmails").document(str(em.get("id"))).get()
+            if doc.exists:
+                pd = doc.to_dict() or {}
+                em["processed"] = True
+                em["taskNumbers"] = pd.get("taskNumbers") or []
+            else:
+                em["processed"] = False
+        except Exception:
+            em["processed"] = False
+    return _json({"configured": True, "emails": emails})
+
+
+def email_task(data):
+    """יוצר משימה ממייל — דרך אותו מנוע של העוזרת (חילוץ AI + מספור + שמירת מקור)."""
+    em = data or {}
+    email_id = str(em.get("id") or "").strip()
+    if not email_id:
+        return _json({"error": "חסר מזהה מייל"}, 400)
+    existing = db.collection("processedEmails").document(email_id).get()
+    if existing.exists:
+        pd = existing.to_dict() or {}
+        return _json({"already": True, "reply": "כבר נוצרה משימה מהמייל הזה (#"
+                      + ",".join(str(n) for n in (pd.get("taskNumbers") or [])) + ")"})
+    msg = ("התקבל מייל מ־" + (em.get("from") or "לא ידוע")
+           + (" בתאריך " + em.get("date") if em.get("date") else "")
+           + '. נושא: "' + (em.get("subject") or "") + '".\n'
+           + "תוכן המייל:\n" + (em.get("snippet") or "")
+           + "\n\nצרי משימה מתאימה לטיפול בפנייה הזו (אם מבוקשת הצעת מחיר — משימה להכין ולשלוח הצעת מחיר).")
+    body, status, _hdrs = assistant_process({"message": msg})
+    created = body.get("createdTasks") or []
+    if created:
+        db.collection("processedEmails").document(email_id).set({
+            "emailId": email_id, "from": em.get("from"), "subject": em.get("subject"),
+            "taskIds": [t.get("id") for t in created],
+            "taskNumbers": [t.get("number") for t in created if t.get("number")],
+            "createdAt": firestore.SERVER_TIMESTAMP,
+        })
+    return _json(body, status)
 
 
 def list_posts():
@@ -2100,6 +2164,14 @@ def competitors_api(request):
                 return list_assistant_messages()
             if method == "POST":
                 return assistant_process(data)
+
+        elif resource == "email-inbox":
+            if method == "GET":
+                return email_inbox(args)
+
+        elif resource == "email-task":
+            if method == "POST":
+                return email_task(data)
 
         elif resource == "posts":
             if method == "GET":
