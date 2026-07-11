@@ -1180,8 +1180,10 @@
       </div>
 
       <div class="cat-add-row">
-        <button class="comp-btn" onclick="openAdImport('csv')">📥 ייבוא CSV מ-Ads Manager</button>
+        <button class="comp-btn" id="adSyncBtn" onclick="adMetaSync()">🔄 משוך מ-Meta (7 ימים)</button>
+        <button class="comp-btn" onclick="openAdImport('csv')">📥 ייבוא CSV</button>
         <button class="comp-btn" onclick="openAdImport('manual')">➕ הזנה ידנית</button>
+        <button class="comp-btn" onclick="setAdsToken()" title="טוקן עם הרשאת ads_read למשיכה אוטומטית">⚙️ טוקן מודעות</button>
         <input class="inp" id="adlabSearchInp" placeholder='🔍 חיפוש מודעה / קמפיין / מוצר...' style="flex:1;min-width:170px"
           oninput="adlabSearch=this.value; renderAdLab()" />
       </div>
@@ -4495,6 +4497,31 @@ async function adCsvApply() {
     closeAdImport();
     document.getElementById('adCsvText').value = '';
     await loadAdLab();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// משיכה אוטומטית מ-Meta Marketing API (דורש adAccountId + טוקן ads_read בצד השרת)
+async function adMetaSync() {
+  const btn = document.getElementById('adSyncBtn');
+  btn.disabled = true; btn.textContent = '⏳ מושך מ-Meta...';
+  try {
+    const d = await compApi('/ads-sync', 'POST', { datePreset: 'last_7d' });
+    alert(`✅ נמשכו ${d.synced} מודעות (7 הימים האחרונים).${d.synced === 0 ? ' ייתכן שאין מודעות שרצו בתקופה.' : ''}`);
+    await loadAdLab();
+  } catch (e) {
+    alert('שגיאה במשיכה: ' + e.message + '\n\nאם כתוב שאין הרשאה — צריך טוקן עם ads_read (⚙️ טוקן מודעות).');
+  } finally {
+    btn.disabled = false; btn.textContent = '🔄 משוך מ-Meta (7 ימים)';
+  }
+}
+
+async function setAdsToken() {
+  const token = prompt('הדבק טוקן עם הרשאת ads_read (נשמר בצד השרת בלבד):');
+  if (token === null) return;
+  if (!token.trim()) { alert('לא הוזן טוקן — לא בוצע שינוי.'); return; }
+  try {
+    await compApi('/config', 'POST', { adsToken: token.trim() });
+    alert('✅ הטוקן נשמר. לחץ "🔄 משוך מ-Meta" לניסיון ראשון.');
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 

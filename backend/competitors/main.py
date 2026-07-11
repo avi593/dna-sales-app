@@ -1149,6 +1149,108 @@ def email_task(data):
 
 # ═══════════════════════════ AD LAB — מרכז ניתוח מודעות Meta ═══════════════════════════
 
+def _act_val(rows, *types):
+    """שולף ערך מתוך מערך actions/action_values של Graph API לפי סוגי פעולה (הראשון שנמצא)."""
+    for t in types:
+        for a in (rows or []):
+            if a.get("action_type") == t:
+                try:
+                    return float(a.get("value"))
+                except Exception:
+                    return None
+    return None
+
+
+def ads_sync(data):
+    """מושך את ביצועי המודעות מ-Meta Marketing API (level=ad) ושומר כ-adSnapshots.
+    Upsert לפי (שם מודעה + תקופה) — מזהה מסמך דטרמיניסטי, בלי כפילויות בריצות חוזרות."""
+    import hashlib
+    data = data or {}
+    acct = (_get_config("adAccountId") or "").strip()
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not acct:
+        return _json({"error": "לא הוגדר מזהה חשבון מודעות"}, 400)
+    if not token:
+        return _json({"error": "לא הוגדר טוקן מודעות (ads_read)"}, 400)
+    acct = acct if acct.startswith("act_") else "act_" + acct
+    preset = data.get("datePreset") or "last_7d"
+
+    # סטטוסים חיים של מודעות (קריאה נפרדת; לא קריטית — נמשיך גם אם תיכשל)
+    status_map = {}
+    try:
+        rs = requests.get(f"https://graph.facebook.com/v21.0/{acct}/ads",
+                          params={"fields": "name,effective_status", "limit": 200, "access_token": token}, timeout=30)
+        for ad in (rs.json().get("data") or []):
+            status_map[ad.get("name")] = ad.get("effective_status")
+    except Exception:
+        pass
+
+    fields = ("ad_name,adset_name,campaign_name,spend,impressions,reach,frequency,cpm,"
+              "inline_link_clicks,inline_link_click_ctr,cost_per_inline_link_click,ctr,"
+              "actions,action_values,purchase_roas,website_purchase_roas,"
+              "quality_ranking,engagement_rate_ranking,conversion_rate_ranking")
+    url = f"https://graph.facebook.com/v21.0/{acct}/insights"
+    params = {"fields": fields, "level": "ad", "date_preset": preset, "limit": 100, "access_token": token}
+    rows, pages = [], 0
+    try:
+        while url and pages < 4:
+            r = requests.get(url, params=params, timeout=45)
+            j = r.json()
+            if "error" in j:
+                return _json({"error": j["error"].get("message", "שגיאת Meta"), "raw": j["error"]}, 502)
+            rows += j.get("data") or []
+            url = ((j.get("paging") or {}).get("next"))
+            params = {}  # ה-next כבר כולל את הפרמטרים
+            pages += 1
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+    synced = 0
+    for row in rows:
+        name = row.get("ad_name")
+        if not name:
+            continue
+        acts, vals = row.get("actions"), row.get("action_values")
+        roas = None
+        for k in ("purchase_roas", "website_purchase_roas"):
+            arr = row.get(k)
+            if arr:
+                try:
+                    roas = float(arr[0].get("value"))
+                    break
+                except Exception:
+                    pass
+        snap = {
+            "adName": name, "adset": row.get("adset_name"), "campaign": row.get("campaign_name"),
+            "status": status_map.get(name),
+            "periodStart": row.get("date_start"), "periodEnd": row.get("date_stop"),
+            "spend": row.get("spend"), "impressions": row.get("impressions"), "reach": row.get("reach"),
+            "frequency": row.get("frequency"), "cpm": row.get("cpm"),
+            "linkClicks": row.get("inline_link_clicks"), "ctrLink": row.get("inline_link_click_ctr"),
+            "cpcLink": row.get("cost_per_inline_link_click"), "ctrAll": row.get("ctr"),
+            "lpViews": _act_val(acts, "landing_page_view"),
+            "viewContent": _act_val(acts, "omni_view_content", "view_content"),
+            "addToCart": _act_val(acts, "omni_add_to_cart", "add_to_cart"),
+            "initCheckout": _act_val(acts, "omni_initiated_checkout", "initiate_checkout"),
+            "purchases": _act_val(acts, "omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"),
+            "purchaseValue": _act_val(vals, "omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"),
+            "roas": roas,
+            "qualityRank": row.get("quality_ranking"), "engagementRank": row.get("engagement_rate_ranking"),
+            "convRank": row.get("conversion_rate_ranking"),
+        }
+        snap = {k: v for k, v in snap.items() if v is not None}
+        key = hashlib.md5(f"{name}|{snap.get('periodStart')}|{snap.get('periodEnd')}".encode("utf-8")).hexdigest()
+        snap["source"] = "meta-api"
+        snap["updatedAt"] = firestore.SERVER_TIMESTAMP
+        ref = db.collection("adSnapshots").document(key)
+        if not ref.get().exists:
+            snap["createdAt"] = firestore.SERVER_TIMESTAMP
+        ref.set(snap, merge=True)
+        synced += 1
+    return _json({"synced": synced, "datePreset": preset,
+                  "adsInAccount": len(status_map) or None})
+
+
 def list_ad_snapshots():
     docs = db.collection("adSnapshots").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).limit(500).stream()
@@ -2248,6 +2350,10 @@ def competitors_api(request):
                 return update_ad_snapshot(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_ad_snapshot(item_id)
+
+        elif resource == "ads-sync":
+            if method == "POST":
+                return ads_sync(data)
 
         elif resource == "posts":
             if method == "GET":
