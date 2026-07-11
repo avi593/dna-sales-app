@@ -4319,6 +4319,10 @@ function adDetailHtml(s, d, finds) {
     ${meta ? `<div class="muted-sm" style="margin-bottom:10px">${meta}</div>` : ''}
     ${funnel}
     <div class="src-list">${findsHtml}</div>
+    <div class="cat-sec" style="margin-top:10px" onclick="event.stopPropagation()">
+      <div class="cat-sec-h"><span class="cat-sec-ic">🧠</span> צוות ביקורת AI</div>
+      ${adReviewSectionHtml(s, finds)}
+    </div>
     <div class="detail-head" style="margin-top:8px">
       ${s.landingUrl ? `<a class="link-name" href="${esc(s.landingUrl)}" target="_blank" rel="noopener">🔗 דף הנחיתה</a>` : ''}
       <span class="detail-spacer"></span>
@@ -4350,6 +4354,70 @@ async function adDeleteSnap(id) {
     adSnaps = adSnaps.filter(x => x.id !== id);
     renderAdLab();
   } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ── AD LAB Phase B: צוות ביקורת AI — חוות דעת Gemini עצמאית + מסווג המלצות Meta + סיכום החלטה ──
+let adReviews = {}; // snapshotId → { geminiOpinion, decision }
+
+function adReviewSectionHtml(s, finds) {
+  const rev = adReviews[s.id];
+  if (!rev) {
+    return `
+      <textarea class="inp" id="adMetaRec_${s.id}" rows="2" style="width:100%;margin-bottom:8px"
+        placeholder='אופציונלי: הדבק כאן המלצה שקיבלת מ-Meta לגבי המודעה הזו — המערכת תעריך אם כדאי ליישם אותה'></textarea>
+      <button class="comp-btn" id="adReviewBtn_${s.id}" onclick="adRunReview('${s.id}')">🧠 הרץ סקירת AI (מנוע חוקים + Gemini)</button>`;
+  }
+  const g = rev.geminiOpinion || {};
+  const dec = rev.decision;
+  const li = arr => (arr && arr.length) ? '<ul style="margin:4px 0 0 0;padding-right:18px">' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : '<span class="price-neutral">—</span>';
+  let html = '';
+  if (g.metaRecClassification) {
+    html += `<div class="av-card" style="margin-bottom:10px"><span class="av-card-icon">📋</span>
+      <div><div class="av-card-title">סיווג המלצת Meta: ${esc(g.metaRecClassification)}</div>
+      <div class="av-card-sub">${esc(g.metaRecReasoning || '')}</div></div></div>`;
+  }
+  html += `<div style="font-size:13px;line-height:1.7">
+    <div style="margin-bottom:8px"><b>🎯 תקציר מנהלים</b> <span class="muted-sm">(ביטחון Gemini: ${Math.round((g.confidence || 0) * 100)}%)</span><br>${esc(g.executiveSummary || '—')}</div>
+    <div style="margin-bottom:8px"><b>✅ מה עובד:</b> ${esc(g.whatWorks || '—')}</div>
+    <div style="margin-bottom:8px"><b>⚠️ מה לא עובד:</b> ${esc(g.whatDoesNotWork || '—')}</div>
+    <div style="margin-bottom:8px"><b>🍾 צוואר הבקבוק:</b> ${esc(g.bottleneck || '—')}</div>
+    <div style="margin-bottom:8px"><b>פעולות מיידיות:</b> ${li(g.immediateActions)}</div>
+    <div style="margin-bottom:8px"><b>פעולות להמשך:</b> ${li(g.nextActions)}</div>
+    <div style="margin-bottom:8px"><b>ניסויי A/B מוצעים:</b> ${li(g.abTests)}</div>
+    <div><b>נתונים חסרים:</b> ${li(g.missingData)}</div>
+  </div>`;
+  html += dec
+    ? `<div class="cat-sec" style="margin-top:12px;background:var(--bg3)">
+        <div class="cat-sec-h">🧭 סיכום החלטה (מנוע חוקים + Gemini)</div>
+        <div style="font-size:13px;line-height:1.7">
+          <div style="margin-bottom:8px"><b>נקודות הסכמה:</b> ${li(dec.agreements)}</div>
+          <div style="margin-bottom:8px"><b>נקודות מחלוקת:</b> ${li(dec.disagreements)}</div>
+          <div style="margin-bottom:8px"><b>רמת ביטחון כוללת:</b> ${esc(dec.confidenceLevel || '—')}</div>
+          <div style="margin-bottom:8px"><b>🏁 החלטה סופית מוצעת:</b> ${esc(dec.finalDecision || '—')}</div>
+          <div style="margin-bottom:8px"><b>סדר פעולות מומלץ:</b> ${li(dec.actionOrder)}</div>
+          ${dec.suggestedABTest ? `<div><b>🧪 ניסוי A/B מוצע:</b> ${esc(dec.suggestedABTest)}</div>` : ''}
+        </div>
+      </div>`
+    : '<div class="muted-sm" style="margin-top:8px">סיכום ההחלטה לא נוצר (שגיאת AI) — חוות דעת Gemini למעלה עדיין תקפה.</div>';
+  html += `<button class="comp-btn" style="margin-top:10px" onclick="delete adReviews['${s.id}']; renderAdLab()">🔄 הרץ סקירה מחדש</button>`;
+  return html;
+}
+
+async function adRunReview(snapId) {
+  const btn = document.getElementById('adReviewBtn_' + snapId);
+  const ta = document.getElementById('adMetaRec_' + snapId);
+  const metaRec = ta ? ta.value.trim() : '';
+  if (btn) { btn.disabled = true; btn.textContent = '🧠 חושבת... (עד כ-20 שניות, שתי קריאות AI)'; }
+  try {
+    const s = adSnaps.find(x => x.id === snapId);
+    const finds = adDiagnose(s).map(f => ({ sev: f.sev, title: f.title, why: f.why }));
+    const d = await compApi('/ad-ai-review', 'POST', { snapshotId: snapId, metaRecommendation: metaRec, rulesFindings: finds });
+    adReviews[snapId] = d;
+    renderAdLab();
+  } catch (e) {
+    alert('שגיאה: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🧠 הרץ סקירת AI (מנוע חוקים + Gemini)'; }
+  }
 }
 
 // ── ייבוא CSV + הזנה ידנית ──

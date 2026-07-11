@@ -1297,6 +1297,107 @@ def delete_ad_snapshot(sid):
     return _json({"deleted": sid})
 
 
+# ── AD LAB Phase B: חוות דעת Gemini עצמאית + מסווג המלצות Meta + סיכום החלטה ──
+# עקרון: Gemini מקבל רק את נתוני המודעה הגולמיים — לא רואה את ממצאי מנוע החוקים לפני שסיים,
+# כדי לשמור על חוות דעת "עיוורת" ובלתי-תלויה (בדיוק כמו שתי דעות רפואיות עצמאיות).
+
+AD_REVIEW_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "confidence": {"type": "number"},
+        "executiveSummary": {"type": "string"},
+        "whatWorks": {"type": "string"},
+        "whatDoesNotWork": {"type": "string"},
+        "bottleneck": {"type": "string"},
+        "immediateActions": {"type": "array", "items": {"type": "string"}},
+        "nextActions": {"type": "array", "items": {"type": "string"}},
+        "abTests": {"type": "array", "items": {"type": "string"}},
+        "missingData": {"type": "array", "items": {"type": "string"}},
+        "metaRecClassification": {"type": "string"},
+        "metaRecReasoning": {"type": "string"},
+    },
+}
+
+AD_REVIEW_SYS = """אתה מומחה בכיר לפרסום ממומן ב-Meta (פייסבוק/אינסטגרם) עבור אתר מסחר אלקטרוני B2B — דנא ציוד אינסטלציה, ציוד מקצועי לענף האינסטלציה: איתור נזילות, צילום תרמי, מצלמות ביוב, כלי עבודה מקצועיים.
+
+נתח את המודעה למטרת מכירות. אל תניח שכל המלצה אוטומטית של Meta נכונה. הבחן בין בעיית קריאייטיב, בעיית קהל, בעיית אתר, בעיית משפך ובעיית מעקב.
+
+נתח לפי הסדר הבא: איכות וכמות הנתונים ← CTR קישור (לא CTR כללי) ← CPC קישור ← CPM ← תדירות ← קליקים על קישור ← צפיות דף נחיתה ← View Content ← הוספות לסל ← התחלות תשלום ← רכישות ← עלות לרכישה ← ROAS ← איכות המודעה ← ביצועים לפי פלטפורמה/מיקום ← התאמת הקריאייטיב למיקום ← התאמה בין המודעה לדף הנחיתה ← תקינות המעקב.
+
+כללים מחייבים:
+- אל תמליץ לשנות קריאייטיב רק כי אין רכישות, אם ה-CTR קישור גבוה — קודם יש לבדוק את המשפך אחרי הקליק.
+- אל תמליץ לסגור מיקום/פלייסמנט אם אין בו מספיק נתונים.
+- אל תציג עלות לתוצאה של 0 ₪ כשאין תוצאות בכלל — כתוב שאין נתונים מספיקים למסקנה.
+- confidence (0 עד 1): כמה אתה בטוח במסקנות, לפי כמות ואיכות הנתונים שסופקו.
+- כתוב בעברית, תמציתי וממוקד-פעולה.
+
+אם סופקה "המלצת Meta להערכה" — סווג אותה לאחת מהקטגוריות הבאות בדיוק (מילה במילה): "מומלץ ליישם", "מומלץ לבדוק לפני יישום", "המלצה כללית", "לא מספיק נתונים", "לא מומלץ כרגע", "עלולה להזיק לביצועים". נמק בקצרה, בהתבסס על הנתונים בפועל של המודעה (למשל: אם Meta ממליצה לרענן קריאייטיב אך CTR קישור גבוה — הסבר שהבעיה כנראה לא בקריאייטיב אלא במשפך שאחרי הקליק). אם לא סופקה המלצת Meta — השאר metaRecClassification ו-metaRecReasoning כמחרוזת ריקה.
+
+חשוב: את/ה מנתח/ת את המודעה באופן עצמאי לגמרי — אין לך גישה לניתוחים אחרים של המערכת, ואינך יודע/ת מה מסקנותיהם."""
+
+
+def _ad_review_gemini(snap, meta_rec):
+    ctx = "נתוני המודעה (JSON גולמי, ישירות מ-Meta או מהזנה ידנית):\n" + _jsonlib.dumps(snap, ensure_ascii=False, default=str)
+    prompt = AD_REVIEW_SYS + "\n\n" + ctx
+    if meta_rec:
+        prompt += "\n\nהמלצת Meta להערכה:\n" + meta_rec
+    return _call_gemini_structured(prompt, AD_REVIEW_SCHEMA)
+
+
+AD_DECISION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "agreements": {"type": "array", "items": {"type": "string"}},
+        "disagreements": {"type": "array", "items": {"type": "string"}},
+        "uniqueFromRules": {"type": "array", "items": {"type": "string"}},
+        "uniqueFromGemini": {"type": "array", "items": {"type": "string"}},
+        "confidenceLevel": {"type": "string"},
+        "finalDecision": {"type": "string"},
+        "actionOrder": {"type": "array", "items": {"type": "string"}},
+        "suggestedABTest": {"type": "string"},
+    },
+}
+
+AD_DECISION_SYS = """אתה עורך-על שמקבל שתי חוות דעת עצמאיות על אותה מודעת Meta ממומנת — אחת ממנוע חוקים עסקי קבוע (Rules Engine), ואחת ממודל Gemini שניתח את הנתונים בעצמו — ומייצר מהן סיכום החלטה אחד ברור.
+
+זהה בדיוק: נקודות הסכמה בין השניים; נקודות מחלוקת (ונמק בקצרה איזו עמדה נראית אמינה יותר ולמה); המלצות ייחודיות שרק אחד מהמקורות ציין; רמת ביטחון כוללת ("נמוכה"/"בינונית"/"גבוהה"); החלטה סופית מוצעת במשפט אחד ברור וישיר; סדר פעולות מומלץ (מהחשוב ביותר קודם); והצעה לניסוי A/B אחד קונקרטי אם רלוונטי (משתנה יחיד בלבד — למשל תמונה, כותרת, מחיר, CTA).
+
+היה תמציתי, מעשי וממוקד-פעולה. כתוב בעברית."""
+
+
+def ad_ai_review(data):
+    data = data or {}
+    snap_id = (data.get("snapshotId") or "").strip()
+    meta_rec = (data.get("metaRecommendation") or "").strip()
+    rules_findings = data.get("rulesFindings") or []
+    if not snap_id:
+        return _json({"error": "חסר snapshotId"}, 400)
+    doc = db.collection("adSnapshots").document(snap_id).get()
+    if not doc.exists:
+        return _json({"error": "מודעה לא נמצאה"}, 404)
+    snap = _doc_to_dict(doc)
+    snap.pop("createdAt", None)
+    snap.pop("updatedAt", None)
+
+    gem, err = _ad_review_gemini(snap, meta_rec)
+    if err or not gem:
+        return _json({"error": err or "שגיאת Gemini"}, 502)
+
+    rules_text = "\n".join(f"- [{f.get('sev')}] {f.get('title')}: {f.get('why')}" for f in rules_findings) \
+        or "(מנוע החוקים לא מצא ממצאים חריגים)"
+    decision_prompt = (AD_DECISION_SYS
+                       + "\n\nחוות דעת א' — מנוע חוקים:\n" + rules_text
+                       + "\n\nחוות דעת ב' — Gemini:\n" + _jsonlib.dumps(gem, ensure_ascii=False))
+    decision, _derr = _call_gemini_structured(decision_prompt, AD_DECISION_SCHEMA)  # אם נכשל — עדיין נחזיר את חוות דעת Gemini
+
+    db.collection("adAnalyses").document().set({
+        "snapshotId": snap_id, "metaRecommendation": meta_rec or None,
+        "rulesFindings": rules_findings, "geminiOpinion": gem, "decision": decision,
+        "createdAt": firestore.SERVER_TIMESTAMP,
+    })
+    return _json({"geminiOpinion": gem, "decision": decision})
+
+
 def list_posts():
     """כל הפוסטים שפורסמו דרך האפליקציה + המדדים השמורים שלהם (לדוחות/למידה)."""
     docs = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
@@ -2354,6 +2455,10 @@ def competitors_api(request):
         elif resource == "ads-sync":
             if method == "POST":
                 return ads_sync(data)
+
+        elif resource == "ad-ai-review":
+            if method == "POST":
+                return ad_ai_review(data)
 
         elif resource == "posts":
             if method == "GET":
