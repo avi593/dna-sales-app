@@ -60,7 +60,16 @@ CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "last
                    "aiScore", "aiSummary", "nextAction", "interests", "lastOrderAt", "content"}
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes",
                 "parentTaskId", "isParent", "sequenceOrder", "progressPercent",
-                "sourceMessageId", "needsReview"}
+                "sourceMessageId", "needsReview", "category", "adSnapshotId"}
+# מרכז ניתוח מודעות Meta: שורת snapshot = מדדי מודעה אחת לתקופה מסוימת (נשמר לפי תאריך להשוואות)
+AD_SNAPSHOT_FIELDS = {
+    "adName", "campaign", "adset", "status", "platform", "placement", "creativeType",
+    "product", "landingUrl", "periodStart", "periodEnd",
+    "spend", "impressions", "reach", "frequency", "cpm",
+    "linkClicks", "lpViews", "ctrLink", "ctrAll", "cpcLink",
+    "viewContent", "addToCart", "initCheckout", "purchases", "purchaseValue",
+    "roas", "costPerPurchase", "qualityRank", "engagementRank", "convRank", "notes",
+}
 DOCUMENT_FIELDS = {"customerId", "name", "type", "data"}
 PAGE_FIELDS = {
     "competitorId", "url", "pageType", "label", "enabled",
@@ -1138,6 +1147,54 @@ def email_task(data):
     return _json(body, status)
 
 
+# ═══════════════════════════ AD LAB — מרכז ניתוח מודעות Meta ═══════════════════════════
+
+def list_ad_snapshots():
+    docs = db.collection("adSnapshots").order_by(
+        "createdAt", direction=firestore.Query.DESCENDING).limit(500).stream()
+    return _json({"snapshots": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+
+
+def create_ad_snapshots(data):
+    """יצירת snapshot בודד או מרובה ({items:[...]} מייבוא CSV). מחזיר את הרשומות שנוצרו."""
+    items = data.get("items") if isinstance(data.get("items"), list) else [data]
+    if len(items) > 300:
+        return _json({"error": "מקסימום 300 שורות בייבוא אחד"}, 400)
+    created = []
+    for item in items:
+        fields = _pick(item, AD_SNAPSHOT_FIELDS)
+        if not fields.get("adName"):
+            continue
+        fields["createdAt"] = firestore.SERVER_TIMESTAMP
+        fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+        ref = db.collection("adSnapshots").document()
+        ref.set(fields)
+        created.append(ref.id)
+    if not created:
+        return _json({"error": "אין שורות תקינות (נדרש לפחות שם מודעה)"}, 400)
+    return _json({"created": len(created), "ids": created}, 201)
+
+
+def update_ad_snapshot(sid, data):
+    fields = _pick(data, AD_SNAPSHOT_FIELDS)
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("adSnapshots").document(sid)
+    if not ref.get().exists:
+        return _json({"error": "רשומה לא נמצאה"}, 404)
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
+def delete_ad_snapshot(sid):
+    ref = db.collection("adSnapshots").document(sid)
+    if not ref.get().exists:
+        return _json({"error": "רשומה לא נמצאה"}, 404)
+    ref.delete()
+    return _json({"deleted": sid})
+
+
 def list_posts():
     """כל הפוסטים שפורסמו דרך האפליקציה + המדדים השמורים שלהם (לדוחות/למידה)."""
     docs = db.collection("posts").order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
@@ -2181,6 +2238,16 @@ def competitors_api(request):
         elif resource == "email-task":
             if method == "POST":
                 return email_task(data)
+
+        elif resource == "ad-snapshots":
+            if method == "GET":
+                return list_ad_snapshots()
+            if method == "POST":
+                return create_ad_snapshots(data)
+            if method == "PUT" and item_id:
+                return update_ad_snapshot(item_id, data)
+            if method == "DELETE" and item_id:
+                return delete_ad_snapshot(item_id)
 
         elif resource == "posts":
             if method == "GET":

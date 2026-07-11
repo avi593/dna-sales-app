@@ -737,6 +737,9 @@
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8l4.524-3.77A.9.9 0 0 1 18 4.922v12.156a.9.9 0 0 1-1.476.692L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8z"/></svg></span><span>פרסום וקידום</span>
     </button>
+    <button class="nav-btn" id="nav-adlab" onclick="showView('adlab'); loadAdLab()">
+      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M14 7h7v7"/></svg></span><span>ניתוח מודעות</span>
+    </button>
     <div class="nav-group">מדידה וכלים</div>
     <button class="nav-btn" id="nav-performance" onclick="showView('performance'); loadAnalytics()">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="5" height="8" rx="1"/><rect x="9.5" y="8" width="5" height="12" rx="1"/><rect x="16" y="4" width="5" height="16" rx="1"/></svg></span><span>ביצועים</span>
@@ -1169,6 +1172,25 @@
       </div>
     </div>
 
+    <!-- ── AD LAB (ניתוח מודעות Meta) ── -->
+    <div id="view-adlab" class="view">
+      <div>
+        <div class="sec-title">📊 ניתוח מודעות Meta</div>
+        <div class="sec-sub">משפך המרה · אבחון חכם (סימפטום ≠ בעיה) · המלצות לפי סדר עדיפויות · משימות</div>
+      </div>
+
+      <div class="cat-add-row">
+        <button class="comp-btn" onclick="openAdImport('csv')">📥 ייבוא CSV מ-Ads Manager</button>
+        <button class="comp-btn" onclick="openAdImport('manual')">➕ הזנה ידנית</button>
+        <input class="inp" id="adlabSearchInp" placeholder='🔍 חיפוש מודעה / קמפיין / מוצר...' style="flex:1;min-width:170px"
+          oninput="adlabSearch=this.value; renderAdLab()" />
+      </div>
+
+      <div class="kpi-grid" id="adKpis" style="grid-template-columns:repeat(5,1fr)"></div>
+      <div class="cat-tabs" id="adTabs"></div>
+      <div id="adTable"><div class="page-empty">טוען נתוני מודעות...</div></div>
+    </div>
+
     <!-- ── CHAT ── -->
     <div id="view-chat" class="view">
       <div class="chat-wrap">
@@ -1212,6 +1234,36 @@
     <input type="text" class="modal-inp" id="backendInp" placeholder="https://...cloudfunctions.net/analytics"
       onkeydown="if(event.key==='Enter')saveBackend()" />
     <button class="modal-btn" onclick="saveBackend()">שמור וחבר</button>
+  </div>
+</div>
+
+<!-- ══════════════ AD LAB IMPORT MODAL ══════════════ -->
+<div class="overlay hidden" id="adImportModal">
+  <div class="modal" style="max-width:940px;width:94%;text-align:right;max-height:90vh;overflow:auto">
+    <h3 id="adImpTitle">📥 ייבוא נתוני מודעות</h3>
+
+    <div id="adImpCsv">
+      <p class="muted-sm">ייצוא מ-Ads Manager: דוחות ← ייצוא ← CSV. בחר קובץ או הדבק את הטקסט — המערכת תזהה עמודות בעברית ובאנגלית.</p>
+      <div class="cat-add-row" style="margin:10px 0">
+        <input type="file" id="adCsvFile" accept=".csv,text/csv,text/plain" onchange="adCsvFromFile(this.files[0])" />
+      </div>
+      <textarea class="inp" id="adCsvText" rows="5" style="width:100%;direction:ltr;text-align:left"
+        placeholder="Ad name,Amount spent,Impressions,Link clicks,Purchases,..."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <button class="comp-btn" onclick="adCsvParse()">המשך לתצוגה מקדימה ←</button>
+        <button class="comp-btn comp-btn-del" onclick="closeAdImport()">סגור</button>
+      </div>
+      <div id="adCsvPreview" style="margin-top:12px"></div>
+    </div>
+
+    <div id="adImpManual" class="hidden">
+      <p class="muted-sm">מלא מה שיש — המערכת תשלים מדדים נגזרים (CTR, CPC, ROAS) אוטומטית. שדות חובה: שם מודעה.</p>
+      <div class="cat-edit-grid" id="adManualGrid" style="margin-top:10px"></div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="comp-btn" onclick="adManualSave()">💾 שמור מודעה</button>
+        <button class="comp-btn comp-btn-del" onclick="closeAdImport()">סגור</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4009,6 +4061,440 @@ async function tvEmailSetup() {
     await compApi('/config', 'POST', { emailBridgeUrl: url.trim(), emailBridgeKey: key.trim() });
     alert('✅ נשמר. לחץ "🔄 רענן" לשליפת מיילים.');
     tvEmailRefresh();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ═══════════════════════════════════
+// AD LAB — מרכז ניתוח מודעות Meta (שלב A: הזנה/CSV + מנוע אבחון מבוסס חוקים)
+// עיקרון: סימפטום ≠ בעיה. קודם מעקב ומשפך, רק אחר כך קריאייטיב/קהל.
+// ═══════════════════════════════════
+let adSnaps = [], adlabSearch = '', adlabFilter = 'all', adExpanded = new Set();
+
+const AD_SEV = {
+  critical:  { icon: '🔴', label: 'קריטי',            color: '#f87171' },
+  warn:      { icon: '🟠', label: 'דורש טיפול',        color: '#fb923c' },
+  opp:       { icon: '🟡', label: 'הזדמנות לשיפור',    color: '#facc15' },
+  excellent: { icon: '🟢', label: 'ביצוע מצוין',       color: '#34d399' },
+  ok:        { icon: '🟢', label: 'ביצוע תקין',        color: '#34d399' },
+  info:      { icon: '🔵', label: 'מידע',              color: '#60a5fa' },
+  nodata:    { icon: '⚪', label: 'אין מספיק נתונים',  color: '#8a93a6' },
+};
+const AD_SEV_ORDER = ['critical', 'warn', 'opp', 'excellent', 'ok', 'info', 'nodata'];
+
+const adNum = v => {
+  if (v === null || v === undefined || v === '') return null;
+  const n = parseFloat(String(v).replace(/["₪$%\s]/g, '').replace(/,/g, ''));
+  return isNaN(n) ? null : n;
+};
+const adInt = v => v == null ? '—' : Math.round(v).toLocaleString('he-IL');
+const adMoney = v => v == null ? '—' : '₪' + (Math.round(v * 100) / 100).toLocaleString('he-IL');
+const adPct = v => v == null ? '—' : (Math.round(v * 100) / 100) + '%';
+
+// מדדים נגזרים — משלים מה שלא הוזן (CTR/CPC/CPM/ROAS/CPA) מתוך נתוני הבסיס
+function adDerive(s) {
+  const d = {};
+  ['spend', 'impressions', 'reach', 'frequency', 'cpm', 'linkClicks', 'lpViews', 'ctrLink', 'ctrAll',
+   'cpcLink', 'viewContent', 'addToCart', 'initCheckout', 'purchases', 'purchaseValue', 'roas', 'costPerPurchase']
+    .forEach(k => { d[k] = adNum(s[k]); });
+  if (d.cpm == null && d.spend != null && d.impressions > 0) d.cpm = d.spend / d.impressions * 1000;
+  if (d.ctrLink == null && d.linkClicks != null && d.impressions > 0) d.ctrLink = d.linkClicks / d.impressions * 100;
+  if (d.cpcLink == null && d.spend != null && d.linkClicks > 0) d.cpcLink = d.spend / d.linkClicks;
+  if (d.frequency == null && d.impressions != null && d.reach > 0) d.frequency = d.impressions / d.reach;
+  if (d.roas == null && d.purchaseValue != null && d.spend > 0) d.roas = d.purchaseValue / d.spend;
+  if (d.costPerPurchase == null && d.spend != null && d.purchases > 0) d.costPerPurchase = d.spend / d.purchases;
+  return d;
+}
+
+// מנוע האבחון — 9 המקרים + בדיקות חיוביות. מחזיר ממצאים ממוינים לפי חומרה.
+function adDiagnose(s) {
+  const d = adDerive(s);
+  const f = [];
+  const spend = d.spend || 0, impr = d.impressions || 0, clicks = d.linkClicks || 0;
+  const lp = d.lpViews, atc = d.addToCart, ic = d.initCheckout, pur = d.purchases;
+
+  // מקרה 0: מעט מדי נתונים — אין להסיק כלום
+  if (impr < 500 && spend < 20) {
+    f.push({ sev: 'nodata', title: 'אין מספיק נתונים למסקנות', why: `רק ${adInt(impr)} חשיפות ו-${adMoney(spend)} הוצאה — כל מסקנה תהיה ניחוש.`, actions: ['לתת למודעה לצבור לפחות 500–1,000 חשיפות או ₪50 הוצאה לפני אבחון'] });
+    return f;
+  }
+
+  // מקרה 6 (קודם ל-1 כי ספציפי יותר): יש התחלות תשלום אך אין רכישות
+  if ((ic || 0) >= 5 && (pur == null || pur === 0 || pur / ic < 0.2)) {
+    f.push({ sev: 'critical', title: 'נטישה חריגה בקופה — או אירוע Purchase שלא נשלח',
+      why: `${adInt(ic)} התחלות תשלום אבל ${pur ? 'רק ' + adInt(pur) : 'אפס'} רכישות מיוחסות.`,
+      actions: ['לבצע רכישת בדיקה אמיתית ולראות אם נרשם Purchase ב-Events Manager', 'לבדוק תקלת סליקה/קופה (גם במובייל)', 'לבדוק עלויות מפתיעות בשלב האחרון (משלוח)', 'להשוות מול הזמנות בפועל ב-WooCommerce וב-GA4'] });
+  }
+  // מקרה 1: אין רכישות בכלל (והוצאה משמעותית)
+  else if ((pur == null || pur === 0) && spend >= 50) {
+    const chain = (atc || 0) > 0
+      ? 'יש הוספות לסל — הבעיה בהמשך המשפך (תשלום/קופה) או במעקב.'
+      : ((lp || 0) > 0 ? 'יש כניסות לדף — הבעיה בדף המוצר/מחיר/אמון, או במעקב.' : 'המשפך נעצר כבר בשלב הקליק→דף.');
+    f.push({ sev: 'critical', title: 'אין רכישות מיוחסות למודעה בתקופה שנבחרה',
+      why: `${adMoney(spend)} הוצאה ללא רכישה. ${chain} שים לב: אין להציג "עלות לתוצאה ₪0" כתוצאה טובה.`,
+      actions: ['לבדוק ב-Events Manager שאירוע Purchase פעיל ומדווח (Test Events)', 'לוודא שהפיקסל יורה בדף אישור ההזמנה כולל ערך ומטבע', 'לבדוק Conversions API וכפילויות מול הפיקסל', 'להשוות רכישות מול GA4 ומערכת ההזמנות'] });
+  }
+
+  // מקרה 2: CTR גבוה אך אין רכישות — הקריאייטיב עובד, הבעיה אחרי הקליק
+  if ((d.ctrLink || 0) >= 1.5 && clicks >= 30 && (pur == null || pur === 0)) {
+    f.push({ sev: 'warn', title: 'המודעה מייצרת עניין וקליקים — הבעיה אחרי הקליק',
+      why: `CTR קישור ${adPct(d.ctrLink)} (טוב!) אבל אפס רכישות. אל תמהר להחליף קריאייטיב.`,
+      actions: ['1. לבדוק פיקסל ומעקב', '2. מהירות טעינת דף (בעיקר מובייל)', '3. פער בין קליקים לצפיות דף נחיתה', '4. התאמה בין מסר המודעה לדף', '5. מחיר והצעה מול מתחרים', '6. סימני אמון (אחריות, נציגות, ביקורות)', '7. תהליך סל ותשלום', '8. רק בסוף — קהל וקריאייטיב'] });
+  }
+
+  // מקרה 3: פער קליקים→צפיות דף
+  if (clicks >= 30 && lp != null && lp / clicks < 0.6) {
+    f.push({ sev: 'warn', title: 'פער גדול בין קליקים לצפיות בדף הנחיתה',
+      why: `רק ${adInt(lp)} צפיות דף מתוך ${adInt(clicks)} קליקים (${adPct(lp / clicks * 100)}).`,
+      actions: ['לבדוק מהירות טעינה (PageSpeed, בעיקר מובייל)', 'לוודא שהקישור במודעה תקין ולא מפנה הפניה כפולה', 'לבדוק שהפיקסל נטען לפני נטישה', 'לשקול דף נחיתה קל יותר'] });
+  }
+
+  // מקרה 4: צפיות דף גבוהות אך מעט הוספות לסל
+  if ((lp || 0) >= 50 && atc != null && atc / lp < 0.02) {
+    f.push({ sev: 'warn', title: 'דף המוצר לא ממיר — צפיות רבות, מעט הוספות לסל',
+      why: `${adInt(lp)} צפיות דף אבל רק ${adInt(atc)} הוספות לסל (${adPct(atc / lp * 100)}).`,
+      actions: ['לבדוק מחיר מול מתחרים', 'לחזק את הדף: תמונות, מפרט, זמינות מלאי, זמן משלוח', 'לוודא התאמה בין ההבטחה במודעה לדף', 'להוסיף סימני אמון (נציגות, אחריות, ביקורות)'] });
+  }
+
+  // מקרה 5: סל→תשלום
+  if ((atc || 0) >= 10 && ic != null && ic / atc < 0.3) {
+    f.push({ sev: 'warn', title: 'נטישה בין הסל להתחלת התשלום',
+      why: `${adInt(atc)} הוספות לסל אבל רק ${adInt(ic)} התחלות תשלום.`,
+      actions: ['לבדוק אם עלות המשלוח מפתיעה בסל', 'להסיר דרישת הרשמה לפני תשלום', 'לבדוק את הסל במובייל', 'לוודא כפתור מעבר לתשלום בולט'] });
+  }
+
+  // מקרה 7: דירוג איכות נמוך — לא אוטומטית "קריאייטיב חלש"
+  const qr = String(s.qualityRank || '');
+  if (/below|מתחת/i.test(qr)) {
+    f.push({ sev: 'opp', title: 'דירוג איכות מתחת לממוצע — לבדוק לפני שמאשימים את הקריאייטיב',
+      why: `דירוג: ${esc(qr)}.`,
+      actions: ['לבדוק תדירות (שחיקה) ומעורבות שלילית', 'לבדוק פער בין המודעה לדף הנחיתה', 'לבדוק אם התמונה עמוסה/"פרסומית" מדי', 'לבדוק רלוונטיות קהל'] });
+  }
+
+  // תדירות גבוהה — שחיקה
+  if ((d.frequency || 0) >= 3.5) {
+    f.push({ sev: (d.frequency >= 5 ? 'warn' : 'opp'), title: `תדירות גבוהה (${(Math.round(d.frequency * 10) / 10)}) — חשש לשחיקת קריאייטיב`,
+      why: 'אותם אנשים רואים את המודעה שוב ושוב.',
+      actions: ['להכין וריאציית קריאייטיב חדשה', 'להרחיב קהל או להחריג רוכשים', 'לשקול הפסקה יזומה של המודעה השחוקה'] });
+  }
+
+  // חיוביים
+  if ((d.roas || 0) >= 3) {
+    f.push({ sev: 'excellent', title: `ROAS ${(Math.round(d.roas * 10) / 10)} — ביצוע מצוין`,
+      why: `כל שקל מחזיר ${(Math.round(d.roas * 10) / 10)} ₪.`,
+      actions: ['מועמד להגדלת תקציב מדורגת (עד ‎20%+‎ בכל פעם, לא בבת אחת)', 'לא לגעת בקריאייטיב שעובד'] });
+  } else if ((pur || 0) > 0 && (d.roas || 0) >= 1.5) {
+    f.push({ sev: 'ok', title: `יש רכישות (ROAS ${(Math.round((d.roas || 0) * 10) / 10)})`, why: 'המשפך עובד; יש מקום לאופטימיזציה.', actions: ['לבחון את שלב המשפך החלש ביותר להעלאת ה-ROAS'] });
+  }
+  if ((d.ctrLink || 0) >= 2 && clicks >= 30) {
+    f.push({ sev: 'ok', title: `הקריאייטיב מייצר עניין — CTR קישור ${adPct(d.ctrLink)}`, why: 'מעל הממוצע לענף.', actions: [] });
+  }
+
+  if (!f.length) f.push({ sev: 'info', title: 'אין ממצאים חריגים', why: 'המדדים בטווח סביר; המשך מעקב.', actions: [] });
+  f.sort((a, b) => AD_SEV_ORDER.indexOf(a.sev) - AD_SEV_ORDER.indexOf(b.sev));
+  return f;
+}
+
+async function loadAdLab() {
+  try {
+    const d = await compApi('/ad-snapshots');
+    adSnaps = d.snapshots || [];
+    renderAdLab();
+  } catch (e) {
+    document.getElementById('adTable').innerHTML = '<div class="page-empty">שגיאה בטעינה: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderAdLab() {
+  const q = (adlabSearch || '').trim().toLowerCase();
+  const isActive = s => !s.status || /active|פעיל/i.test(String(s.status));
+  let items = adSnaps.filter(s =>
+    (adlabFilter === 'all' || (adlabFilter === 'active' ? isActive(s) : !isActive(s)))
+    && (!q || [s.adName, s.campaign, s.adset, s.product].some(v => String(v || '').toLowerCase().includes(q))));
+
+  // KPI מצטבר על המסונן
+  const sum = k => items.reduce((a, s) => a + (adNum(s[k]) || 0), 0);
+  const spend = sum('spend'), pur = sum('purchases'), val = sum('purchaseValue');
+  const impr = sum('impressions'), clicks = sum('linkClicks');
+  const kpis = [
+    ['הוצאה', adMoney(spend)], ['רכישות', adInt(pur)], ['שווי רכישות', adMoney(val)],
+    ['ROAS', spend > 0 && val > 0 ? (Math.round(val / spend * 100) / 100) : '—'],
+    ['עלות לרכישה', pur > 0 ? adMoney(spend / pur) : (spend > 0 ? '⚠️ אין רכישות' : '—')],
+    ['חשיפות', adInt(impr)], ['קליקים על קישור', adInt(clicks)],
+    ['CTR קישור', impr > 0 ? adPct(clicks / impr * 100) : '—'],
+    ['CPC קישור', clicks > 0 ? adMoney(spend / clicks) : '—'],
+    ['CPM', impr > 0 ? adMoney(spend / impr * 1000) : '—'],
+  ];
+  document.getElementById('adKpis').innerHTML = kpis.map(([l, v]) =>
+    `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-val" style="font-size:19px">${v}</div></div>`).join('');
+
+  // לשוניות
+  const nAct = adSnaps.filter(isActive).length;
+  document.getElementById('adTabs').innerHTML = [['all', 'הכול', adSnaps.length], ['active', 'פעילות', nAct], ['off', 'כבויות', adSnaps.length - nAct]]
+    .map(([fk, label, n]) => `<button class="cat-tab ${adlabFilter === fk ? 'active' : ''}" onclick="adlabFilter='${fk}';renderAdLab()">${label} <span class="cat-tab-n">${n}</span></button>`).join('');
+
+  if (!items.length) {
+    document.getElementById('adTable').innerHTML = '<div class="page-empty">אין נתוני מודעות עדיין. לחץ "📥 ייבוא CSV" או "➕ הזנה ידנית" כדי להתחיל.</div>';
+    return;
+  }
+
+  const rows = items.map(s => {
+    const d = adDerive(s);
+    const finds = adDiagnose(s);
+    const worst = finds[0];
+    const sev = AD_SEV[worst.sev];
+    const open = adExpanded.has(s.id);
+    const period = (s.periodStart || s.periodEnd) ? `${esc(s.periodStart || '?')} → ${esc(s.periodEnd || '?')}` : '—';
+    const main = `
+      <tr class="pt-row ${open ? 'pt-open' : ''}" onclick="adToggle('${s.id}')">
+        <td class="pt-name"><span class="pt-chev">${open ? '▾' : '▸'}</span> ${esc(s.adName || '—')}</td>
+        <td>${esc(s.campaign || '—')}</td>
+        <td class="muted-sm">${period}</td>
+        <td>${adMoney(d.spend)}</td>
+        <td>${adInt(d.impressions)}</td>
+        <td>${adPct(d.ctrLink)}</td>
+        <td>${d.purchases == null ? '—' : adInt(d.purchases)}</td>
+        <td>${d.roas != null ? Math.round(d.roas * 100) / 100 : '—'}</td>
+        <td style="white-space:nowrap;color:${sev.color}">${sev.icon} ${sev.label}</td>
+      </tr>`;
+    const detail = open ? `<tr class="pt-detail"><td colspan="9">${adDetailHtml(s, d, finds)}</td></tr>` : '';
+    return main + detail;
+  }).join('');
+
+  document.getElementById('adTable').innerHTML = `
+    <table class="price-table">
+      <thead><tr><th>מודעה</th><th>קמפיין</th><th>תקופה</th><th>הוצאה</th><th>חשיפות</th><th>CTR קישור</th><th>רכישות</th><th>ROAS</th><th>אבחון</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function adToggle(id) { adExpanded.has(id) ? adExpanded.delete(id) : adExpanded.add(id); renderAdLab(); }
+
+// משפך ההמרה + ממצאים — תוכן ההרחבה של שורה
+function adDetailHtml(s, d, finds) {
+  const stages = [
+    ['חשיפות', d.impressions], ['קליקים על קישור', d.linkClicks], ['צפיות דף נחיתה', d.lpViews],
+    ['View Content', d.viewContent], ['הוספות לסל', d.addToCart], ['התחלות תשלום', d.initCheckout], ['רכישות', d.purchases],
+  ].filter(([, v]) => v != null);
+
+  // איתור הצניחה הגדולה ביותר במשפך (לסימון אדום)
+  let worstDrop = -1, worstIdx = -1;
+  for (let i = 1; i < stages.length; i++) {
+    const prev = stages[i - 1][1], cur = stages[i][1];
+    if (prev > 0) { const drop = 1 - cur / prev; if (drop > worstDrop) { worstDrop = drop; worstIdx = i; } }
+  }
+  const funnel = stages.length >= 2 ? `<div class="cat-flow" style="margin-bottom:12px">` + stages.map(([label, v], i) => {
+    const prev = i > 0 ? stages[i - 1][1] : null;
+    const pct = (prev && prev > 0) ? Math.round(v / prev * 1000) / 10 : null;
+    const isWorst = i === worstIdx && worstDrop > 0.5;
+    return (i > 0 ? '<span class="cat-flow-arr">←</span>' : '')
+      + `<div class="cat-flow-card" style="${isWorst ? 'border:1px solid #f87171' : ''}">
+           <span class="cfl">${label}${pct != null ? ` · ${pct}%` : ''}</span><b>${adInt(v)}</b>
+         </div>`;
+  }).join('') + `</div>` : '<div class="muted-sm" style="margin-bottom:10px">אין מספיק שלבי משפך להצגה — הזן לפחות חשיפות וקליקים.</div>';
+
+  const findsHtml = finds.map((fd, i) => {
+    const sev = AD_SEV[fd.sev];
+    return `<div class="src-row" style="align-items:flex-start;border-right:3px solid ${sev.color}">
+      <div class="src-info" style="min-width:0">
+        <div class="src-name" style="color:${sev.color}">${sev.icon} ${esc(fd.title)}</div>
+        <div class="muted-sm" style="white-space:normal;margin-top:2px">${esc(fd.why)}</div>
+        ${fd.actions.length ? `<div class="muted-sm" style="white-space:normal;margin-top:5px;color:var(--text)">${fd.actions.map(a => '• ' + esc(a)).join('<br>')}</div>` : ''}
+      </div>
+      ${fd.actions.length ? `<button class="comp-btn" style="flex:none" onclick="event.stopPropagation();adFindingTask('${s.id}', ${i})">➕ משימה</button>` : ''}
+    </div>`;
+  }).join('');
+
+  const meta = [
+    s.adset ? 'קבוצה: ' + esc(s.adset) : '', s.product ? 'מוצר: ' + esc(s.product) : '',
+    s.status ? 'סטטוס: ' + esc(s.status) : '',
+    d.frequency != null ? 'תדירות: ' + Math.round(d.frequency * 10) / 10 : '',
+    d.cpm != null ? 'CPM: ' + adMoney(d.cpm) : '', d.cpcLink != null ? 'CPC קישור: ' + adMoney(d.cpcLink) : '',
+    d.costPerPurchase != null ? 'עלות לרכישה: ' + adMoney(d.costPerPurchase) : '',
+    s.qualityRank ? 'דירוג איכות: ' + esc(s.qualityRank) : '',
+  ].filter(Boolean).join(' · ');
+
+  return `<div class="cat-detail">
+    ${meta ? `<div class="muted-sm" style="margin-bottom:10px">${meta}</div>` : ''}
+    ${funnel}
+    <div class="src-list">${findsHtml}</div>
+    <div class="detail-head" style="margin-top:8px">
+      ${s.landingUrl ? `<a class="link-name" href="${esc(s.landingUrl)}" target="_blank" rel="noopener">🔗 דף הנחיתה</a>` : ''}
+      <span class="detail-spacer"></span>
+      <button class="comp-btn comp-btn-del" onclick="event.stopPropagation();adDeleteSnap('${s.id}')">🗑️ מחק רשומה</button>
+    </div>
+  </div>`;
+}
+
+async function adFindingTask(snapId, idx) {
+  const s = adSnaps.find(x => x.id === snapId);
+  if (!s) return;
+  const fd = adDiagnose(s)[idx];
+  if (!fd) return;
+  try {
+    const t = await compApi('/tasks', 'POST', {
+      title: fd.title + ' — ' + (s.adName || ''),
+      notes: `מקור: ניתוח מודעות Meta\nמודעה: "${s.adName || ''}" (קמפיין: ${s.campaign || '—'})\nממצא: ${fd.title}\nהסבר: ${fd.why}\nפעולות:\n${fd.actions.map(a => '- ' + a).join('\n')}`,
+      priority: fd.sev === 'critical' ? 'דחוף' : 'רגיל',
+      category: 'מודעות', adSnapshotId: snapId,
+    });
+    alert(`✅ נוצרה משימה #${t.taskNumber || ''}: ${fd.title}`);
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+async function adDeleteSnap(id) {
+  if (!confirm('למחוק את רשומת המודעה?')) return;
+  try {
+    await compApi('/ad-snapshots/' + id, 'DELETE');
+    adSnaps = adSnaps.filter(x => x.id !== id);
+    renderAdLab();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// ── ייבוא CSV + הזנה ידנית ──
+const AD_MANUAL_FIELDS = [
+  ['adName', 'שם המודעה *', '170px'], ['campaign', 'קמפיין', '140px'], ['adset', 'קבוצת מודעות', '130px'],
+  ['status', 'סטטוס', '90px'], ['product', 'מוצר', '130px'], ['landingUrl', 'דף נחיתה (קישור)', '190px'],
+  ['periodStart', 'מתאריך', '120px', 'date'], ['periodEnd', 'עד תאריך', '120px', 'date'],
+  ['spend', 'הוצאה ₪', '80px'], ['impressions', 'חשיפות', '90px'], ['reach', 'תפוצה', '90px'],
+  ['linkClicks', 'קליקים על קישור', '80px'], ['lpViews', 'צפיות דף נחיתה', '80px'], ['viewContent', 'View Content', '80px'],
+  ['addToCart', 'הוספות לסל', '80px'], ['initCheckout', 'התחלות תשלום', '80px'],
+  ['purchases', 'רכישות', '70px'], ['purchaseValue', 'שווי רכישות ₪', '90px'], ['qualityRank', 'דירוג איכות', '110px'],
+];
+
+function openAdImport(mode) {
+  document.getElementById('adImportModal').classList.remove('hidden');
+  document.getElementById('adImpCsv').classList.toggle('hidden', mode !== 'csv');
+  document.getElementById('adImpManual').classList.toggle('hidden', mode !== 'manual');
+  document.getElementById('adImpTitle').textContent = mode === 'csv' ? '📥 ייבוא נתוני מודעות (CSV)' : '➕ הזנת מודעה ידנית';
+  if (mode === 'manual' && !document.getElementById('adManualGrid').innerHTML) {
+    document.getElementById('adManualGrid').innerHTML = AD_MANUAL_FIELDS.map(([k, label, w, type]) =>
+      `<label>${label}<input class="cat-inp" id="adm_${k}" type="${type || 'text'}" style="width:${w}" /></label>`).join('');
+  }
+}
+function closeAdImport() { document.getElementById('adImportModal').classList.add('hidden'); document.getElementById('adCsvPreview').innerHTML = ''; }
+
+async function adManualSave() {
+  const item = {};
+  AD_MANUAL_FIELDS.forEach(([k]) => { const v = document.getElementById('adm_' + k).value.trim(); if (v) item[k] = v; });
+  if (!item.adName) { alert('חובה להזין שם מודעה'); return; }
+  try {
+    await compApi('/ad-snapshots', 'POST', item);
+    AD_MANUAL_FIELDS.forEach(([k]) => { document.getElementById('adm_' + k).value = ''; });
+    closeAdImport();
+    await loadAdLab();
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+// פריסת CSV עמידה (מרכאות, פסיקים בתוך ערכים, שורות מרובות, BOM)
+function adParseCsv(text) {
+  text = String(text || '').replace(/^﻿/, '');
+  const rows = []; let row = [], cell = '', inQ = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQ) {
+      if (c === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else inQ = false; }
+      else cell += c;
+    } else if (c === '"') inQ = true;
+    else if (c === ',') { row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some(v => v.trim() !== '')) rows.push(row);
+      row = [];
+    } else cell += c;
+  }
+  row.push(cell);
+  if (row.some(v => v.trim() !== '')) rows.push(row);
+  return rows;
+}
+
+// מיפוי עמודות עברית/אנגלית — הסדר קובע (ספציפי לפני כללי)
+const AD_COL_RULES = [
+  [/purchases? conversion value|conversion value|ערך המרות|שווי רכיש/i, 'purchaseValue'],
+  [/cost per purchase|עלות לרכישה/i, 'costPerPurchase'],
+  [/purchase roas|roas/i, 'roas'],
+  [/purchases|רכישות/i, 'purchases'],
+  [/checkouts? initiated|initiate checkout|התחלות תשלום|תשלום שהתחיל/i, 'initCheckout'],
+  [/adds? to cart|הוספות לעגל|הוספה לעגל|הוספות לסל/i, 'addToCart'],
+  [/view content|content views|צפיות בתוכן/i, 'viewContent'],
+  [/landing page views|צפיות בדף נחיתה/i, 'lpViews'],
+  [/unique link clicks|link clicks|קליקים על קישור|לחיצות על קישור/i, 'linkClicks'],
+  [/ctr.*link|link click-through|שיעור קליקים על קישור/i, 'ctrLink'],
+  [/ctr.*all|ctr \(all/i, 'ctrAll'],
+  [/cpc.*link|cost per link click|עלות לקליק על קישור/i, 'cpcLink'],
+  [/cpm|עלות ל-?1,?000/i, 'cpm'],
+  [/amount spent|סכום שהוצא|הוצאה/i, 'spend'],
+  [/impressions|חשיפות/i, 'impressions'],
+  [/reach|כיסוי|תפוצה/i, 'reach'],
+  [/frequency|תדירות/i, 'frequency'],
+  [/quality ranking|דירוג איכות/i, 'qualityRank'],
+  [/engagement rate ranking|דירוג שיעור מעורבות/i, 'engagementRank'],
+  [/conversion rate ranking|דירוג שיעור המרה/i, 'convRank'],
+  [/reporting starts|תחילת דיווח/i, 'periodStart'],
+  [/reporting ends|סיום דיווח/i, 'periodEnd'],
+  [/ad name|שם המודעה/i, 'adName'],
+  [/ad set name|שם קבוצת המודעות|שם סדרת המודעות/i, 'adset'],
+  [/campaign name|שם הקמפיין/i, 'campaign'],
+  [/delivery|status|סטטוס/i, 'status'],
+];
+const AD_FIELD_LABELS = {
+  adName: 'שם המודעה', campaign: 'קמפיין', adset: 'קבוצת מודעות', status: 'סטטוס',
+  spend: 'הוצאה', impressions: 'חשיפות', reach: 'תפוצה', frequency: 'תדירות', cpm: 'CPM',
+  linkClicks: 'קליקים על קישור', lpViews: 'צפיות דף נחיתה', ctrLink: 'CTR קישור', ctrAll: 'CTR כללי', cpcLink: 'CPC קישור',
+  viewContent: 'View Content', addToCart: 'הוספות לסל', initCheckout: 'התחלות תשלום',
+  purchases: 'רכישות', purchaseValue: 'שווי רכישות', roas: 'ROAS', costPerPurchase: 'עלות לרכישה',
+  qualityRank: 'דירוג איכות', engagementRank: 'דירוג מעורבות', convRank: 'דירוג המרה',
+  periodStart: 'מתאריך', periodEnd: 'עד תאריך',
+};
+let adCsvData = null;
+
+function adCsvFromFile(file) {
+  if (!file) return;
+  const r = new FileReader();
+  r.onload = () => { document.getElementById('adCsvText').value = r.result; adCsvParse(); };
+  r.readAsText(file, 'utf-8');
+}
+
+function adCsvParse() {
+  const rows = adParseCsv(document.getElementById('adCsvText').value);
+  if (rows.length < 2) { alert('לא זוהו נתונים — צריך שורת כותרות + לפחות שורת נתונים אחת.'); return; }
+  const headers = rows[0];
+  const mapping = headers.map(h => {
+    const hit = AD_COL_RULES.find(([re]) => re.test(String(h || '')));
+    return hit ? hit[1] : '';
+  });
+  adCsvData = { headers, rows: rows.slice(1), mapping };
+  const fieldOpts = sel => ['<option value="">— התעלם —</option>']
+    .concat(Object.entries(AD_FIELD_LABELS).map(([k, l]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${l}</option>`)).join('');
+  const preview = adCsvData.rows.slice(0, 5);
+  document.getElementById('adCsvPreview').innerHTML = `
+    <div class="muted-sm" style="margin-bottom:6px">זוהו ${adCsvData.rows.length} שורות · בדוק את מיפוי העמודות (אפשר לשנות):</div>
+    <div style="overflow-x:auto"><table class="price-table"><thead>
+      <tr>${headers.map((h, i) => `<th style="min-width:110px"><div class="muted-sm" style="font-weight:400">${esc(String(h).slice(0, 28))}</div><select class="cat-inp" style="width:100%" onchange="adCsvData.mapping[${i}]=this.value">${fieldOpts(mapping[i])}</select></th>`).join('')}</tr>
+    </thead><tbody>
+      ${preview.map(r => `<tr class="pt-row" style="cursor:default">${headers.map((_, i) => `<td class="muted-sm">${esc(String(r[i] ?? '').slice(0, 24))}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div>
+    <div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <button class="comp-btn" onclick="adCsvApply()">✅ ייבא ${adCsvData.rows.length} שורות</button>
+      <span class="muted-sm">שורות ללא "שם המודעה" ידולגו.</span>
+    </div>`;
+}
+
+async function adCsvApply() {
+  if (!adCsvData) return;
+  const { rows, mapping } = adCsvData;
+  const items = rows.map(r => {
+    const item = {};
+    mapping.forEach((field, i) => { if (field && r[i] !== undefined && String(r[i]).trim() !== '') item[field] = String(r[i]).trim(); });
+    return item;
+  }).filter(it => it.adName);
+  if (!items.length) { alert('אף שורה לא כוללת שם מודעה — בדוק את המיפוי.'); return; }
+  try {
+    const d = await compApi('/ad-snapshots', 'POST', { items });
+    alert(`✅ יובאו ${d.created} שורות.`);
+    closeAdImport();
+    document.getElementById('adCsvText').value = '';
+    await loadAdLab();
   } catch (e) { alert('שגיאה: ' + e.message); }
 }
 
