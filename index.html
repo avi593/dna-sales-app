@@ -4407,7 +4407,7 @@ async function adRunReview(snapId) {
   const btn = document.getElementById('adReviewBtn_' + snapId);
   const ta = document.getElementById('adMetaRec_' + snapId);
   const metaRec = ta ? ta.value.trim() : '';
-  if (btn) { btn.disabled = true; btn.textContent = '🧠 חושבת... (עד כ-20 שניות, שתי קריאות AI)'; }
+  if (btn) { btn.disabled = true; btn.textContent = '🧠 חושבת... (כ-30-40 שניות, שתי קריאות AI עוקבות)'; }
   try {
     const s = adSnaps.find(x => x.id === snapId);
     const finds = adDiagnose(s).map(f => ({ sev: f.sev, title: f.title, why: f.why }));
