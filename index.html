@@ -4323,6 +4323,10 @@ function adDetailHtml(s, d, finds) {
       <div class="cat-sec-h"><span class="cat-sec-ic">🧠</span> צוות ביקורת AI</div>
       ${adReviewSectionHtml(s, finds)}
     </div>
+    <div class="cat-sec" style="margin-top:10px" onclick="event.stopPropagation()">
+      <div class="cat-sec-h"><span class="cat-sec-ic">🎨</span> קריאייטיב, קופי ודף נחיתה</div>
+      ${adCreativeSectionHtml(s)}
+    </div>
     <div class="detail-head" style="margin-top:8px">
       ${s.landingUrl ? `<a class="link-name" href="${esc(s.landingUrl)}" target="_blank" rel="noopener">🔗 דף הנחיתה</a>` : ''}
       <span class="detail-spacer"></span>
@@ -4417,6 +4421,122 @@ async function adRunReview(snapId) {
   } catch (e) {
     alert('שגיאה: ' + e.message);
     if (btn) { btn.disabled = false; btn.textContent = '🧠 הרץ סקירת AI (מנוע חוקים + Gemini)'; }
+  }
+}
+
+// ── AD LAB Phase C: קריאייטיב, קופי ודף נחיתה — צ'ק-ליסטים + הצעות ──
+let adCreativeReviews = {};  // snapshotId → תוצאת הניתוח
+let adCreativeImgs = {};     // snapshotId → { base64, mime } (עד שנשמר בשרת)
+
+function adChip(ok, label) {
+  return `<span class="crm-badge" style="border-color:${ok ? 'var(--green)' : 'var(--border)'};color:${ok ? 'var(--green)' : 'var(--muted)'}">${ok ? '✅' : '⬜'} ${esc(label)}</span>`;
+}
+
+function adCreativeSectionHtml(s) {
+  const rev = adCreativeReviews[s.id];
+  const img = adCreativeImgs[s.id];
+  const formHtml = `
+    <div class="cat-edit-grid">
+      <label>כותרת<input class="cat-inp" style="width:170px" value="${esc(s.headline || '')}" onchange="adUpdateSnapField('${s.id}','headline',this.value)" /></label>
+      <label>טקסט ראשי<input class="cat-inp" style="width:220px" value="${esc(s.primaryText || '')}" onchange="adUpdateSnapField('${s.id}','primaryText',this.value)" /></label>
+      <label>תיאור<input class="cat-inp" style="width:170px" value="${esc(s.description || '')}" onchange="adUpdateSnapField('${s.id}','description',this.value)" /></label>
+      <label>CTA<input class="cat-inp" style="width:110px" value="${esc(s.cta || '')}" onchange="adUpdateSnapField('${s.id}','cta',this.value)" /></label>
+      <label>תמונת קריאייטיב<input type="file" accept="image/*" onchange="adCreativeImgUpload('${s.id}',this)" style="font-size:11px" /></label>
+    </div>
+    ${img ? `<div class="muted-sm" style="margin:6px 0">🖼️ תמונה נטענה (${img.mime})</div>` : ''}
+    ${s.landingUrl ? '' : '<div class="muted-sm" style="margin:6px 0">💡 אין דף נחיתה למודעה זו — בדיקת הדף תדולג.</div>'}
+    <button class="comp-btn" id="adCreBtn_${s.id}" onclick="adRunCreativeReview('${s.id}')" style="margin-top:6px">🎨 הרץ ניתוח (כ-20-30 שניות)</button>`;
+
+  if (!rev) return formHtml;
+
+  const c = rev.creative || {}, cp = rev.copy || {}, lp = rev.landingPage || {};
+  const li = arr => (arr && arr.length) ? '<ul style="margin:4px 0 0 0;padding-right:18px">' + arr.map(x => `<li>${esc(x)}</li>`).join('') + '</ul>' : '<span class="price-neutral">—</span>';
+  const chips = (obj, map) => Object.entries(map).map(([k, label]) => adChip(!!obj[k], label)).join(' ');
+
+  const creativeChips = chips(c, {
+    clearIn2Seconds: 'מסר ברור ב-2 שנ׳', productClear: 'מוצר ברור', headlineClear: 'כותרת ברורה',
+    textOverload: 'עומס טקסט (בעיה אם מסומן)', hasCTA: 'יש CTA', priceShown: 'מחיר מוצג',
+    trustProof: 'הוכחת אמינות', brandingClear: 'מיתוג ברור', feedFit: 'מתאים לפיד',
+    professionalLook: 'נראה מקצועי', realProduct: 'מוצר אמיתי', solvesCustomerProblem: 'פותר בעיה',
+    fitsProfessionalAudience: 'מתאים לקהל מקצועי',
+  });
+  const copyChips = chips(cp, {
+    hasOpeningHook: 'פתיח מושך', statesProblem: 'מציג בעיה', statesSolution: 'מציג פתרון',
+    listsBenefits: 'יתרונות', hasTechnicalSpecs: 'מפרט טכני', hasTrustSignals: 'סימני אמון',
+    hasWarranty: 'אחריות', mentionsStock: 'זמינות מלאי', mentionsPrice: 'מחיר', hasUrgency: 'דחיפות',
+    hasCTA: 'CTA', fitsB2B: 'מתאים B2B', fitsB2C: 'מתאים B2C',
+  });
+  const lpChips = lp.checked ? chips(lp, {
+    mobileFriendlyGuess: 'ידידותי מובייל', headlineMatchesAd: 'כותרת תואמת למודעה', hasProductImage: 'תמונת מוצר',
+    priceShown: 'מחיר מוצג', priceIncludesVat: 'כולל מע״מ', stockAvailability: 'זמינות מלאי',
+    deliveryTimeShown: 'זמן משלוח', warrantyShown: 'אחריות', importerInfoShown: 'פרטי יבואן/נציגות',
+    keyBenefitsShown: 'יתרונות מרכזיים', techSpecsShown: 'מפרט טכני', hasReviews: 'ביקורות', hasFAQ: 'שאלות ותשובות',
+    addToCartButton: 'כפתור הוספה לסל', buyButton: 'כפתור רכישה', paymentMethodsShown: 'אמצעי תשלום',
+    shippingPolicyShown: 'מדיניות משלוחים', returnPolicyShown: 'מדיניות החזרות', paymentSecurityShown: 'אבטחת תשלום',
+    contactOptionShown: 'אפשרות יצירת קשר', whatsappOrPhoneShown: 'WhatsApp/טלפון',
+  }) : '';
+
+  return formHtml + `
+    <div style="margin-top:14px;font-size:13px;line-height:1.8">
+      ${rev.overallSummary ? `<div style="margin-bottom:10px"><b>🎯 סיכום כללי:</b> ${esc(rev.overallSummary)}</div>` : ''}
+
+      <div style="margin-bottom:6px"><b>🖼️ קריאייטיב</b></div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">${creativeChips}</div>
+      ${c.notes ? `<div class="muted-sm" style="margin-bottom:6px">${esc(c.notes)}</div>` : ''}
+      <div style="margin-bottom:12px"><b>זוויות קריאייטיב מוצעות:</b> ${li(c.suggestedAngles)}</div>
+
+      <div style="margin-bottom:6px"><b>✍️ קופי</b></div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">${copyChips}</div>
+      ${cp.notes ? `<div class="muted-sm" style="margin-bottom:6px">${esc(cp.notes)}</div>` : ''}
+      <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">
+        ${cp.shortVersion ? `<div class="src-row"><div class="src-info"><div class="src-name">קצרה</div><div class="muted-sm" style="white-space:normal">${esc(cp.shortVersion)}</div></div></div>` : ''}
+        ${cp.mediumVersion ? `<div class="src-row"><div class="src-info"><div class="src-name">בינונית</div><div class="muted-sm" style="white-space:normal">${esc(cp.mediumVersion)}</div></div></div>` : ''}
+        ${cp.longVersion ? `<div class="src-row"><div class="src-info"><div class="src-name">ארוכה</div><div class="muted-sm" style="white-space:normal">${esc(cp.longVersion)}</div></div></div>` : ''}
+      </div>
+
+      <div style="margin-bottom:6px"><b>🌐 דף נחיתה</b></div>
+      ${lp.checked ? `
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">${lpChips}</div>
+        ${lp.issues && lp.issues.length ? `<div style="margin-bottom:6px"><b>בעיות שזוהו:</b> ${li(lp.issues)}</div>` : ''}
+        ${lp.summary ? `<div class="muted-sm">${esc(lp.summary)}</div>` : ''}
+      ` : `<div class="muted-sm">${esc(lp.summary || 'לא נבדק (אין דף נחיתה או שהשליפה נכשלה).')}</div>`}
+    </div>
+    <button class="comp-btn" style="margin-top:10px" onclick="delete adCreativeReviews['${s.id}']; renderAdLab()">🔄 הרץ ניתוח מחדש</button>`;
+}
+
+async function adUpdateSnapField(snapId, field, value) {
+  try {
+    await compApi('/ad-snapshots/' + snapId, 'PUT', { [field]: value });
+    const s = adSnaps.find(x => x.id === snapId);
+    if (s) s[field] = value;
+  } catch (e) { alert('שגיאה: ' + e.message); }
+}
+
+function adCreativeImgUpload(snapId, input) {
+  const file = input.files && input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const m = String(reader.result).match(/^data:([^;]+);base64,(.+)$/);
+    if (m) { adCreativeImgs[snapId] = { base64: m[2], mime: m[1] }; renderAdLab(); }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function adRunCreativeReview(snapId) {
+  const btn = document.getElementById('adCreBtn_' + snapId);
+  if (btn) { btn.disabled = true; btn.textContent = '🎨 מנתחת... (כ-20-30 שניות)'; }
+  try {
+    const s = adSnaps.find(x => x.id === snapId);
+    const img = adCreativeImgs[snapId];
+    const body = { snapshotId: snapId, primaryText: s.primaryText, headline: s.headline, description: s.description, cta: s.cta };
+    if (img) { body.creativeImageBase64 = img.base64; body.creativeImageMime = img.mime; }
+    const d = await compApi('/ad-creative-review', 'POST', body);
+    adCreativeReviews[snapId] = d;
+    renderAdLab();
+  } catch (e) {
+    alert('שגיאה: ' + e.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🎨 הרץ ניתוח (כ-20-30 שניות)'; }
   }
 }
 

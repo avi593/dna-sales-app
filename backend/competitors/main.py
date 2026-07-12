@@ -69,6 +69,7 @@ AD_SNAPSHOT_FIELDS = {
     "linkClicks", "lpViews", "ctrLink", "ctrAll", "cpcLink",
     "viewContent", "addToCart", "initCheckout", "purchases", "purchaseValue",
     "roas", "costPerPurchase", "qualityRank", "engagementRank", "convRank", "notes",
+    "primaryText", "headline", "description", "cta",
 }
 DOCUMENT_FIELDS = {"customerId", "name", "type", "data"}
 PAGE_FIELDS = {
@@ -857,20 +858,24 @@ ASSISTANT_SYS = """את/ה "העוזרת שלי" — עוזרת AI אישית ל
 - אל תחזירי שום טקסט מחוץ ל-JSON."""
 
 
-def _call_gemini_structured(prompt, schema):
-    """קריאת Gemini בצד-שרת עם פלט JSON מובנה. מפתח נשמר ב-Firestore config (geminiKey) — לא נחשף ללקוח."""
+def _call_gemini_structured(prompt, schema, image_b64=None, image_mime=None):
+    """קריאת Gemini בצד-שרת עם פלט JSON מובנה. מפתח נשמר ב-Firestore config (geminiKey) — לא נחשף ללקוח.
+    image_b64/image_mime אופציונליים — ניתוח מולטימודאלי (למשל תמונת קריאייטיב)."""
     key = _get_config("geminiKey")
     if not key:
         return None, "לא הוגדר מפתח Gemini (יש להגדיר דרך ⚙️ הגדרות בעוזרת שלי)"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={key}"
+    parts = [{"text": prompt}]
+    if image_b64:
+        parts.insert(0, {"inline_data": {"mime_type": image_mime or "image/jpeg", "data": image_b64}})
     body = {
-        "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+        "contents": [{"role": "user", "parts": parts}],
         "generationConfig": {"temperature": 0, "responseMimeType": "application/json", "responseSchema": schema},
     }
     last_err = None
     for attempt in range(1, 4):
         try:
-            r = requests.post(url, json=body, timeout=30)
+            r = requests.post(url, json=body, timeout=(45 if image_b64 else 30))
             d = r.json()
             if r.status_code == 200:
                 text = d["candidates"][0]["content"]["parts"][0]["text"]
@@ -1396,6 +1401,138 @@ def ad_ai_review(data):
         "createdAt": firestore.SERVER_TIMESTAMP,
     })
     return _json({"geminiOpinion": gem, "decision": decision})
+
+
+# ── AD LAB Phase C: צ'ק-ליסטים לקריאייטיב, קופי ודף נחיתה ──
+
+def _fetch_page_text(url, limit=6000):
+    """שולף טקסט גלוי מדף נחיתה (לניתוח AI) — לא סורק שדות ספציפיים, משאיר את ה-AI לקרוא ולהעריך."""
+    try:
+        r = requests.get(url, headers=SCAN_HEADERS, timeout=20)
+        if not r.encoding or r.encoding.lower() in ("iso-8859-1", "ascii"):
+            r.encoding = r.apparent_encoding or "utf-8"
+        soup = BeautifulSoup(r.text, "html.parser")
+        for tag in soup(["script", "style", "noscript"]):
+            tag.decompose()
+        text = re.sub(r"\n{3,}", "\n\n", soup.get_text("\n", strip=True))
+        return text[:limit], None
+    except Exception as e:
+        return None, str(e)
+
+
+AD_CREATIVE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "creative": {
+            "type": "object",
+            "properties": {
+                "clearIn2Seconds": {"type": "boolean"}, "productClear": {"type": "boolean"},
+                "headlineClear": {"type": "boolean"}, "textOverload": {"type": "boolean"},
+                "hasCTA": {"type": "boolean"}, "priceShown": {"type": "boolean"},
+                "trustProof": {"type": "boolean"}, "brandingClear": {"type": "boolean"},
+                "feedFit": {"type": "boolean"}, "professionalLook": {"type": "boolean"},
+                "realProduct": {"type": "boolean"}, "solvesCustomerProblem": {"type": "boolean"},
+                "fitsProfessionalAudience": {"type": "boolean"},
+                "notes": {"type": "string"}, "suggestedAngles": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "copy": {
+            "type": "object",
+            "properties": {
+                "hasOpeningHook": {"type": "boolean"}, "statesProblem": {"type": "boolean"},
+                "statesSolution": {"type": "boolean"}, "listsBenefits": {"type": "boolean"},
+                "hasTechnicalSpecs": {"type": "boolean"}, "hasTrustSignals": {"type": "boolean"},
+                "hasWarranty": {"type": "boolean"}, "mentionsStock": {"type": "boolean"},
+                "mentionsPrice": {"type": "boolean"}, "hasUrgency": {"type": "boolean"},
+                "hasCTA": {"type": "boolean"}, "fitsB2B": {"type": "boolean"}, "fitsB2C": {"type": "boolean"},
+                "notes": {"type": "string"},
+                "shortVersion": {"type": "string"}, "mediumVersion": {"type": "string"}, "longVersion": {"type": "string"},
+            },
+        },
+        "landingPage": {
+            "type": "object",
+            "properties": {
+                "checked": {"type": "boolean"}, "mobileFriendlyGuess": {"type": "boolean"},
+                "headlineMatchesAd": {"type": "boolean"}, "hasProductImage": {"type": "boolean"},
+                "priceShown": {"type": "boolean"}, "priceIncludesVat": {"type": "boolean"},
+                "stockAvailability": {"type": "boolean"}, "deliveryTimeShown": {"type": "boolean"},
+                "warrantyShown": {"type": "boolean"}, "importerInfoShown": {"type": "boolean"},
+                "keyBenefitsShown": {"type": "boolean"}, "techSpecsShown": {"type": "boolean"},
+                "hasReviews": {"type": "boolean"}, "hasFAQ": {"type": "boolean"},
+                "addToCartButton": {"type": "boolean"}, "buyButton": {"type": "boolean"},
+                "paymentMethodsShown": {"type": "boolean"}, "shippingPolicyShown": {"type": "boolean"},
+                "returnPolicyShown": {"type": "boolean"}, "paymentSecurityShown": {"type": "boolean"},
+                "contactOptionShown": {"type": "boolean"}, "whatsappOrPhoneShown": {"type": "boolean"},
+                "issues": {"type": "array", "items": {"type": "string"}}, "summary": {"type": "string"},
+            },
+        },
+        "overallSummary": {"type": "string"},
+    },
+}
+
+AD_CREATIVE_SYS = """אתה מומחה קריאייטיב ו-CRO (אופטימיזציית המרות) לפרסום ממומן ב-Meta, עבור אתר B2B לציוד אינסטלציה מקצועי בישראל (איתור נזילות, צילום תרמי, מצלמות ביוב, כלי עבודה).
+
+תפקידך: להעריך בכנות שלושה דברים נפרדים — קריאייטיב, קופי (טקסט המודעה), ודף הנחיתה — לפי צ'ק-ליסט מדויק, ולהציע שיפורים קונקרטיים.
+
+כללים:
+- כל שדה בוליאני (true/false) חייב להתבסס רק על מה שבאמת רואים/קוראים בנתונים שסופקו. אם לא ברור או שאין מספיק מידע להעריך פריט מסוים — סמן false ואל תמציא.
+- אם לא סופקה תמונת קריאייטיב כלל — השאר את כל שדות creative כ-false, ורק ב-notes כתוב "לא סופקה תמונת קריאייטיב לניתוח".
+- אם לא סופק טקסט קופי כלל — השאר את שדות copy כ-false, וב-notes ציין זאת. עדיין נסה להציע shortVersion/mediumVersion/longVersion מבוססי המוצר אם יש מספיק הקשר (שם המודעה/מוצר).
+- אם לא סופק טקסט מדף נחיתה — landingPage.checked=false, השאר שאר שדות landingPage כ-false, summary יסביר שלא בוצעה בדיקה.
+- suggestedAngles: הצע 3-4 זוויות קריאייטיב חדשות הכי רלוונטיות למוצר הזה, מתוך: בעיה-ופתרון, מחיר, מוצר, השוואה, הדגמה, וידאו קצר, לקוח מקצועי, יתרון טכני, לפני-ואחרי, מבצע, אמינות-ואחריות. כל הצעה: משפט אחד עם שם הזווית + למה היא מתאימה כאן.
+- copy.shortVersion/mediumVersion/longVersion: שלוש גרסאות קופי חדשות ומוכנות לשימוש (לא הערכה של הקיים) — קצרה (~15 מילים), בינונית (~40 מילים), ארוכה (~80 מילים) — מותאמות לקהל מקצועי B2B, כוללות CTA.
+- landingPage.issues: רשימת בעיות קונקרטיות שזיהית בדף (ריקה אם אין).
+- כתוב הכול בעברית, ענייני וישיר."""
+
+
+def ad_creative_review(data):
+    data = data or {}
+    snap_id = (data.get("snapshotId") or "").strip()
+    if not snap_id:
+        return _json({"error": "חסר snapshotId"}, 400)
+    doc = db.collection("adSnapshots").document(snap_id).get()
+    if not doc.exists:
+        return _json({"error": "מודעה לא נמצאה"}, 404)
+    snap = _doc_to_dict(doc)
+
+    primary_text = (data.get("primaryText") or snap.get("primaryText") or "").strip()
+    headline = (data.get("headline") or snap.get("headline") or "").strip()
+    description = (data.get("description") or snap.get("description") or "").strip()
+    cta = (data.get("cta") or snap.get("cta") or "").strip()
+    image_b64 = (data.get("creativeImageBase64") or "").strip()
+    image_mime = (data.get("creativeImageMime") or "image/jpeg").strip()
+    if "," in image_b64:  # data URL מלא — לוקחים רק את חלק ה-base64
+        image_b64 = image_b64.split(",", 1)[1]
+
+    landing_url = (snap.get("landingUrl") or "").strip()
+    page_text, page_err = (None, None)
+    if landing_url:
+        page_text, page_err = _fetch_page_text(landing_url)
+
+    ctx = [f"שם המודעה: {snap.get('adName', '')}", f"מוצר: {snap.get('product', '')}",
+           f"קמפיין: {snap.get('campaign', '')}"]
+    ctx.append("טקסט ראשי של המודעה: " + (primary_text or "(לא סופק)"))
+    ctx.append("כותרת: " + (headline or "(לא סופקה)"))
+    ctx.append("תיאור: " + (description or "(לא סופק)"))
+    ctx.append("קריאה לפעולה (CTA): " + (cta or "(לא סופק)"))
+    if landing_url:
+        ctx.append("כתובת דף הנחיתה: " + landing_url)
+        ctx.append("טקסט דף הנחיתה (חולץ אוטומטית):\n" + (page_text or f"(שליפה נכשלה: {page_err})"))
+    else:
+        ctx.append("לא סופקה כתובת דף נחיתה למודעה זו.")
+    ctx.append("תמונת קריאייטיב: " + ("סופקה — ראה תמונה מצורפת" if image_b64 else "לא סופקה"))
+
+    prompt = AD_CREATIVE_SYS + "\n\n" + "\n".join(ctx)
+    result, err = _call_gemini_structured(prompt, AD_CREATIVE_SCHEMA,
+                                          image_b64=(image_b64 or None), image_mime=image_mime)
+    if err or not result:
+        return _json({"error": err or "שגיאת Gemini"}, 502)
+
+    db.collection("adCreativeReviews").document().set({
+        "snapshotId": snap_id, "hasImage": bool(image_b64), "hasLandingPage": bool(landing_url),
+        "result": result, "createdAt": firestore.SERVER_TIMESTAMP,
+    })
+    return _json(result)
 
 
 def list_posts():
@@ -2459,6 +2596,10 @@ def competitors_api(request):
         elif resource == "ad-ai-review":
             if method == "POST":
                 return ad_ai_review(data)
+
+        elif resource == "ad-creative-review":
+            if method == "POST":
+                return ad_creative_review(data)
 
         elif resource == "posts":
             if method == "GET":
