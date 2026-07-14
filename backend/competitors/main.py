@@ -1256,6 +1256,29 @@ def ads_sync(data):
                   "adsInAccount": len(status_map) or None})
 
 
+def ads_campaigns_list():
+    """רשימת כל הקמפיינים בחשבון המודעות (שם, סטטוס, יעד, תקציב, תאריך יצירה) — קריאה בלבד."""
+    acct = (_get_config("adAccountId") or "").strip()
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not acct:
+        return _json({"error": "לא הוגדר מזהה חשבון מודעות"}, 400)
+    if not token:
+        return _json({"error": "לא הוגדר טוקן מודעות (ads_read)"}, 400)
+    acct = acct if acct.startswith("act_") else "act_" + acct
+    try:
+        r = requests.get(
+            f"https://graph.facebook.com/v21.0/{acct}/campaigns",
+            params={"fields": "name,status,effective_status,objective,daily_budget,lifetime_budget,"
+                              "created_time,updated_time,start_time,stop_time",
+                    "limit": 100, "access_token": token}, timeout=30)
+        j = r.json()
+        if "error" in j:
+            return _json({"error": j["error"].get("message", "שגיאת Meta"), "raw": j["error"]}, 502)
+        return _json({"campaigns": j.get("data", [])})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def list_ad_snapshots():
     docs = db.collection("adSnapshots").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).limit(500).stream()
@@ -2592,6 +2615,10 @@ def competitors_api(request):
         elif resource == "ads-sync":
             if method == "POST":
                 return ads_sync(data)
+
+        elif resource == "ads-campaigns":
+            if method == "GET":
+                return ads_campaigns_list()
 
         elif resource == "ad-ai-review":
             if method == "POST":
