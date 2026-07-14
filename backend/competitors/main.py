@@ -1279,6 +1279,74 @@ def ads_campaigns_list():
         return _json({"error": str(e)}, 500)
 
 
+def ads_campaigns_performance():
+    """ביצועים מצטברים לכל קמפיין מאז תאריך היצירה שלו (לא רק חלון קבוע) — כדי לזהות בזבוז/בעיית מעקב."""
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not token:
+        return _json({"error": "לא הוגדר טוקן מודעות (ads_read)"}, 400)
+    listed = ads_campaigns_list()
+    body = listed[0] if isinstance(listed, tuple) else listed
+    if isinstance(body, dict) and body.get("error"):
+        return listed
+    campaigns = body.get("campaigns", [])
+    out = []
+    from datetime import date
+    today = date.today().isoformat()
+    for c in campaigns:
+        since = (c.get("created_time") or "")[:10] or "2026-01-01"
+        try:
+            r = requests.get(
+                f"https://graph.facebook.com/v21.0/{c['id']}/insights",
+                params={"fields": "spend,impressions,inline_link_clicks,actions,action_values,purchase_roas",
+                        "time_range": _jsonlib.dumps({"since": since, "until": today}),
+                        "access_token": token}, timeout=30)
+            j = r.json()
+            row = (j.get("data") or [{}])[0] if not j.get("error") else {}
+        except Exception:
+            row = {}
+        acts, vals = row.get("actions"), row.get("action_values")
+        roas = None
+        arr = row.get("purchase_roas")
+        if arr:
+            try:
+                roas = float(arr[0].get("value"))
+            except Exception:
+                pass
+        out.append({
+            "id": c["id"], "name": c.get("name"), "status": c.get("effective_status"),
+            "objective": c.get("objective"), "since": since, "until": today,
+            "spend": row.get("spend"), "impressions": row.get("impressions"),
+            "linkClicks": row.get("inline_link_clicks"),
+            "purchases": _act_val(acts, "omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"),
+            "purchaseValue": _act_val(vals, "omni_purchase", "purchase", "offsite_conversion.fb_pixel_purchase"),
+            "roas": roas,
+        })
+    return _json({"campaigns": out})
+
+
+def ads_audiences_list():
+    """קהלים מותאמים אישית (Custom Audiences) — לבדוק אם קהל 'מבקרי אתר' מבוסס-Pixel מאוכלס."""
+    acct = (_get_config("adAccountId") or "").strip()
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not acct:
+        return _json({"error": "לא הוגדר מזהה חשבון מודעות"}, 400)
+    if not token:
+        return _json({"error": "לא הוגדר טוקן מודעות (ads_read)"}, 400)
+    acct = acct if acct.startswith("act_") else "act_" + acct
+    try:
+        r = requests.get(
+            f"https://graph.facebook.com/v21.0/{acct}/customaudiences",
+            params={"fields": "name,subtype,approximate_count_lower_bound,approximate_count_upper_bound,"
+                              "data_source,time_created,delivery_status",
+                    "limit": 50, "access_token": token}, timeout=30)
+        j = r.json()
+        if "error" in j:
+            return _json({"error": j["error"].get("message", "שגיאת Meta"), "raw": j["error"]}, 502)
+        return _json({"audiences": j.get("data", [])})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def list_ad_snapshots():
     docs = db.collection("adSnapshots").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).limit(500).stream()
@@ -2619,6 +2687,14 @@ def competitors_api(request):
         elif resource == "ads-campaigns":
             if method == "GET":
                 return ads_campaigns_list()
+
+        elif resource == "ads-campaigns-performance":
+            if method == "GET":
+                return ads_campaigns_performance()
+
+        elif resource == "ads-audiences":
+            if method == "GET":
+                return ads_audiences_list()
 
         elif resource == "ad-ai-review":
             if method == "POST":
