@@ -1632,6 +1632,25 @@ def list_posts():
     return _json({"posts": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
 
 
+def fb_scheduled_posts():
+    """רשימת הפוסטים המתוזמנים בדף — ישירות מפייסבוק (כולל תזמונים ידניים מ-Business Suite)."""
+    token = _get_config("fbPageToken")
+    page = _get_config("fbPageId")
+    if not token or not page:
+        return _json({"error": "לא הוגדרו Page Token + Page ID של פייסבוק"}, 400)
+    token = _resolve_page_token(token, page)
+    try:
+        r = requests.get(f"https://graph.facebook.com/v21.0/{page}/scheduled_posts",
+                         params={"fields": "id,message,scheduled_publish_time,created_time,attachments{media_type}",
+                                 "access_token": token, "limit": 50}, timeout=30)
+        d = r.json()
+        if "error" in d:
+            return _json({"error": d["error"].get("message", "שגיאת פייסבוק"), "raw": d["error"]}, 502)
+        return _json({"scheduled": d.get("data", [])})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def refresh_posts(data):
     """מושך מהפייסבוק מדדי מעורבות (לייקים/תגובות/שיתופים/ריאקציות) לכל פוסט שמור."""
     token = _resolve_page_token(_get_config("fbPageToken"), _get_config("fbPageId"))
@@ -2709,6 +2728,10 @@ def competitors_api(request):
                 return list_posts()
             if method == "POST" and item_id == "refresh":
                 return refresh_posts(data)
+
+        elif resource == "fb-scheduled":
+            if method == "GET":
+                return fb_scheduled_posts()
 
         elif resource == "ad-insights":
             if method == "POST":
