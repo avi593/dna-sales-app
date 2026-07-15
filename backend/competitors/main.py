@@ -1347,6 +1347,49 @@ def ads_audiences_list():
         return _json({"error": str(e)}, 500)
 
 
+def ads_pixel_stats():
+    """אימות פיקסל: אילו פיקסלים בחשבון, מתי ירו לאחרונה, ואילו אירועים נורו בשבוע האחרון (לפי סוג)."""
+    import time as _time
+    acct = (_get_config("adAccountId") or "").strip()
+    token = (_get_config("adsToken") or _get_config("fbPageToken") or "").strip()
+    if not acct:
+        return _json({"error": "לא הוגדר מזהה חשבון מודעות"}, 400)
+    if not token:
+        return _json({"error": "לא הוגדר טוקן מודעות (ads_read)"}, 400)
+    acct = acct if acct.startswith("act_") else "act_" + acct
+    try:
+        r = requests.get(f"https://graph.facebook.com/v21.0/{acct}/adspixels",
+                         params={"fields": "id,name,last_fired_time,creation_time",
+                                 "limit": 25, "access_token": token}, timeout=30)
+        j = r.json()
+        if "error" in j:
+            return _json({"error": j["error"].get("message", "שגיאת Meta"), "raw": j["error"]}, 502)
+        since = int(_time.time()) - 7 * 86400
+        pixels = []
+        for p in j.get("data", []):
+            events, stats_error = {}, None
+            try:
+                rs = requests.get(f"https://graph.facebook.com/v21.0/{p['id']}/stats",
+                                  params={"aggregation": "event", "start_time": since,
+                                          "access_token": token}, timeout=30)
+                sj = rs.json()
+                if "error" in sj:
+                    stats_error = sj["error"].get("message")
+                for bucket in (sj.get("data") or []):
+                    for row in (bucket.get("data") or []):
+                        ev = row.get("value") or "?"
+                        events[ev] = events.get(ev, 0) + int(row.get("count") or 0)
+            except Exception as e:
+                stats_error = str(e)
+            pixels.append({"id": p.get("id"), "name": p.get("name"),
+                           "lastFired": p.get("last_fired_time"),
+                           "created": p.get("creation_time"),
+                           "eventsLast7d": events, "statsError": stats_error})
+        return _json({"pixels": pixels})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def list_ad_snapshots():
     docs = db.collection("adSnapshots").order_by(
         "createdAt", direction=firestore.Query.DESCENDING).limit(500).stream()
@@ -2714,6 +2757,10 @@ def competitors_api(request):
         elif resource == "ads-audiences":
             if method == "GET":
                 return ads_audiences_list()
+
+        elif resource == "ads-pixel-stats":
+            if method == "GET":
+                return ads_pixel_stats()
 
         elif resource == "ad-ai-review":
             if method == "POST":
