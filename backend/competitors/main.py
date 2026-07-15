@@ -1910,6 +1910,38 @@ def wc_find(args):
         return _json({"error": str(e)}, 500)
 
 
+def wc_products(args):
+    """רשימת מוצרים מ-WooCommerce עם סטטוס מלאי — לבחירת מוצרים לפוסטים (ברירת מחדל: במלאי, לפי פופולריות)."""
+    base = (_get_config("wcApiBase") or "").rstrip("/")
+    ck = _get_config("wcKey")
+    cs = _get_config("wcSecret")
+    if not (base and ck and cs):
+        return _json({"error": "לא הוגדרו פרטי WooCommerce API (כתובת, Key, Secret)"}, 400)
+    if not base.startswith("http"):
+        base = "https://" + base
+    params = {"consumer_key": ck, "consumer_secret": cs,
+              "per_page": min(max(int(args.get("perPage") or 40), 1), 100),
+              "stock_status": args.get("stockStatus") or "instock",
+              "orderby": args.get("orderby") or "popularity",
+              "order": "desc", "status": "publish"}
+    if args.get("search"):
+        params["search"] = args.get("search")
+    try:
+        r = requests.get(base + "/wp-json/wc/v3/products", params=params, timeout=45)
+        items = r.json()
+        if isinstance(items, dict):
+            return _json({"error": items.get("message", "שגיאת WooCommerce")}, 502)
+        out = [{"id": p.get("id"), "name": p.get("name"), "sku": p.get("sku"),
+                "price": p.get("price"), "regularPrice": p.get("regular_price"),
+                "salePrice": p.get("sale_price"), "onSale": p.get("on_sale"),
+                "stockStatus": p.get("stock_status"), "totalSales": p.get("total_sales"),
+                "permalink": p.get("permalink"),
+                "image": ((p.get("images") or [{}])[0].get("src"))} for p in items]
+        return _json({"products": out})
+    except Exception as e:
+        return _json({"error": str(e)}, 500)
+
+
 def wc_sync(data):
     """מושך את ההזמנות האחרונות מ-WooCommerce, ממפה סטטוס→שלב, ומייבא/מעדכן לידים ב-CRM."""
     data = data or {}
@@ -2683,6 +2715,10 @@ def competitors_api(request):
         elif resource == "wc-sync":
             if method == "POST":
                 return wc_sync(data)
+
+        elif resource == "wc-products":
+            if method == "GET":
+                return wc_products(args)
 
         elif resource == "wc-find":
             if method == "GET":
