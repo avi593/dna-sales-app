@@ -61,6 +61,18 @@ CUSTOMER_FIELDS = {"name", "company", "phone", "email", "status", "notes", "last
 TASK_FIELDS = {"title", "customerId", "dueDate", "priority", "status", "notes",
                 "parentTaskId", "isParent", "sequenceOrder", "progressPercent",
                 "sourceMessageId", "needsReview", "category", "adSnapshotId"}
+# מרכז הבקרה השיווקי (Marketing Command Center) — המלצות AI + לוח תוכן.
+# המלצה מאושרת יוצרת משימה מקושרת (linkedTaskId), בדיוק כמו adFindingTask() הקיים ב-Ad Lab —
+# המערכת אף פעם לא מבצעת פעולה בפועל מול Meta/Google, רק ממליצה; הביצוע נשאר ידני דרך המסכים הקיימים.
+RECOMMENDATION_FIELDS = {
+    "type", "problem", "dataSnapshot", "reasoning", "urgency", "confidence",
+    "businessImpact", "recommendedAction", "risk", "kpi", "testPeriod",
+    "successCondition", "stopCondition", "status", "linkedTaskId", "source",
+}
+CONTENT_CALENDAR_FIELDS = {
+    "date", "time", "platform", "contentType", "topic", "product", "audience",
+    "funnelStage", "message", "hook", "cta", "kpi", "status", "resultsAfterPublish",
+}
 # מרכז ניתוח מודעות Meta: שורת snapshot = מדדי מודעה אחת לתקופה מסוימת (נשמר לפי תאריך להשוואות)
 AD_SNAPSHOT_FIELDS = {
     "adName", "campaign", "adset", "status", "platform", "placement", "creativeType",
@@ -803,6 +815,120 @@ def delete_task(tid):
         return _json({"error": "משימה לא נמצאה"}, 404)
     ref.delete()
     return _json({"deleted": tid})
+
+
+# ═══════════════════════════ מרכז הבקרה השיווקי — המלצות AI ═══════════════════════════
+
+URGENCY_TO_PRIORITY = {"דחוף": "דחוף", "גבוה": "גבוה", "רגיל": "רגיל", "נמוך": "נמוך"}
+
+
+def list_recommendations(status_filter=None):
+    if status_filter:
+        docs = db.collection("recommendations").where("status", "==", status_filter) \
+            .order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+    else:
+        docs = db.collection("recommendations").order_by(
+            "createdAt", direction=firestore.Query.DESCENDING).stream()
+    return _json({"recommendations": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+
+
+def create_recommendation(data):
+    fields = _pick(data, RECOMMENDATION_FIELDS)
+    if not fields.get("problem") or not fields.get("recommendedAction"):
+        return _json({"error": "שדות 'problem' ו-'recommendedAction' הם חובה"}, 400)
+    fields.setdefault("status", "ממתין")
+    fields.setdefault("urgency", "רגיל")
+    fields["createdAt"] = firestore.SERVER_TIMESTAMP
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("recommendations").document()
+    ref.set(fields)
+    return _json({"id": ref.id, **_ts_to_iso(_doc_to_dict(ref.get()))}, 201)
+
+
+def update_recommendation(rid, data):
+    ref = db.collection("recommendations").document(rid)
+    snap = ref.get()
+    if not snap.exists:
+        return _json({"error": "המלצה לא נמצאה"}, 404)
+    current = _doc_to_dict(snap)
+    fields = _pick(data, RECOMMENDATION_FIELDS)
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+
+    # אישור המלצה יוצר משימה מקושרת אוטומטית (פעם אחת בלבד) — לא מבצע שום פעולה מול Meta/Google בפועל.
+    if fields.get("status") == "אושר" and not current.get("linkedTaskId"):
+        task_fields = {
+            "title": f"[המלצת AI] {current.get('problem', '')} — {current.get('recommendedAction', '')}"[:200],
+            "priority": URGENCY_TO_PRIORITY.get(current.get("urgency"), "רגיל"),
+            "category": "רשתות חברתיות",
+            "notes": (f"נימוק: {current.get('reasoning', '')}\n"
+                      f"KPI למדידה: {current.get('kpi', '')}\n"
+                      f"תנאי הצלחה: {current.get('successCondition', '')}\n"
+                      f"תנאי עצירה: {current.get('stopCondition', '')}\n"
+                      f"סיכון: {current.get('risk', '')}"),
+            "status": "פתוח",
+            "taskNumber": _next_task_number(),
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }
+        task_ref = db.collection("tasks").document()
+        task_ref.set(task_fields)
+        fields["linkedTaskId"] = task_ref.id
+
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
+def delete_recommendation(rid):
+    ref = db.collection("recommendations").document(rid)
+    if not ref.get().exists:
+        return _json({"error": "המלצה לא נמצאה"}, 404)
+    ref.delete()
+    return _json({"deleted": rid})
+
+
+# ═══════════════════════════ מרכז הבקרה השיווקי — לוח תוכן ═══════════════════════════
+
+def list_content_calendar(args):
+    docs = db.collection("contentCalendar").order_by("date").stream()
+    items = [_ts_to_iso(_doc_to_dict(d)) for d in docs]
+    platform = (args or {}).get("platform")
+    if platform:
+        items = [i for i in items if i.get("platform") == platform]
+    return _json({"items": items})
+
+
+def create_content_calendar_entry(data):
+    fields = _pick(data, CONTENT_CALENDAR_FIELDS)
+    if not fields.get("date"):
+        return _json({"error": "שדה 'date' הוא חובה"}, 400)
+    fields.setdefault("status", "מתוכנן")
+    fields["createdAt"] = firestore.SERVER_TIMESTAMP
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("contentCalendar").document()
+    ref.set(fields)
+    return _json({"id": ref.id, **_ts_to_iso(_doc_to_dict(ref.get()))}, 201)
+
+
+def update_content_calendar_entry(cid, data):
+    fields = _pick(data, CONTENT_CALENDAR_FIELDS)
+    if not fields:
+        return _json({"error": "אין שדות לעדכון"}, 400)
+    fields["updatedAt"] = firestore.SERVER_TIMESTAMP
+    ref = db.collection("contentCalendar").document(cid)
+    if not ref.get().exists:
+        return _json({"error": "רשומה לא נמצאה"}, 404)
+    ref.update(fields)
+    return _json(_ts_to_iso(_doc_to_dict(ref.get())))
+
+
+def delete_content_calendar_entry(cid):
+    ref = db.collection("contentCalendar").document(cid)
+    if not ref.get().exists:
+        return _json({"error": "רשומה לא נמצאה"}, 404)
+    ref.delete()
+    return _json({"deleted": cid})
 
 
 # ═══════════════════════════ ASSISTANT — "העוזרת שלי" (AviOS Phase A) ═══════════════════════════
@@ -2753,6 +2879,26 @@ def competitors_api(request):
                 return update_task(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_task(item_id)
+
+        elif resource == "recommendations":
+            if method == "GET":
+                return list_recommendations(args.get("status"))
+            if method == "POST":
+                return create_recommendation(data)
+            if method == "PUT" and item_id:
+                return update_recommendation(item_id, data)
+            if method == "DELETE" and item_id:
+                return delete_recommendation(item_id)
+
+        elif resource == "content-calendar":
+            if method == "GET":
+                return list_content_calendar(args)
+            if method == "POST":
+                return create_content_calendar_entry(data)
+            if method == "PUT" and item_id:
+                return update_content_calendar_entry(item_id, data)
+            if method == "DELETE" and item_id:
+                return delete_content_calendar_entry(item_id)
 
         elif resource == "assistant":
             if method == "GET":
