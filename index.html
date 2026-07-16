@@ -734,9 +734,6 @@
     </button>
 
     <div class="nav-group">שיווק</div>
-    <button class="nav-btn" id="nav-commandcenter" onclick="showView('commandcenter'); loadCommandCenter()">
-      <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg></span><span>מרכז הבקרה</span>
-    </button>
     <button class="nav-btn" id="nav-content" onclick="showView('content')">
       <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a3 3 0 0 1 0 6"/><path d="M10 8v11a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1v-5"/><path d="M12 8l4.524-3.77A.9.9 0 0 1 18 4.922v12.156a.9.9 0 0 1-1.476.692L12 14H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1h8z"/></svg></span><span>פרסום וקידום</span>
     </button>
@@ -1175,26 +1172,6 @@
       </div>
     </div>
 
-    <!-- ── מרכז הבקרה השיווקי (Marketing Command Center) ── -->
-    <div id="view-commandcenter" class="view">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div>
-          <div class="sec-title">🎯 מרכז הבקרה השיווקי</div>
-          <div class="sec-sub">תמונת מצב עסקית חיה + המלצות AI הממתינות לאישור — קריאה בלבד, בלי ביצוע אוטומטי</div>
-        </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn btn-blue" onclick="loadCommandCenter(true)">🔄 רענן</button>
-          <button class="btn btn-green" onclick="runHealthCheck()">🩺 הרץ בדיקת בריאות שיווקית</button>
-        </div>
-      </div>
-
-      <div class="kpi-grid" id="ccKpis" style="grid-template-columns:repeat(5,1fr)"></div>
-
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">🔥 הזדמנויות ובעיות הממתינות לאישור</div>
-        <div class="card-body" id="ccRecommendations"><div class="page-empty">טוען המלצות...</div></div>
-      </div>
-    </div>
 
     <!-- ── AD LAB (ניתוח מודעות Meta) ── -->
     <div id="view-adlab" class="view">
@@ -4218,96 +4195,6 @@ function adDiagnose(s) {
   if (!f.length) f.push({ sev: 'info', title: 'אין ממצאים חריגים', why: 'המדדים בטווח סביר; המשך מעקב.', actions: [] });
   f.sort((a, b) => AD_SEV_ORDER.indexOf(a.sev) - AD_SEV_ORDER.indexOf(b.sev));
   return f;
-}
-
-// ═══════════════════ מרכז הבקרה השיווקי (Marketing Command Center) ═══════════════════
-const URGENCY_SEV = { 'דחוף': 'critical', 'גבוה': 'warn', 'רגיל': 'opp', 'נמוך': 'info' };
-let ccRecs = [];
-
-async function loadCommandCenter(force) {
-  document.getElementById('ccKpis').innerHTML = '<div class="kpi"><div class="kpi-label">טוען...</div></div>';
-  try {
-    const [perf, recs] = await Promise.all([
-      compApi('/ads-campaigns-performance').catch(() => ({ campaigns: [] })),
-      compApi('/recommendations?status=' + encodeURIComponent('ממתין')).catch(() => ({ recommendations: [] })),
-    ]);
-    if (force || !lastAnalytics) { try { await loadAnalytics(force); } catch (e) {} }
-    ccRecs = recs.recommendations || [];
-    renderCommandCenterKpis(perf.campaigns || []);
-    renderCcRecommendations();
-  } catch (e) {
-    document.getElementById('ccRecommendations').innerHTML = '<div class="page-empty">שגיאה בטעינה: ' + esc(e.message) + '</div>';
-  }
-}
-
-function renderCommandCenterKpis(campaigns) {
-  const num = v => v == null ? 0 : (parseFloat(v) || 0);
-  const spend = campaigns.reduce((a, c) => a + num(c.spend), 0);
-  const purchases = campaigns.reduce((a, c) => a + num(c.purchases), 0);
-  const purchaseValue = campaigns.reduce((a, c) => a + num(c.purchaseValue), 0);
-  const roas = spend > 0 && purchaseValue > 0 ? (purchaseValue / spend) : null;
-  const cpa = purchases > 0 ? (spend / purchases) : null;
-  const ga = (typeof lastAnalytics !== 'undefined' && lastAnalytics && lastAnalytics.summary) ? lastAnalytics.summary : null;
-  const money = v => v == null ? '—' : '₪' + Math.round(v).toLocaleString('he-IL');
-  const kpis = [
-    ['הכנסות (GA4)', ga ? money(ga.revenue) : '—', 'מ-30 הימים האחרונים'],
-    ['הוצאת מודעות', money(spend), 'סה"כ קמפיינים פעילים'],
-    ['ROAS', roas != null ? (Math.round(roas * 100) / 100) : '—', ''],
-    ['CPA (עלות לרכישה)', cpa != null ? money(cpa) : '—', purchases === 0 ? '⚠️ אפס רכישות מיוחסות' : ''],
-    ['המלצות ממתינות', ccRecs.length, ccRecs.filter(r => r.urgency === 'דחוף').length + ' דחופות'],
-  ];
-  document.getElementById('ccKpis').innerHTML = kpis.map(([l, v, n]) =>
-    `<div class="kpi"><div class="kpi-label">${l}</div><div class="kpi-val" style="font-size:19px">${v}</div>${n ? `<div class="kpi-note">${n}</div>` : ''}</div>`).join('');
-}
-
-function renderCcRecommendations() {
-  const box = document.getElementById('ccRecommendations');
-  if (!ccRecs.length) {
-    box.innerHTML = '<div class="page-empty">אין המלצות ממתינות כרגע. לחץ "הרץ בדיקת בריאות שיווקית" כדי לסרוק מחדש.</div>';
-    return;
-  }
-  const order = { 'דחוף': 0, 'גבוה': 1, 'רגיל': 2, 'נמוך': 3 };
-  const sorted = [...ccRecs].sort((a, b) => (order[a.urgency] ?? 2) - (order[b.urgency] ?? 2));
-  box.innerHTML = sorted.map(r => {
-    const sev = AD_SEV[URGENCY_SEV[r.urgency] || 'info'];
-    return `<div class="rec-card" style="border-inline-start:4px solid ${sev.color};padding:10px 14px;margin-bottom:10px;border-radius:8px;background:rgba(255,255,255,.03)">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-        <div>
-          <div style="font-weight:600">${sev.icon} ${esc(r.problem || '')}</div>
-          <div class="muted-sm" style="margin-top:4px">${esc(r.reasoning || '')}</div>
-          <div class="muted-sm" style="margin-top:4px">💡 ${esc(r.recommendedAction || '')}</div>
-          <div class="muted-sm" style="margin-top:4px;opacity:.7">${esc(r.businessImpact || '')}</div>
-        </div>
-        <div style="display:flex;gap:6px;white-space:nowrap">
-          <button class="btn btn-green" onclick="decideRecommendation('${r.id}','אושר')">✔ אשר</button>
-          <button class="btn" onclick="decideRecommendation('${r.id}','נדחה')">✕ דחה</button>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function decideRecommendation(id, status) {
-  try {
-    await compApi('/recommendations/' + id, 'PUT', { status });
-    ccRecs = ccRecs.filter(r => r.id !== id);
-    renderCcRecommendations();
-    renderCommandCenterKpis((await compApi('/ads-campaigns-performance').catch(() => ({ campaigns: [] }))).campaigns || []);
-  } catch (e) { alert('שגיאה: ' + e.message); }
-}
-
-async function runHealthCheck() {
-  const btn = event && event.target;
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ סורק...'; }
-  try {
-    const res = await compApi('/marketing-health-check', 'POST', {});
-    await loadCommandCenter(true);
-    alert(`נסרקו ${res.scannedSnapshots} מודעות · ${res.recommendationsCreated} המלצות חדשות · ${res.recommendationsUpdated} עודכנו`);
-  } catch (e) {
-    alert('שגיאה בבדיקת הבריאות: ' + e.message);
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '🩺 הרץ בדיקת בריאות שיווקית'; }
-  }
 }
 
 async function loadAdLab() {
