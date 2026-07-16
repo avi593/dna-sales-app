@@ -824,13 +824,16 @@ URGENCY_TO_PRIORITY = {"דחוף": "דחוף", "גבוה": "גבוה", "רגיל
 
 
 def list_recommendations(status_filter=None):
+    # פילטר שוויון + מיון בפייתון (לא ב-Firestore) — נמנע מהצורך באינדקס מורכב על status+createdAt.
     if status_filter:
-        docs = db.collection("recommendations").where("status", "==", status_filter) \
-            .order_by("createdAt", direction=firestore.Query.DESCENDING).stream()
+        docs = list(db.collection("recommendations").where("status", "==", status_filter).stream())
     else:
-        docs = db.collection("recommendations").order_by(
-            "createdAt", direction=firestore.Query.DESCENDING).stream()
-    return _json({"recommendations": [_ts_to_iso(_doc_to_dict(d)) for d in docs]})
+        docs = list(db.collection("recommendations").stream())
+    from datetime import datetime, timezone
+    epoch = datetime.min.replace(tzinfo=timezone.utc)
+    items = [_doc_to_dict(d) for d in docs]
+    items.sort(key=lambda x: x.get("createdAt") or epoch, reverse=True)
+    return _json({"recommendations": [_ts_to_iso(i) for i in items]})
 
 
 def create_recommendation(data):
