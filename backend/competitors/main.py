@@ -68,6 +68,7 @@ RECOMMENDATION_FIELDS = {
     "type", "problem", "dataSnapshot", "reasoning", "urgency", "confidence",
     "businessImpact", "recommendedAction", "risk", "kpi", "testPeriod",
     "successCondition", "stopCondition", "status", "linkedTaskId", "source",
+    "adSnapshotId",
 }
 CONTENT_CALENDAR_FIELDS = {
     "date", "time", "platform", "contentType", "topic", "product", "audience",
@@ -886,6 +887,184 @@ def delete_recommendation(rid):
         return _json({"error": "המלצה לא נמצאה"}, 404)
     ref.delete()
     return _json({"deleted": rid})
+
+
+# ── מנוע האבחון האוטומטי — port מדויק של adDiagnose()/adDerive() ב-index.html (~שורה 4096),
+#    כדי שאותם 9 המקרים ירוצו גם בלי דפדפן פתוח, דרך marketing_health_check(). ──
+
+def _ad_num(v):
+    if v is None or v == "":
+        return None
+    try:
+        return float(str(v).replace("₪", "").replace("$", "").replace("%", "").replace(",", "").strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _ad_derive(s):
+    d = {k: _ad_num(s.get(k)) for k in (
+        "spend", "impressions", "reach", "frequency", "cpm", "linkClicks", "lpViews",
+        "ctrLink", "ctrAll", "cpcLink", "viewContent", "addToCart", "initCheckout",
+        "purchases", "purchaseValue", "roas", "costPerPurchase")}
+    if d["cpm"] is None and d["spend"] is not None and (d["impressions"] or 0) > 0:
+        d["cpm"] = d["spend"] / d["impressions"] * 1000
+    if d["ctrLink"] is None and d["linkClicks"] is not None and (d["impressions"] or 0) > 0:
+        d["ctrLink"] = d["linkClicks"] / d["impressions"] * 100
+    if d["cpcLink"] is None and d["spend"] is not None and (d["linkClicks"] or 0) > 0:
+        d["cpcLink"] = d["spend"] / d["linkClicks"]
+    if d["frequency"] is None and d["impressions"] is not None and (d["reach"] or 0) > 0:
+        d["frequency"] = d["impressions"] / d["reach"]
+    if d["roas"] is None and d["purchaseValue"] is not None and (d["spend"] or 0) > 0:
+        d["roas"] = d["purchaseValue"] / d["spend"]
+    if d["costPerPurchase"] is None and d["spend"] is not None and (d["purchases"] or 0) > 0:
+        d["costPerPurchase"] = d["spend"] / d["purchases"]
+    return d
+
+
+def ad_diagnose(s):
+    """Python port של adDiagnose() — אותם 9 מקרים + בדיקות חיוביות, אותם ספים בדיוק."""
+    d = _ad_derive(s)
+    f = []
+    spend, impr, clicks = d["spend"] or 0, d["impressions"] or 0, d["linkClicks"] or 0
+    lp, atc, ic, pur = d["lpViews"], d["addToCart"], d["initCheckout"], d["purchases"]
+
+    if impr < 500 and spend < 20:
+        f.append({"sev": "nodata", "title": "אין מספיק נתונים למסקנות",
+                  "why": f"רק {int(impr)} חשיפות ו-₪{spend:.2f} הוצאה — כל מסקנה תהיה ניחוש.",
+                  "actions": ["לתת למודעה לצבור לפחות 500–1,000 חשיפות או ₪50 הוצאה לפני אבחון"]})
+        return f
+
+    if (ic or 0) >= 5 and (pur is None or pur == 0 or pur / ic < 0.2):
+        f.append({"sev": "critical", "title": "נטישה חריגה בקופה — או אירוע Purchase שלא נשלח",
+                  "why": f"{int(ic)} התחלות תשלום אבל {('רק ' + str(int(pur))) if pur else 'אפס'} רכישות מיוחסות.",
+                  "actions": ["לבצע רכישת בדיקה אמיתית ולראות אם נרשם Purchase ב-Events Manager",
+                              "לבדוק תקלת סליקה/קופה (גם במובייל)", "לבדוק עלויות מפתיעות בשלב האחרון (משלוח)",
+                              "להשוות מול הזמנות בפועל ב-WooCommerce וב-GA4"]})
+    elif (pur is None or pur == 0) and spend >= 50:
+        chain = ("יש הוספות לסל — הבעיה בהמשך המשפך (תשלום/קופה) או במעקב." if (atc or 0) > 0
+                 else ("יש כניסות לדף — הבעיה בדף המוצר/מחיר/אמון, או במעקב." if (lp or 0) > 0
+                       else "המשפך נעצר כבר בשלב הקליק→דף."))
+        f.append({"sev": "critical", "title": "אין רכישות מיוחסות למודעה בתקופה שנבחרה",
+                  "why": f"₪{spend:.2f} הוצאה ללא רכישה. {chain} שים לב: אין להציג \"עלות לתוצאה ₪0\" כתוצאה טובה.",
+                  "actions": ["לבדוק ב-Events Manager שאירוע Purchase פעיל ומדווח (Test Events)",
+                              "לוודא שהפיקסל יורה בדף אישור ההזמנה כולל ערך ומטבע",
+                              "לבדוק Conversions API וכפילויות מול הפיקסל", "להשוות רכישות מול GA4 ומערכת ההזמנות"]})
+
+    if (d["ctrLink"] or 0) >= 1.5 and clicks >= 30 and (pur is None or pur == 0):
+        f.append({"sev": "warn", "title": "המודעה מייצרת עניין וקליקים — הבעיה אחרי הקליק",
+                  "why": f"CTR קישור {d['ctrLink']:.2f}% (טוב!) אבל אפס רכישות. אל תמהר להחליף קריאייטיב.",
+                  "actions": ["1. לבדוק פיקסל ומעקב", "2. מהירות טעינת דף (בעיקר מובייל)",
+                              "3. פער בין קליקים לצפיות דף נחיתה", "4. התאמה בין מסר המודעה לדף",
+                              "5. מחיר והצעה מול מתחרים", "6. סימני אמון (אחריות, נציגות, ביקורות)",
+                              "7. תהליך סל ותשלום", "8. רק בסוף — קהל וקריאייטיב"]})
+
+    if clicks >= 30 and lp is not None and lp / clicks < 0.6:
+        f.append({"sev": "warn", "title": "פער גדול בין קליקים לצפיות בדף הנחיתה",
+                  "why": f"רק {int(lp)} צפיות דף מתוך {int(clicks)} קליקים ({lp / clicks * 100:.2f}%).",
+                  "actions": ["לבדוק מהירות טעינה (PageSpeed, בעיקר מובייל)",
+                              "לוודא שהקישור במודעה תקין ולא מפנה הפניה כפולה",
+                              "לבדוק שהפיקסל נטען לפני נטישה", "לשקול דף נחיתה קל יותר"]})
+
+    if (lp or 0) >= 50 and atc is not None and atc / lp < 0.02:
+        f.append({"sev": "warn", "title": "דף המוצר לא ממיר — צפיות רבות, מעט הוספות לסל",
+                  "why": f"{int(lp)} צפיות דף אבל רק {int(atc)} הוספות לסל ({atc / lp * 100:.2f}%).",
+                  "actions": ["לבדוק מחיר מול מתחרים", "לחזק את הדף: תמונות, מפרט, זמינות מלאי, זמן משלוח",
+                              "לוודא התאמה בין ההבטחה במודעה לדף", "להוסיף סימני אמון (נציגות, אחריות, ביקורות)"]})
+
+    if (atc or 0) >= 10 and ic is not None and ic / atc < 0.3:
+        f.append({"sev": "warn", "title": "נטישה בין הסל להתחלת התשלום",
+                  "why": f"{int(atc)} הוספות לסל אבל רק {int(ic)} התחלות תשלום.",
+                  "actions": ["לבדוק אם עלות המשלוח מפתיעה בסל", "להסיר דרישת הרשמה לפני תשלום",
+                              "לבדוק את הסל במובייל", "לוודא כפתור מעבר לתשלום בולט"]})
+
+    qr = str(s.get("qualityRank") or "")
+    if re.search(r"below|מתחת", qr, re.I):
+        f.append({"sev": "opp", "title": "דירוג איכות מתחת לממוצע — לבדוק לפני שמאשימים את הקריאייטיב",
+                  "why": f"דירוג: {qr}.",
+                  "actions": ["לבדוק תדירות (שחיקה) ומעורבות שלילית", "לבדוק פער בין המודעה לדף הנחיתה",
+                              "לבדוק אם התמונה עמוסה/\"פרסומית\" מדי", "לבדוק רלוונטיות קהל"]})
+
+    if (d["frequency"] or 0) >= 3.5:
+        f.append({"sev": ("warn" if d["frequency"] >= 5 else "opp"),
+                  "title": f"תדירות גבוהה ({d['frequency']:.1f}) — חשש לשחיקת קריאייטיב",
+                  "why": "אותם אנשים רואים את המודעה שוב ושוב.",
+                  "actions": ["להכין וריאציית קריאייטיב חדשה", "להרחיב קהל או להחריג רוכשים",
+                              "לשקול הפסקה יזומה של המודעה השחוקה"]})
+
+    if (d["roas"] or 0) >= 3:
+        f.append({"sev": "excellent", "title": f"ROAS {d['roas']:.1f} — ביצוע מצוין",
+                  "why": f"כל שקל מחזיר {d['roas']:.1f} ₪.",
+                  "actions": ["מועמד להגדלת תקציב מדורגת (עד 20%+ בכל פעם, לא בבת אחת)", "לא לגעת בקריאייטיב שעובד"]})
+    elif (pur or 0) > 0 and (d["roas"] or 0) >= 1.5:
+        f.append({"sev": "ok", "title": f"יש רכישות (ROAS {(d['roas'] or 0):.1f})",
+                  "why": "המשפך עובד; יש מקום לאופטימיזציה.",
+                  "actions": ["לבחון את שלב המשפך החלש ביותר להעלאת ה-ROAS"]})
+
+    if (d["ctrLink"] or 0) >= 2 and clicks >= 30:
+        f.append({"sev": "ok", "title": f"הקריאייטיב מייצר עניין — CTR קישור {d['ctrLink']:.2f}%",
+                  "why": "מעל הממוצע לענף.", "actions": []})
+
+    if not f:
+        f.append({"sev": "info", "title": "אין ממצאים חריגים", "why": "המדדים בטווח סביר; המשך מעקב.", "actions": []})
+    sev_order = ["critical", "warn", "opp", "excellent", "ok", "info", "nodata"]
+    f.sort(key=lambda x: sev_order.index(x["sev"]))
+    return f
+
+
+SEV_TO_URGENCY = {"critical": "דחוף", "warn": "גבוה", "opp": "רגיל"}
+ACTIONABLE_SEVERITIES = ("critical", "warn", "opp")
+
+
+def marketing_health_check(data):
+    """מריץ את מנוע האבחון על כל snapshot פעיל, וכותב/מעדכן המלצות (recommendations, status=ממתין).
+    קריאה בלבד מול Meta — לא משנה תקציב/סטטוס קמפיין, לא מבצע שום פעולה מלבד כתיבה ל-Firestore."""
+    import hashlib
+    data = data or {}
+    snap_docs = list(db.collection("adSnapshots").stream())
+    scanned, created, updated, skipped = 0, 0, 0, 0
+    for doc in snap_docs:
+        snap = _doc_to_dict(doc)
+        status = str(snap.get("status") or "")
+        if status and not re.search(r"active|פעיל", status, re.I):
+            continue  # מודעה כבויה — לא רלוונטי לבריאות שוטפת
+        scanned += 1
+        findings = ad_diagnose(snap)
+        for finding in findings:
+            if finding["sev"] not in ACTIONABLE_SEVERITIES:
+                continue
+            rec_id = hashlib.sha1(f"{doc.id}:{finding['title']}".encode("utf-8")).hexdigest()[:24]
+            ref = db.collection("recommendations").document(rec_id)
+            existing = ref.get()
+            if existing.exists and (existing.to_dict() or {}).get("status") in ("אושר", "נדחה"):
+                skipped += 1
+                continue  # אבי כבר החליט על הממצא הזה — לא דורסים החלטה אנושית
+            fields = {
+                "type": "ad-diagnosis",
+                "problem": finding["title"],
+                "reasoning": finding["why"],
+                "urgency": SEV_TO_URGENCY.get(finding["sev"], "רגיל"),
+                "confidence": "גבוהה (מנוע חוקים דטרמיניסטי, לא הערכת AI)",
+                "businessImpact": f"מודעה: {snap.get('adName', '—')} | קמפיין: {snap.get('campaign', '—')} | הוצאה: ₪{_ad_num(snap.get('spend')) or 0:.2f}",
+                "recommendedAction": (finding["actions"][0] if finding["actions"] else "לבדוק ידנית ב-Ad Lab"),
+                "risk": "ממצא מבוסס נתוני התקופה שנסרקה בלבד — לאמת מול מדגם/חלון זמן ארוך יותר לפני פעולה דרסטית",
+                "kpi": finding["title"],
+                "dataSnapshot": _jsonlib.dumps({k: snap.get(k) for k in
+                                                 ("adName", "campaign", "spend", "impressions", "linkClicks",
+                                                  "purchases", "purchaseValue", "roas", "frequency")},
+                                                ensure_ascii=False, default=str),
+                "adSnapshotId": doc.id,
+                "source": "marketing-health-check",
+                "status": "ממתין",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            }
+            if not existing.exists:
+                fields["createdAt"] = firestore.SERVER_TIMESTAMP
+                created += 1
+            else:
+                updated += 1
+            ref.set(fields, merge=True)
+    return _json({"scannedSnapshots": scanned, "recommendationsCreated": created,
+                  "recommendationsUpdated": updated, "recommendationsSkippedHumanDecided": skipped})
 
 
 # ═══════════════════════════ מרכז הבקרה השיווקי — לוח תוכן ═══════════════════════════
@@ -2879,6 +3058,10 @@ def competitors_api(request):
                 return update_task(item_id, data)
             if method == "DELETE" and item_id:
                 return delete_task(item_id)
+
+        elif resource == "marketing-health-check":
+            if method == "POST":
+                return marketing_health_check(data)
 
         elif resource == "recommendations":
             if method == "GET":
